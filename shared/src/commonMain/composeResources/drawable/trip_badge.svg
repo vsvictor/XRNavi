@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon" clip-path="url(#clip0_45_578)">
+<path id="Symbol" d="M5.99961 1.65C8.40192 1.65 10.35 3.59735 10.3502 5.99961C10.3502 8.40205 8.40205 10.3502 5.99961 10.3502C3.59735 10.35 1.65 8.40192 1.65 5.99961C1.65021 3.59748 3.59748 1.65021 5.99961 1.65ZM8.06016 4.44981C7.76726 4.15693 7.2925 4.15692 6.99961 4.44981L5.48985 5.9586L5.00059 5.46934C4.70781 5.1766 4.23295 5.17681 3.94004 5.46934C3.64716 5.76222 3.64719 6.23699 3.94004 6.52988L4.95957 7.55039L5.48985 8.08067L8.06016 5.51035C8.35305 5.21746 8.35305 4.7427 8.06016 4.44981Z" stroke="#85C6AC" stroke-width="1.5" stroke-linecap="round"/>
+</g>
+<defs>
+<clipPath id="clip0_45_578">
+<rect width="12" height="12" fill="white"/>
+</clipPath>
+</defs>
+</svg>
