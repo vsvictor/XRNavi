@@ -66,7 +66,6 @@ import xrnavi.shared.generated.resources.address_pin
 import xrnavi.shared.generated.resources.address_search
 import xrnavi.shared.generated.resources.address_swap
 import xrnavi.shared.generated.resources.address_vehicle_expand
-import xrnavi.shared.generated.resources.apex_navigation
 import xrnavi.shared.generated.resources.apex_user
 import xrnavi.shared.generated.resources.mustang_thumbnail
 import xrnavi.shared.generated.resources.nav_profile

@@ -70,7 +70,6 @@ import xrnavi.shared.generated.resources.nav_car
 
 private val StopsMapBackground = Color(0xFF202D2D)
 private val StopsMapGreen = Color(0xFF24413A)
-private val StopsMapRoad = Color(0xFF59605A)
 
 @Composable
 fun NearbyStopsScreen(
@@ -221,10 +220,18 @@ fun NearbyStopsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            StopBottomItem(Res.drawable.nearby_nav_map, stringResource(Res.string.ui_mapa), true, { viewModel.navigate(NavigationAction.Map) })
-            StopBottomItem(Res.drawable.nav_car, stringResource(Res.string.ui_avto), false, { viewModel.navigate(NavigationAction.Garage) })
-            StopBottomItem(Res.drawable.nearby_nav_settings, stringResource(Res.string.ui_nalashtuvannya), false, { viewModel.navigate(NavigationAction.Preferences) })
-            StopBottomItem(Res.drawable.nearby_nav_profile, stringResource(Res.string.ui_profil), false, { viewModel.navigate(NavigationAction.Profile) })
+            StopBottomItem(Res.drawable.nearby_nav_map, stringResource(Res.string.ui_mapa), true) {
+                viewModel.navigate(NavigationAction.Map)
+            }
+            StopBottomItem(Res.drawable.nav_car, stringResource(Res.string.ui_avto), false) {
+                viewModel.navigate(NavigationAction.Garage)
+            }
+            StopBottomItem(Res.drawable.nearby_nav_settings, stringResource(Res.string.ui_nalashtuvannya), false) {
+                viewModel.navigate(NavigationAction.Preferences)
+            }
+            StopBottomItem(Res.drawable.nearby_nav_profile, stringResource(Res.string.ui_profil), false) {
+                viewModel.navigate(NavigationAction.Profile)
+            }
         }
     }
 }
@@ -304,7 +311,7 @@ private fun StopsMap(showParking: Boolean, onOpenParkingDetails: () -> Unit) {
         StopMapLabel(stringResource(Res.string.ui_zhytomyr), Alignment.Center, 15.dp, 20.dp)
         StopMapLabel(stringResource(Res.string.ui_rivne), Alignment.CenterStart, 90.dp, 45.dp)
         StopMapLabel(stringResource(Res.string.ui_lviv), Alignment.BottomStart, 25.dp, 36.dp)
-        if (showParking) StopMapPin("P", Modifier.align(Alignment.Center).offsetStops(x = 4.dp, y = 28.dp), onClick = onOpenParkingDetails)
+        if (showParking) StopMapPin(Modifier.align(Alignment.Center).offsetStops(x = 4.dp, y = 28.dp), onClick = onOpenParkingDetails)
     }
 }
 
@@ -323,12 +330,12 @@ private fun BoxScope.StopMapLabel(text: String, alignment: Alignment, horizontal
 }
 
 @Composable
-private fun StopMapPin(text: String, modifier: Modifier, onClick: () -> Unit) {
+private fun StopMapPin(modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(ApexRed)
             .border(2.dp, ApexText.copy(alpha = .85f), RoundedCornerShape(12.dp)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { LabelText(text, ApexText, 15.sp, weight = FontWeight.Bold) }
+    ) { LabelText("P", ApexText, 15.sp, weight = FontWeight.Bold) }
 }
 
 @Composable

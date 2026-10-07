@@ -2,7 +2,6 @@ package com.mobilespace.xrnavi
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -15,7 +14,7 @@ internal actual fun rememberDeviceSettingsLauncher(): DeviceSettingsLauncher {
         DeviceSettingsLauncher { onResult ->
             val intent = Intent(
                 Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                Uri.parse("package:${context.packageName}"),
+                android.net.Uri.fromParts("package", context.packageName, null),
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 context.startActivity(intent)

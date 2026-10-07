@@ -51,7 +51,6 @@ import xrnavi.shared.generated.resources.stop_back
 private val DeletionCard = Color(0xFF14191F)
 private val DeletionField = Color(0xFF20262E)
 private val DeletionWarning = Color(0xFF30291F)
-private val DeletionGreen = Color(0xFF85C6AC)
 private val DeletionGold = Color(0xFFE9BA76)
 
 @Composable
@@ -162,7 +161,7 @@ private fun DeletionIntro() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            DeletionIcon(Res.drawable.account_delete_user, null, Modifier.size(17.dp))
+            DeletionIcon(Res.drawable.account_delete_user, Modifier.size(17.dp))
             LabelText(stringResource(Res.string.ui_nezvorotna_diya), ApexLinkRed, 10.sp, weight = FontWeight.SemiBold)
         }
         LabelText(
@@ -207,7 +206,7 @@ private fun DeletionConsequence(text: String) {
         horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DeletionIcon(Res.drawable.account_trash, null, Modifier.size(17.dp))
+        DeletionIcon(Res.drawable.account_trash, Modifier.size(17.dp))
         LabelText(text, ApexMuted, 12.sp, lineHeight = 16.sp)
     }
 }
@@ -223,7 +222,7 @@ private fun OrganizationDataCard() {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        DeletionIcon(Res.drawable.account_company, null, Modifier.size(20.dp))
+        DeletionIcon(Res.drawable.account_company, Modifier.size(20.dp))
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             LabelText(stringResource(Res.string.ui_robochi_dani_zalyshatsya), DeletionGold, 13.sp, weight = FontWeight.SemiBold)
             LabelText(
@@ -248,12 +247,12 @@ private fun ExportDataRow(onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DeletionIcon(Res.drawable.account_download, null, Modifier.size(19.dp))
+        DeletionIcon(Res.drawable.account_download, Modifier.size(19.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             LabelText(stringResource(Res.string.ui_spershu_eksportuyte_svoyi_dani), ApexText, 12.sp, weight = FontWeight.SemiBold)
             LabelText(stringResource(Res.string.ui_otrymayte_kopiyu_osobystoyi_istoriyi), ApexMuted, 10.sp)
         }
-        DeletionIcon(Res.drawable.account_chevron, null, Modifier.size(15.dp))
+        DeletionIcon(Res.drawable.account_chevron, Modifier.size(15.dp))
     }
 }
 
@@ -268,7 +267,7 @@ private fun ActiveTripWarning() {
         horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        DeletionIcon(Res.drawable.account_clipboard, null, Modifier.size(18.dp))
+        DeletionIcon(Res.drawable.account_clipboard, Modifier.size(18.dp))
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             LabelText(stringResource(Res.string.ui_aktyvnyy_reys_dl_204), DeletionGold, 12.sp, weight = FontWeight.SemiBold)
             LabelText(
@@ -296,7 +295,7 @@ private fun Acknowledgement(checked: Boolean, onToggle: () -> Unit) {
                 .border(1.dp, if (checked) ApexRed else ApexBorder, RoundedCornerShape(5.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            if (checked) DeletionIcon(Res.drawable.account_check, null, Modifier.size(14.dp))
+            if (checked) DeletionIcon(Res.drawable.account_check, Modifier.size(14.dp))
         }
         LabelText(
             stringResource(Res.string.ui_ya_rozumiyu_naslidky_ta_khochu_nadislaty_zapyt_na_vydalennya_aka),
@@ -342,12 +341,11 @@ private fun DeletionButton(
 @Composable
 private fun DeletionIcon(
     resource: DrawableResource,
-    description: String?,
     modifier: Modifier,
 ) {
     Image(
         painter = painterResource(resource),
-        contentDescription = description,
+        contentDescription = null,
         modifier = modifier,
     )
 }

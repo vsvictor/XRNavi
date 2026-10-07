@@ -1,9 +1,7 @@
 package com.mobilespace.xrnavi.presentation.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.LaunchedEffect
 import com.mobilespace.xrnavi.presentation.*
-import com.mobilespace.xrnavi.domain.*
 
 import org.jetbrains.compose.resources.stringResource
 import xrnavi.shared.generated.resources.Res
@@ -33,8 +31,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,8 +76,8 @@ internal fun PreferencesScreen(
     onOpenPrivacy: () -> Unit,
     onOpenDeviceDiagnostics: () -> Unit,
 ) {
-    val localized_ui_ukrayinska = stringResource(Res.string.ui_ukrayinska)
-    val localized_ui_temnyy = stringResource(Res.string.ui_temnyy)
+    val ukrainianLabel = stringResource(Res.string.ui_ukrayinska)
+    val darkThemeLabel = stringResource(Res.string.ui_temnyy)
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val voiceEnabled = uiState.preferences.voiceEnabled
     val xrEnabled = uiState.preferences.xrEnabled
@@ -128,7 +124,7 @@ viewModel.search()
                         icon = Res.drawable.settings_languages,
                         title = stringResource(Res.string.ui_mova_interfeysu),
                         description = stringResource(Res.string.ui_mova_mapy_ta_pidkazok),
-                        value = localized_ui_ukrayinska,
+                        value = ukrainianLabel,
                         onClick = {
                             viewModel.language()
                         },
@@ -137,7 +133,7 @@ viewModel.search()
                         icon = Res.drawable.settings_moon,
                         title = stringResource(Res.string.ui_vyhlyad_mapy),
                         description = stringResource(Res.string.ui_temnyy_rezhym_yak_u_mustang),
-                        value = localized_ui_temnyy,
+                        value = darkThemeLabel,
                         onClick = {
                             viewModel.theme()
                         },
@@ -210,7 +206,6 @@ viewModel.toggleXr()
             onOpenMap = onOpenMap,
             onOpenGarage = onOpenGarage,
             onOpenProfile = onOpenProfile,
-            onUnavailableTab = { },
         )
     }
 }
@@ -440,7 +435,6 @@ private fun PreferencesBottomNavigation(
     onOpenMap: () -> Unit,
     onOpenGarage: () -> Unit,
     onOpenProfile: () -> Unit,
-    onUnavailableTab: (String) -> Unit,
 ) {
     val tabs: List<Pair<DrawableResource, String>> = listOf(
         Res.drawable.nav_map to stringResource(Res.string.ui_mapa),

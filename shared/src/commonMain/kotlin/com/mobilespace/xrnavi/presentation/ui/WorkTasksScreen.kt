@@ -57,7 +57,6 @@ import xrnavi.shared.generated.resources.task_sliders
 import xrnavi.shared.generated.resources.task_truck
 
 private val TaskSurface = Color(0xFF14191F)
-private val TaskField = Color(0xFF20262E)
 private val TaskSelected = Color(0xFF341B21)
 private val TaskGold = Color(0xFFE9BA76)
 private val TaskGreen = Color(0xFF85C6AC)
@@ -73,8 +72,8 @@ internal fun WorkTasksScreen(
     viewModel: WorkTasksViewModel,
     onOpenTaskWithId: ((String?) -> Unit)? = null,
 ) {
-    val localized_ui_ostannye_zavershene = stringResource(Res.string.ui_ostannye_zavershene)
-    val localized_ui_zaversheni_zavdannya = stringResource(Res.string.ui_zaversheni_zavdannya)
+    val recentlyCompletedLabel = stringResource(Res.string.ui_ostannye_zavershene)
+    val completedTasksLabel = stringResource(Res.string.ui_zaversheni_zavdannya)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel, onBack, onOpenTask, onOpenTaskWithId, onOpenMap, onOpenGarage, onOpenSettings, onOpenProfile) {
         viewModel.effects.collect {
@@ -126,10 +125,10 @@ internal fun WorkTasksScreen(
                     taskId = state.offeredTask?.id,
                     destination = state.offeredTask?.destination,
                 )
-                TaskSectionHeading(localized_ui_ostannye_zavershene)
+                TaskSectionHeading(recentlyCompletedLabel)
                 CompletedTaskRow(onClick = viewModel::openCompletedTask)
             } else {
-                TaskSectionHeading(localized_ui_zaversheni_zavdannya)
+                TaskSectionHeading(completedTasksLabel)
                 CompletedTaskRow(onClick = viewModel::openCompletedTask)
             }
 

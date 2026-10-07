@@ -1,7 +1,6 @@
 package com.mobilespace.xrnavi.presentation.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.LaunchedEffect
 import com.mobilespace.xrnavi.presentation.*
 import com.mobilespace.xrnavi.domain.*
 
@@ -31,8 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,15 +62,15 @@ internal fun OrganizationSettingsScreen(
     viewModel: OrganizationSettingsViewModel, onBack: () -> Unit,
     onOpenWorkTasks: () -> Unit,
 ) {
-    val localized_ui_profili_tekhniky_ta_habaryty =
+    val dimensionsTitle =
         stringResource(Res.string.ui_profili_tekhniky_ta_habaryty)
-    val localized_ui_man_tgx_4_0_2_55_16_5_m_40_t =
+    val dimensionsDescription =
         stringResource(Res.string.ui_man_tgx_4_0_2_55_16_5_m_40_t)
-    val localized_ui_dozvoleni_dorohy = stringResource(Res.string.ui_dozvoleni_dorohy)
-    val localized_ui_bez_gruntovykh_dorih_obkhid_obmezhen =
+    val roadsTitle = stringResource(Res.string.ui_dozvoleni_dorohy)
+    val roadsDescription =
         stringResource(Res.string.ui_bez_gruntovykh_dorih_obkhid_obmezhen)
-    val localized_ui_maksymalna_shvydkist = stringResource(Res.string.ui_maksymalna_shvydkist)
-    val localized_ui_90_km_hod_nyzhchyy_dorozhniy_limit_vazhlyvishyy =
+    val speedTitle = stringResource(Res.string.ui_maksymalna_shvydkist)
+    val speedDescription =
         stringResource(Res.string.ui_90_km_hod_nyzhchyy_dorozhniy_limit_vazhlyvishyy)
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val dispatchNotifications = uiState.preferences.dispatchNotifications
@@ -117,20 +114,20 @@ internal fun OrganizationSettingsScreen(
                 ) {
                     LockedOrganizationSetting(
                         icon = Res.drawable.garage_truck,
-                        title = localized_ui_profili_tekhniky_ta_habaryty,
-                        description = localized_ui_man_tgx_4_0_2_55_16_5_m_40_t,
+                        title = dimensionsTitle,
+                        description = dimensionsDescription,
                         onClick = { viewModel.dimensions() },
                     )
                     LockedOrganizationSetting(
                         icon = Res.drawable.settings_route,
-                        title = localized_ui_dozvoleni_dorohy,
-                        description = localized_ui_bez_gruntovykh_dorih_obkhid_obmezhen,
+                        title = roadsTitle,
+                        description = roadsDescription,
                         onClick = { viewModel.roads() },
                     )
                     LockedOrganizationSetting(
                         icon = Res.drawable.settings_gauge,
-                        title = localized_ui_maksymalna_shvydkist,
-                        description = localized_ui_90_km_hod_nyzhchyy_dorozhniy_limit_vazhlyvishyy,
+                        title = speedTitle,
+                        description = speedDescription,
                         onClick = { viewModel.speed() },
                         showDivider = false,
                     )

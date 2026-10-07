@@ -68,7 +68,7 @@ data class AddVehicleState(
     val message: VehicleMessage? = null,
 )
 
-class AddVehicleViewModel(private val vehicles: VehicleRepository) : ViewModel() {
+class AddVehicleViewModel(vehicles: VehicleRepository) : ViewModel() {
     private val filter = FilterVehicleMakes(vehicles)
     private val mutableState = MutableStateFlow(AddVehicleState(makes = filter("", VehicleCategory.Passenger)))
     val state = mutableState.asStateFlow()
@@ -273,7 +273,6 @@ data class VehicleConfigurationsState(
     val message: VehicleMessage? = null,
 ) {
     val isPersonal get() = vehicle == VehicleId.Mustang
-    val selectedIndex get() = selected.ordinal
     val selectedConfiguration get() = configurations.find { it.id == selected }
 }
 

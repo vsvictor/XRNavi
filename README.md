@@ -6,7 +6,7 @@ XRNavi — прототип навігаційного застосунку дл
 
 ## Фото з профілю
 
-<img src="shared/src/commonMain/composeResources/drawable/profile_portrait.png" alt="Фото з профілю застосунку XRNavi" width="160" />
+<img src="shared/src/commonMain/composeResources/drawable/profile_portrait.png" alt="Фото з профілю застосунку XRNavi" width="152" />
 
 ## Поточний стан
 
@@ -17,7 +17,7 @@ XRNavi — прототип навігаційного застосунку дл
 ## Структура
 
 | Каталог | Призначення |
-|---|---|
+| --- | --- |
 | [shared](./shared/src) | Domain, data, presentation, composition root; платформні адаптери Android та iOS |
 | [androidApp](./androidApp) | Android-застосунок |
 | [iosApp](./iosApp) | iOS-застосунок і проєкт Xcode |

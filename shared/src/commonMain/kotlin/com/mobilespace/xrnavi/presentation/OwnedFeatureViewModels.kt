@@ -37,7 +37,6 @@ abstract class FeatureViewModel<S>(
 
     protected fun submit(
         busy: (Boolean) -> Unit,
-        unavailable: () -> Unit,
         action: suspend () -> Unit,
     ) {
         if (running) return
@@ -74,7 +73,6 @@ class AccountDeletionViewModel(
         val acknowledged = uiState.value.acknowledged
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { deletionUnavailable() },
         ) {
             when (requestDeletion(acknowledged)) {
                 AccountDeletionResult.ConsentRequired -> mutableState.update {
@@ -88,7 +86,6 @@ class AccountDeletionViewModel(
     fun exportAccountData() {
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { exportUnavailable() },
         ) {
             exportData()
             exportUnavailable()
@@ -129,7 +126,6 @@ class OfflineMapsViewModel(
         }
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { mutableState.update { it.copy(statusMessage = message) } },
         ) {
             performAction(action)
             mutableState.update { it.copy(statusMessage = message) }
@@ -162,7 +158,6 @@ class OrganizationInvitationViewModel(
         val consent = uiState.value.consentGiven
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { unavailable() },
         ) {
             when (acceptInvitation(invitationCode, invitationEmail, consent)) {
                 OrganizationInvitationResult.Accepted -> emit(FeatureEffect(FeatureDestination.Accepted))
@@ -207,7 +202,6 @@ class TripHistoryViewModel(
         }
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { mutableState.update { it.copy(statusMessage = message) } },
         ) {
             performAction(action)
             mutableState.update { it.copy(statusMessage = message) }
@@ -260,7 +254,6 @@ class WorkTasksViewModel(
         val task = uiState.value.offeredTask
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { unavailable() },
         ) {
             when (performAction(WorkTripAction.AcceptTask, task)) {
                 WorkTripActionResult.NotConfigured -> unavailable()
@@ -318,7 +311,6 @@ class WorkTripDetailsViewModel(
         val task = uiState.value.chosenTask
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { mutableState.update { it.copy(statusMessage = message) } },
         ) {
             when (performAction(action, task)) {
                 WorkTripActionResult.NotConfigured -> mutableState.update { it.copy(statusMessage = message) }
@@ -355,7 +347,6 @@ class TripPlanViewModel(
         val task = uiState.value.chosenTask
         submit(
             busy = { busy -> mutableState.update { it.copy(isSubmitting = busy) } },
-            unavailable = { unavailable() },
         ) {
             when (addTripPlanStop(task)) {
                 TripPlanActionResult.NotConfigured -> unavailable()

@@ -6,7 +6,6 @@ import com.mobilespace.xrnavi.rememberDeviceSettingsLauncher
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import com.mobilespace.xrnavi.presentation.*
-import com.mobilespace.xrnavi.domain.*
 
 import org.jetbrains.compose.resources.stringResource
 import xrnavi.shared.generated.resources.Res
@@ -34,8 +33,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,13 +72,12 @@ internal fun DeviceDiagnosticsScreen(
     onOpenSettings: () -> Unit,
     onOpenProfile: () -> Unit,
 ) {
-    val localized_ui_statusy_dozvoliv_holosovykh_pidkazok_i_gps_pryklady_z_maketa_ne = stringResource(Res.string.ui_statusy_dozvoliv_holosovykh_pidkazok_i_gps_pryklady_z_maketa_ne)
-    val localized_ui_servisy_diahnostyky_ta_holosovoyi_navihatsiyi_shche_ne_pidklyuch = stringResource(Res.string.ui_servisy_diahnostyky_ta_holosovoyi_navihatsiyi_shche_ne_pidklyuch)
-    val localized_ui_uvimkneno = stringResource(Res.string.ui_uvimkneno)
+    val statusPreviewNotice = stringResource(Res.string.ui_statusy_dozvoliv_holosovykh_pidkazok_i_gps_pryklady_z_maketa_ne)
+    val diagnosticsUnavailableNotice = stringResource(Res.string.ui_servisy_diahnostyky_ta_holosovoyi_navihatsiyi_shche_ne_pidklyuch)
+    val enabledLabel = stringResource(Res.string.ui_uvimkneno)
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val statusMessage = if (uiState.showHelp) {
-        localized_ui_statusy_dozvoliv_holosovykh_pidkazok_i_gps_pryklady_z_maketa_ne +
-            localized_ui_servisy_diahnostyky_ta_holosovoyi_navihatsiyi_shche_ne_pidklyuch
+        statusPreviewNotice + diagnosticsUnavailableNotice
     } else uiState.message?.let { stringResource(it) }
     val settingsLauncher = rememberDeviceSettingsLauncher()
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -122,7 +118,7 @@ viewModel.help()
                 Res.drawable.diagnostics_volume,
                 stringResource(Res.string.ui_holosovi_pidkazky),
                 stringResource(Res.string.ui_ukrayinska_olena_dynamik_telefona),
-                localized_ui_uvimkneno,
+                enabledLabel,
                 onClick = {
                     viewModel.voice()
                 },

@@ -15,13 +15,14 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            binaryOption("bundleId", "com.mobilespace.xrnavi.shared")
         }
     }
     
     android {
        namespace = "com.mobilespace.xrnavi.shared"
-       compileSdk = libs.versions.android.compileSdk.get().toInt()
-       minSdk = libs.versions.android.minSdk.get().toInt()
+       compileSdk = 37
+       minSdk = 28
     
        compilerOptions {
            jvmTarget = JvmTarget.JVM_11
@@ -41,6 +42,7 @@ kotlin {
     
     sourceSets {
         androidMain.dependencies {
+            implementation(libs.androidx.activity)
             implementation(libs.androidx.activity.compose)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
