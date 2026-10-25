@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23094" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="launch-vc">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23084"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="launch-scene">
+            <objects>
+                <viewController id="launch-vc" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="launch-view">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="12" translatesAutoresizingMaskIntoConstraints="NO" id="launch-stack">
+                                <rect key="frame" x="119.0" y="365.0" width="155" height="122"/>
+                                <subviews>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchOrbit" translatesAutoresizingMaskIntoConstraints="NO" id="launch-orbit">
+                                        <rect key="frame" x="37.5" y="0.0" width="80" height="80"/>
+                                        <constraints>
+                                            <constraint firstAttribute="width" constant="80" id="launch-orbit-width"/>
+                                            <constraint firstAttribute="height" constant="80" id="launch-orbit-height"/>
+                                        </constraints>
+                                    </imageView>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="XRNavi" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="launch-wordmark">
+                                        <rect key="frame" x="41.5" y="92.0" width="72" height="34"/>
+                                        <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="28"/>
+                                        <color key="textColor" name="LaunchTextColor"/>
+                                    </label>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Продукт Mobile space" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="launch-company">
+                                        <rect key="frame" x="0.0" y="138.0" width="155" height="16"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="12"/>
+                                        <color key="textColor" name="LaunchSecondaryTextColor"/>
+                                    </label>
+                                </subviews>
+                            </stackView>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="launch-safe-area"/>
+                        <color key="backgroundColor" name="LaunchBackgroundColor"/>
+                        <constraints>
+                            <constraint firstItem="launch-stack" firstAttribute="centerX" secondItem="launch-view" secondAttribute="centerX" id="launch-center-x"/>
+                            <constraint firstItem="launch-stack" firstAttribute="centerY" secondItem="launch-view" secondAttribute="centerY" id="launch-center-y"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="launch-first-responder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="LaunchOrbit" width="270" height="270"/>
+        <namedColor name="LaunchBackgroundColor">
+            <color name="LaunchBackgroundColor" catalog="System" colorSpace="custom" customColorSpace="sRGB" red="0.965" green="0.973" blue="0.988" alpha="1"/>
+        </namedColor>
+        <namedColor name="LaunchTextColor">
+            <color name="LaunchTextColor" catalog="System" colorSpace="custom" customColorSpace="sRGB" red="0.090" green="0.125" blue="0.200" alpha="1"/>
+        </namedColor>
+        <namedColor name="LaunchSecondaryTextColor">
+            <color name="LaunchSecondaryTextColor" catalog="System" colorSpace="custom" customColorSpace="sRGB" red="0.322" green="0.380" blue="0.471" alpha="1"/>
+        </namedColor>
+    </resources>
+</document>

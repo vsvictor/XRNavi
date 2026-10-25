@@ -1,0 +1,12 @@
+<resources>
+    <style name="Theme.Xrnavi" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#335CFF</item>
+        <item name="android:windowBackground">@color/xrnavi_splash_background</item>
+    </style>
+
+    <style name="Theme.Xrnavi.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/xrnavi_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/xrnavi_splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.Xrnavi</item>
+    </style>
+</resources>
