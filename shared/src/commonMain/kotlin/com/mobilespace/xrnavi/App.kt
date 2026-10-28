@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -20,6 +21,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 internal enum class AppScreen {
     SignIn,
+    Registration,
+    Recovery,
     Map,
     Search,
     Preview
@@ -38,6 +41,70 @@ internal fun searchQueryAfterTargetChange(
     nextTarget: SearchTarget,
     query: String
 ): String = if (currentTarget == nextTarget) query else ""
+
+internal data class AddressSearchState(
+    val origin: String = "",
+    val destination: String = "",
+    val target: SearchTarget = SearchTarget.Destination,
+    val query: String = ""
+) {
+    fun open(target: SearchTarget) = copy(target = target, query = "")
+
+    fun activate(target: SearchTarget) = copy(
+        target = target,
+        query = searchQueryAfterTargetChange(this.target, target, query)
+    )
+
+    fun select(place: DemoPlace) = when (target) {
+        SearchTarget.Origin -> copy(origin = place.title, query = "")
+        SearchTarget.Destination -> copy(destination = place.title, query = "")
+    }
+
+    fun cancel() = copy(query = "")
+
+    companion object {
+        val Saver = listSaver<AddressSearchState, String>(
+            save = { listOf(it.origin, it.destination, it.target.name, it.query) },
+            restore = { AddressSearchState(it[0], it[1], SearchTarget.valueOf(it[2]), it[3]) }
+        )
+    }
+}
+
+internal data class DemoVehicleProfile(
+    val name: String,
+    val category: String,
+    val specification: String
+)
+
+internal val demoVehicle = DemoVehicleProfile(
+    name = "Ford Mustang GT",
+    category = "Легкове",
+    specification = "Легковий · 1,4 м · 1,8 т"
+)
+
+internal fun demoVehicleForClass(vehicleClass: String): DemoVehicleProfile? =
+    demoVehicle.takeIf { it.category == vehicleClass }
+
+internal fun routePreviewBlockMessage(
+    origin: String,
+    destination: String,
+    vehicleClass: String
+): String? = when {
+    origin.isBlank() || destination.isBlank() ->
+        "Вкажіть початкову та кінцеву точки, щоб переглянути демо-маршрут."
+
+    demoVehicleForClass(vehicleClass) == null ->
+        "Демо-профіль для транспорту «$vehicleClass» не налаштовано. Попередній перегляд недоступний."
+
+    else -> null
+}
+
+internal fun vehicleClassUnavailableMessage(vehicleClass: String): String? =
+    if (demoVehicleForClass(vehicleClass) != null) {
+        null
+    } else {
+        "Демо-профіль для транспорту «$vehicleClass» не налаштовано. Автомобіль ${demoVehicle.name} є легковим і не вибраний для цього класу. Виберіть «Легкове», щоб повернутися до наявного демо-профілю."
+    }
 
 internal enum class GeoStatus {
     NotConfigured,
@@ -70,43 +137,55 @@ internal val demoPlaces = listOf(
 
 @Composable
 fun App(onThemeChanged: (Boolean) -> Unit = {}) {
-    var darkOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    val themeStore = rememberThemePreferenceStore()
+    val themeSettings: ThemeSettingsViewModel = viewModel(
+        factory = remember(themeStore) { themeSettingsFactory(themeStore) }
+    )
     val systemDarkTheme = isSystemInDarkTheme()
-    val darkTheme = darkOverride ?: systemDarkTheme
+    val darkTheme = themeSettings.preference.isDark(systemDarkTheme)
     LaunchedEffect(darkTheme) {
         onThemeChanged(darkTheme)
     }
     XrnaviTheme(darkTheme = darkTheme) {
         XrnaviApplication(
-            onToggleTheme = {
-                darkOverride = !(darkOverride ?: systemDarkTheme)
-            }
+            themeSettings = themeSettings,
+            onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
         )
     }
 }
 
 @Composable
-private fun XrnaviApplication(onToggleTheme: () -> Unit) {
+private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleTheme: () -> Unit) {
     val signInViewModel: SignInViewModel = viewModel(factory = SignInViewModelFactory)
+    val registrationViewModel: RegistrationViewModel = viewModel(factory = RegistrationViewModelFactory)
+    val previewEnabled = internalAuthPreviewEnabled()
+    val recoveryViewModel: RecoveryViewModel = viewModel(
+        factory = remember(previewEnabled) { recoveryViewModelFactory(previewEnabled) }
+    )
     var screenName by rememberSaveable {
         mutableStateOf(initialScreenForSession(SessionProbe.hasConfiguredSession()).name)
     }
     var previousScreenName by rememberSaveable { mutableStateOf(AppScreen.Map.name) }
     var demoMode by rememberSaveable { mutableStateOf(false) }
-    var origin by rememberSaveable { mutableStateOf("") }
-    var destination by rememberSaveable { mutableStateOf("") }
+    var addresses by rememberSaveable(stateSaver = AddressSearchState.Saver) {
+        mutableStateOf(AddressSearchState())
+    }
+    val origin = addresses.origin
+    val destination = addresses.destination
+    val target = addresses.target
+    val query = addresses.query
     var sheetName by rememberSaveable { mutableStateOf(SheetLevel.Collapsed.name) }
-    var targetName by rememberSaveable { mutableStateOf(SearchTarget.Destination.name) }
-    var query by rememberSaveable { mutableStateOf("") }
     var searchStatusName by rememberSaveable { mutableStateOf(SearchStatus.Idle.name) }
     var searchRequest by rememberSaveable { mutableIntStateOf(0) }
     var geoStatusName by rememberSaveable { mutableStateOf(GeoStatus.NotConfigured.name) }
     var notice by rememberSaveable { mutableStateOf("") }
     var vehicleClass by rememberSaveable { mutableStateOf("Легкове") }
     var vehicleMode by rememberSaveable { mutableStateOf("Особистий") }
+    var sectionNavigation by rememberSaveable(stateSaver = DemoSectionNavigation.Saver) {
+        mutableStateOf(DemoSectionNavigation())
+    }
     val screen = AppScreen.valueOf(screenName)
     val sheetLevel = SheetLevel.valueOf(sheetName)
-    val target = SearchTarget.valueOf(targetName)
     val searchStatus = SearchStatus.valueOf(searchStatusName)
     val geoStatus = GeoStatus.valueOf(geoStatusName)
 
@@ -133,7 +212,33 @@ private fun XrnaviApplication(onToggleTheme: () -> Unit) {
             .background(MaterialTheme.colorScheme.background)
             .safeDrawingPadding()
     ) {
-        when (screen) {
+        val exitDemo = {
+            signInViewModel.clearPassword()
+            registrationViewModel.cancel()
+            recoveryViewModel.cancel()
+            demoMode = false
+            sectionNavigation = DemoSectionNavigation()
+            notice = ""
+            screenName = AppScreen.SignIn.name
+        }
+        if (sectionNavigation.section != DemoSection.Map && demoMode) {
+            DemoAccountScreen(
+                section = sectionNavigation.section,
+                profile = DemoProfileState(vehicleClass, vehicleMode),
+                themeSettings = themeSettings,
+                onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
+                onBack = { sectionNavigation = sectionNavigation.back() },
+                onExitDemo = exitDemo,
+                onRegister = {
+                    exitDemo()
+                    screenName = AppScreen.Registration.name
+                },
+                onRecovery = {
+                    exitDemo()
+                    screenName = AppScreen.Recovery.name
+                }
+            )
+        } else when (screen) {
             AppScreen.SignIn -> SignInScreen(
                 email = signInViewModel.email,
                 onEmailChange = signInViewModel::updateEmail,
@@ -148,7 +253,38 @@ private fun XrnaviApplication(onToggleTheme: () -> Unit) {
                     signInViewModel.clearPassword()
                     demoMode = true
                     notice = ""
+                    sectionNavigation = DemoSectionNavigation()
                     screenName = AppScreen.Map.name
+                },
+                onRegister = {
+                    signInViewModel.clearPassword()
+                    notice = ""
+                    screenName = AppScreen.Registration.name
+                },
+                onForgotPassword = {
+                    signInViewModel.clearPassword()
+                    recoveryViewModel.cancel()
+                    notice = ""
+                    screenName = AppScreen.Recovery.name
+                },
+                onToggleTheme = onToggleTheme
+            )
+
+            AppScreen.Registration -> RegistrationScreen(
+                viewModel = registrationViewModel,
+                onBack = {
+                    registrationViewModel.cancel()
+                    screenName = AppScreen.SignIn.name
+                },
+                onToggleTheme = onToggleTheme
+            )
+
+            AppScreen.Recovery -> RecoveryScreen(
+                model = recoveryViewModel,
+                previewEnabled = previewEnabled,
+                onBack = {
+                    recoveryViewModel.cancel()
+                    screenName = AppScreen.SignIn.name
                 },
                 onToggleTheme = onToggleTheme
             )
@@ -163,11 +299,16 @@ private fun XrnaviApplication(onToggleTheme: () -> Unit) {
                 notice = notice,
                 vehicleClass = vehicleClass,
                 vehicleMode = vehicleMode,
-                onVehicleClassChange = { vehicleClass = it },
+                onVehicleClassChange = { nextClass ->
+                    if (nextClass != vehicleClass) {
+                        vehicleClass = nextClass
+                        screenName = AppScreen.Map.name
+                        notice = vehicleClassUnavailableMessage(nextClass).orEmpty()
+                    }
+                },
                 onOpenSearch = { searchTarget ->
                     previousScreenName = screenName
-                    targetName = searchTarget.name
-                    query = ""
+                    addresses = addresses.open(searchTarget)
                     searchStatusName = SearchStatus.Idle.name
                     screenName = AppScreen.Search.name
                 },
@@ -177,29 +318,29 @@ private fun XrnaviApplication(onToggleTheme: () -> Unit) {
                 },
                 onSheetLevelChange = { sheetName = it.name },
                 onPreview = {
-                    if (origin.isBlank() || destination.isBlank()) {
-                        notice = "Вкажіть початкову та кінцеву точки, щоб переглянути демо-маршрут."
+                    val blockMessage = routePreviewBlockMessage(origin, destination, vehicleClass)
+                    if (blockMessage != null) {
+                        notice = blockMessage
                     } else {
                         notice = ""
                         screenName = AppScreen.Preview.name
                     }
                 },
                 onStartRoute = {
-                    notice = if (vehicleClass != "Легкове") {
-                        "Для цього типу транспорту сумісність маршруту не перевірена. Запуск вимкнено."
-                    } else {
-                        "Маршрут і навігацію не підключено. Це лише демонстраційний перегляд."
-                    }
+                    notice = vehicleClassUnavailableMessage(vehicleClass)
+                        ?: "Маршрут і навігацію не підключено. Це лише демонстраційний перегляд."
                     sheetName = SheetLevel.Expanded.name
                 },
                 onBack = {
                     screenName = if (screen == AppScreen.Preview) {
                         AppScreen.Map.name
                     } else {
+                        demoMode = false
                         notice = ""
                         AppScreen.SignIn.name
                     }
                 },
+                onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
                 onToggleTheme = onToggleTheme
             )
 
@@ -207,43 +348,42 @@ private fun XrnaviApplication(onToggleTheme: () -> Unit) {
                 demoMode = demoMode,
                 origin = origin,
                 destination = destination,
+                vehicleClass = vehicleClass,
                 target = target,
                 query = query,
                 status = searchStatus,
                 vehicleMode = vehicleMode,
                 onVehicleModeChange = { vehicleMode = it },
                 onTargetChange = {
-                    query = searchQueryAfterTargetChange(target, it, query)
-                    targetName = it.name
+                    addresses = addresses.activate(it)
                     searchStatusName = SearchStatus.Idle.name
                 },
                 onQueryChange = {
-                    query = it
+                    addresses = addresses.copy(query = it)
                     searchStatusName = SearchStatus.Idle.name
                 },
                 onSearch = { searchRequest += 1 },
                 onBack = {
                     screenName = previousScreenName
-                    query = ""
+                    addresses = addresses.cancel()
                 },
                 onPickMap = {
                     notice = "Вибір координат на мапі не підключено. Введіть адресу вручну."
                     screenName = AppScreen.Map.name
                 },
                 onSelectPlace = { place ->
-                    if (target == SearchTarget.Origin) {
-                        origin = place.title
-                    } else {
-                        destination = place.title
-                    }
+                    addresses = addresses.select(place)
                     notice =
                         "Демо-адресу вибрано; геокодування й маршрут провайдером не перевірялися."
-                    screenName = if (origin.isNotBlank() && destination.isNotBlank()) {
-                        AppScreen.Preview.name
+                    screenName = AppScreen.Map.name
+                },
+                onSectionChange = {
+                    if (it == DemoSection.Map) {
+                        screenName = previousScreenName
+                        addresses = addresses.cancel()
                     } else {
-                        previousScreenName
+                        sectionNavigation = sectionNavigation.open(it)
                     }
-                    query = ""
                 },
                 onToggleTheme = onToggleTheme
             )

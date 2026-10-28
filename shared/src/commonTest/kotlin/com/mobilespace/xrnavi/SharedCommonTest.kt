@@ -33,6 +33,85 @@ class SharedCommonTest {
     }
 
     @Test
+    fun openingOriginOverridesTheDefaultDestinationAndSelectionUsesTheActiveTarget() {
+        val initial = AddressSearchState()
+        val originSearch = initial.open(SearchTarget.Origin)
+        assertEquals(SearchTarget.Origin, originSearch.target)
+        val selected = originSearch.select(demoPlaces.first())
+        assertEquals(demoPlaces.first().title, selected.origin)
+        assertEquals("", selected.destination)
+
+        val destinationSearch = selected.open(SearchTarget.Destination)
+        val complete = destinationSearch.select(demoPlaces.last())
+        assertEquals(selected.origin, complete.origin)
+        assertEquals(demoPlaces.last().title, complete.destination)
+    }
+
+    @Test
+    fun switchingAndCancellingSearchPreserveBothConfirmedAddresses() {
+        val confirmed = AddressSearchState("Львів", "Київ")
+        val editing = confirmed.open(SearchTarget.Origin).copy(query = "незбережений запит")
+        val switched = editing.activate(SearchTarget.Destination)
+        assertEquals("", switched.query)
+        assertEquals(confirmed.origin, switched.origin)
+        assertEquals(confirmed.destination, switched.destination)
+        val cancelled = switched.copy(query = "інший запит").cancel()
+        assertEquals("", cancelled.query)
+        assertEquals(confirmed.origin, cancelled.origin)
+        assertEquals(confirmed.destination, cancelled.destination)
+        val selected = switched.select(demoPlaces.last())
+        assertEquals(confirmed.origin, selected.origin)
+        assertEquals(demoPlaces.last().title, selected.destination)
+    }
+
+    @Test
+    fun restoredSearchRetainsTargetQueryAndConfirmedAddresses() {
+        val restored = AddressSearchState.Saver.restore(
+            listOf("Львів", "Київ", SearchTarget.Origin.name, "Ринок")
+        )!!
+        assertEquals(SearchTarget.Origin, restored.target)
+        assertEquals("Ринок", restored.query)
+        assertEquals("Київ", restored.select(demoPlaces.first()).destination)
+        assertEquals("Львів", restored.cancel().origin)
+    }
+
+    @Test
+    fun categoriesDoNotSilentlySelectAnotherVehicle() {
+        assertEquals(demoVehicle, demoVehicleForClass("Легкове"))
+        assertEquals(null, demoVehicleForClass("Вантажне"))
+        assertEquals(null, demoVehicleForClass("Спецтехніка"))
+        assertEquals(demoVehicle, demoVehicleForClass("Легкове"))
+        assertEquals("Легковий · 1,4 м · 1,8 т", demoVehicle.specification)
+    }
+
+    @Test
+    fun routePreviewRequiresBothAddressesAndAnAvailableVehicleProfile() {
+        assertTrue(
+            routePreviewBlockMessage("", "площа Ринок, 1", "Легкове")
+                ?.contains("початкову та кінцеву точки") == true
+        )
+        assertTrue(
+            routePreviewBlockMessage("Хрещатик, 22", "", "Легкове")
+                ?.contains("початкову та кінцеву точки") == true
+        )
+        assertTrue(
+            routePreviewBlockMessage("Хрещатик, 22", "площа Ринок, 1", "Вантажне")
+                ?.contains("не налаштовано") == true
+        )
+        assertEquals(
+            null,
+            routePreviewBlockMessage("Хрещатик, 22", "площа Ринок, 1", "Легкове")
+        )
+    }
+
+    @Test
+    fun unavailableVehicleClassDoesNotClaimMustangAsSelected() {
+        assertEquals(null, vehicleClassUnavailableMessage("Легкове"))
+        assertTrue(vehicleClassUnavailableMessage("Вантажне")!!.contains("не вибраний"))
+        assertTrue(vehicleClassUnavailableMessage("Спецтехніка")!!.contains("не налаштовано"))
+    }
+
+    @Test
     fun sheetLevelControlsMoveBetweenAdjacentAnchors() {
         assertEquals(SheetLevel.Partial, nextSheetLevel(SheetLevel.Collapsed))
         assertEquals(SheetLevel.Expanded, nextSheetLevel(SheetLevel.Partial))

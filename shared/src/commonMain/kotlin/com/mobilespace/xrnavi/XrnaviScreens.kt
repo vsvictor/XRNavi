@@ -67,6 +67,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -88,6 +89,8 @@ internal fun SignInScreen(
     notice: String,
     onSignIn: () -> Unit,
     onDemo: () -> Unit,
+    onRegister: () -> Unit,
+    onForgotPassword: () -> Unit,
     onToggleTheme: () -> Unit
 ) {
     val dark = isDarkXrnaviTheme()
@@ -129,6 +132,8 @@ internal fun SignInScreen(
                     notice = notice,
                     onSignIn = onSignIn,
                     onDemo = onDemo,
+                    onRegister = onRegister,
+                    onForgotPassword = onForgotPassword,
                     dark = dark
                 )
             }
@@ -167,6 +172,8 @@ internal fun SignInScreen(
                     notice = notice,
                     onSignIn = onSignIn,
                     onDemo = onDemo,
+                    onRegister = onRegister,
+                    onForgotPassword = onForgotPassword,
                     dark = dark
                 )
             }
@@ -297,6 +304,8 @@ private fun SignInForm(
     notice: String,
     onSignIn: () -> Unit,
     onDemo: () -> Unit,
+    onRegister: () -> Unit,
+    onForgotPassword: () -> Unit,
     dark: Boolean
 ) {
     Column(
@@ -339,7 +348,7 @@ private fun SignInForm(
             text = "Забули пароль?",
             modifier = Modifier
                 .align(Alignment.End)
-                .clickable(role = Role.Button, onClick = onSignIn)
+                .clickable(role = Role.Button, onClick = onForgotPassword)
                 .padding(vertical = 2.dp),
             fontSize = 12.sp,
             letterSpacing = 0.4.sp,
@@ -402,6 +411,15 @@ private fun SignInForm(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary
         )
+        Text(
+            text = "Не маєте акаунта? Зареєструватися",
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onRegister)
+                .padding(vertical = 12.dp),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.primary
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -444,6 +462,7 @@ private fun LabeledInput(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier
+                .semantics { contentDescription = label }
                 .fillMaxWidth()
                 .height(56.dp)
                 .clip(RoundedCornerShape(4.dp))
@@ -518,7 +537,7 @@ private fun ProviderButton(
 }
 
 @Composable
-private fun ProductWordmark(modifier: Modifier = Modifier) {
+internal fun ProductWordmark(modifier: Modifier = Modifier) {
     val dark = isDarkXrnaviTheme()
     Row(
         modifier = modifier,
@@ -602,6 +621,7 @@ internal fun MapScreen(
     onPreview: () -> Unit,
     onStartRoute: () -> Unit,
     onBack: () -> Unit,
+    onSectionChange: (DemoSection) -> Unit,
     onToggleTheme: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
@@ -783,7 +803,7 @@ internal fun MapScreen(
                 )
             }
         }
-        BottomNavigation()
+        BottomNavigation(selectedSection = DemoSection.Map, onSectionChange = onSectionChange)
     }
 }
 
@@ -795,46 +815,69 @@ private fun MapTopBar(
     onBack: () -> Unit,
     onToggleTheme: () -> Unit
 ) {
-    Row(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (preview) {
+        val compact = maxWidth < 360.dp
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (compact) 12.dp else 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (preview) {
+                    Text(
+                        text = "‹",
+                        modifier = Modifier
+                            .clickable(role = Role.Button, onClick = onBack)
+                            .padding(end = 8.dp),
+                        fontSize = 27.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                ProductWordmark()
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
+            ) {
                 Text(
-                    text = "‹",
+                    text = when {
+                        compact && demoMode -> "Демо"
+                        demoMode -> "Демо · $vehicleMode"
+                        else -> vehicleMode
+                    },
                     modifier = Modifier
-                        .clickable(role = Role.Button, onClick = onBack)
-                        .padding(end = 8.dp),
-                    fontSize = 27.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                        .semantics {
+                            contentDescription = if (demoMode) {
+                                "Демо · $vehicleMode"
+                            } else {
+                                vehicleMode
+                            }
+                        },
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Тема",
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable(role = Role.Button, onClick = onToggleTheme)
+                        .padding(horizontal = if (compact) 2.dp else 6.dp, vertical = 5.dp),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
-            ProductWordmark()
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = if (demoMode) "Демо · $vehicleMode" else vehicleMode,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Тема",
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable(role = Role.Button, onClick = onToggleTheme)
-                    .padding(horizontal = 6.dp, vertical = 5.dp),
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -845,6 +888,7 @@ private fun MapCanvas(
     preview: Boolean
 ) {
     val dark = isDarkXrnaviTheme()
+    val showScaledMapLabels = LocalDensity.current.fontScale < 1.5f
     val land = if (dark) Color(0xFF111D2A) else Color(0xFFF1F5F9)
     val park = if (dark) Color(0xFF1C352F) else Color(0xFFDFEBD9)
     BoxWithConstraints(
@@ -917,11 +961,13 @@ private fun MapCanvas(
                     .size(width = w * 0.769f, height = h * 0.186f)
             )
         }
-        MapPlaceLabel("Київ", w * 0.764f, h * 0.176f, strong = true)
-        MapPlaceLabel("Житомир", w * 0.555f, h * 0.276f)
-        MapPlaceLabel("Рівне", w * 0.274f, h * 0.315f)
-        MapPlaceLabel("Львів", w * 0.042f, h * 0.358f, strong = true)
-        MapPlaceLabel("М-06 / E40", w * 0.565f, h * 0.333f, size = 10.sp, strong = true)
+        if (showScaledMapLabels) {
+            MapPlaceLabel("Київ", w * 0.764f, h * 0.176f, strong = true)
+            MapPlaceLabel("Житомир", w * 0.555f, h * 0.276f)
+            MapPlaceLabel("Рівне", w * 0.274f, h * 0.315f)
+            MapPlaceLabel("Львів", w * 0.042f, h * 0.358f, strong = true)
+            MapPlaceLabel("М-06 / E40", w * 0.565f, h * 0.333f, size = 10.sp, strong = true)
+        }
         if (preview) {
             Image(
                 painter = painterResource(if (dark) Res.drawable.map_origin_pin_dark else Res.drawable.map_origin_pin_light),
@@ -939,10 +985,12 @@ private fun MapCanvas(
                     .offset(x = w * 0.089f, y = h * 0.387f)
                     .size(width = w * 0.045f, height = h * 0.024f)
             )
-            RouteDurationChip(
-                modifier = Modifier
-                    .offset(x = w * 0.47f, y = h * 0.454f)
-            )
+            if (showScaledMapLabels) {
+                RouteDurationChip(
+                    modifier = Modifier
+                        .offset(x = w * 0.47f, y = h * 0.454f)
+                )
+            }
         }
     }
 }
@@ -1261,18 +1309,29 @@ private fun RouteBottomSheet(
                         )
                         if (notice.isNotBlank()) {
                             StatusCard(
-                                title = if (geoStatus == GeoStatus.NotConfigured) {
+                                title = if (notice == geoStatusMessage(geoStatus)) {
                                     "Геолокація не підключена"
+                                } else if (vehicleClassUnavailableMessage(vehicleClass) == notice) {
+                                    "Профіль транспорту недоступний"
                                 } else {
                                     "Стан сценарію"
                                 },
                                 message = notice
                             )
                         }
+                        if (level != SheetLevel.Collapsed) {
+                            if (demoVehicleForClass(vehicleClass) != null) {
+                                VehicleSummaryCard()
+                            }
+                            VehicleClassSelector(
+                                selected = vehicleClass,
+                                onSelected = onVehicleClassChange
+                            )
+                        }
                     }
 
                     level == SheetLevel.Collapsed -> {
-                        Row(
+                        if (vehicleClassUnavailableMessage(vehicleClass) == null) Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 1.dp),
@@ -1303,6 +1362,13 @@ private fun RouteBottomSheet(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        } else {
+                            Text(
+                                text = "Профіль для $vehicleClass недоступний",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
@@ -1310,7 +1376,14 @@ private fun RouteBottomSheet(
                         if (notice.isNotBlank()) {
                             StatusCard(title = "Стан маршруту", message = notice)
                         }
-                        VehicleSummaryCard()
+                        if (vehicleClassUnavailableMessage(vehicleClass) == null) {
+                            VehicleSummaryCard()
+                        } else {
+                            StatusCard(
+                                title = "Профіль транспорту недоступний",
+                                message = vehicleClassUnavailableMessage(vehicleClass).orEmpty()
+                            )
+                        }
                         VehicleClassSelector(
                             selected = vehicleClass,
                             onSelected = onVehicleClassChange
@@ -1356,6 +1429,7 @@ private fun RouteBottomSheet(
                     preview -> "Почати маршрут"
                     origin.isBlank() -> "Вибрати початкову точку"
                     destination.isBlank() -> "Знайти адресу"
+                    vehicleClassUnavailableMessage(vehicleClass) != null -> "Профіль недоступний"
                     else -> "Переглянути маршрут"
                 },
                 icon = if (preview) Res.drawable.route_navigation_dark else null,
@@ -1401,14 +1475,14 @@ private fun VehicleSummaryCard() {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                "Ford Mustang GT",
+                demoVehicle.name,
                 fontWeight = FontWeight.Bold,
                 fontSize = 21.sp,
                 lineHeight = 25.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                "Легковий · 1,4 м · 1,8 т",
+                demoVehicle.specification,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1428,7 +1502,13 @@ private fun VehicleClassSelector(
     onSelected: (String) -> Unit
 ) {
     val types = listOf("Легкове", "Вантажне", "Спецтехніка")
-    Row(
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Категорія демо-профілю",
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -1477,55 +1557,111 @@ private fun VehicleClassSelector(
                 )
             }
         }
+        }
     }
 }
 
 @Composable
-private fun BottomNavigation() {
+internal fun BottomNavigation(
+    selectedSection: DemoSection,
+    onSectionChange: (DemoSection) -> Unit,
+    rail: Boolean = false,
+    compactRail: Boolean = false,
+    accountStyle: Boolean = false,
+    horizontalLabels: Boolean = false
+) {
     val tabs = listOf(
         Triple("Мапа", Res.drawable.nav_map_light, Res.drawable.nav_map_dark),
         Triple("Гараж", Res.drawable.nav_garage_light, Res.drawable.nav_garage_dark),
         Triple("Налаштування", Res.drawable.nav_settings_light, Res.drawable.nav_settings_dark),
         Triple("Профіль", Res.drawable.nav_profile_light, Res.drawable.nav_profile_dark)
     )
-    Row(
+    val items: @Composable (Modifier) -> Unit = { itemModifier ->
+        tabs.forEachIndexed { index, tab ->
+            val section = when (index) {
+                0 -> DemoSection.Map
+                2 -> DemoSection.Settings
+                3 -> DemoSection.Profile
+                else -> null
+            }
+            val active = section == selectedSection
+            val tabModifier = itemModifier
+                    .semantics {
+                        selected = active
+                        if (section == null) contentDescription = "Гараж — не підключено"
+                        else if (rail && compactRail) contentDescription = tab.first
+                    }
+                    .clickable(enabled = section != null, role = Role.Tab) {
+                        section?.let(onSectionChange)
+                    }
+                    .then(
+                        if (accountStyle && (rail && !compactRail || horizontalLabels) && !active)
+                            Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
+                        else Modifier
+                    )
+                    .padding(horizontal = 2.dp, vertical = 4.dp)
+            val icon: @Composable () -> Unit = {
+                FigmaIcon(
+                    light = tab.second,
+                    dark = tab.third,
+                    modifier = Modifier.size(
+                        if (accountStyle && rail && !compactRail) 24.dp
+                        else if (accountStyle) 21.dp else 19.dp
+                    ),
+                    tint = if (active && accountStyle && !compactRail) MaterialTheme.colorScheme.onSurface
+                    else if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            val label: @Composable () -> Unit = {
+                if (!rail || !compactRail) Text(
+                    tab.first,
+                    modifier = Modifier.padding(
+                        top = if (horizontalLabels) 0.dp else 4.dp,
+                        start = if (horizontalLabels) 8.dp else 0.dp
+                    ),
+                    fontSize = if (rail && accountStyle && index == 2) 7.sp
+                    else if (accountStyle) 12.sp else if (rail) 9.sp else 11.sp,
+                    lineHeight = if (rail && accountStyle && index == 2) 11.sp
+                    else if (accountStyle) 16.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
+                    letterSpacing = if (accountStyle) 0.4.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
+                    color = if (active && accountStyle) MaterialTheme.colorScheme.onSurface
+                    else if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (rail && accountStyle) 1 else 2
+                )
+            }
+            if (horizontalLabels) Row(
+                tabModifier, verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) { icon(); label() }
+            else Column(
+                tabModifier, horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) { icon(); label() }
+        }
+    }
+    if (rail) {
+        Column(
+            Modifier.width(if (compactRail) 56.dp else 88.dp)
+                .fillMaxHeight().background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(if (accountStyle && !compactRail) Modifier.padding(horizontal = 8.dp, vertical = 24.dp) else Modifier)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(if (accountStyle && !compactRail) 22.dp else 12.dp)
+        ) { items(Modifier.fillMaxWidth().heightIn(min = if (accountStyle && !compactRail) 72.dp else 70.dp)) }
+    } else Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(68.dp)
+            .height(if (accountStyle) 61.dp else 68.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
                 width = 0.5.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(0.dp)
             )
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 8.dp, vertical = if (horizontalLabels) 6.dp else 0.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(if (horizontalLabels) 8.dp else 0.dp)
     ) {
-        tabs.forEachIndexed { index, tab ->
-            val selected = index == 0
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable(enabled = selected, role = Role.Tab) { },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                FigmaIcon(
-                    light = tab.second,
-                    dark = tab.third,
-                    modifier = Modifier.size(19.dp),
-                    tint = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    tab.first,
-                    modifier = Modifier.padding(top = 4.dp),
-                    fontSize = 11.sp,
-                    color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-        }
+        items(Modifier.weight(1f).fillMaxHeight())
     }
 }
 
@@ -1534,6 +1670,7 @@ internal fun SearchScreen(
     demoMode: Boolean,
     origin: String,
     destination: String,
+    vehicleClass: String,
     target: SearchTarget,
     query: String,
     status: SearchStatus,
@@ -1545,6 +1682,7 @@ internal fun SearchScreen(
     onBack: () -> Unit,
     onPickMap: () -> Unit,
     onSelectPlace: (DemoPlace) -> Unit,
+    onSectionChange: (DemoSection) -> Unit,
     onToggleTheme: () -> Unit
 ) {
     val matchingPlaces = if (query.isBlank()) {
@@ -1570,7 +1708,9 @@ internal fun SearchScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ProductWordmark(
-                modifier = Modifier.clickable(role = Role.Button, onClick = onBack)
+                modifier = Modifier
+                    .semantics { contentDescription = "Скасувати пошук" }
+                    .clickable(role = Role.Button, onClick = onBack)
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1684,11 +1824,12 @@ internal fun SearchScreen(
             }
             SearchMapPicker(onClick = onPickMap)
             SearchVehicleCard(
+                vehicleClass = vehicleClass,
                 mode = vehicleMode,
                 onModeChange = onVehicleModeChange
             )
         }
-        BottomNavigation()
+        BottomNavigation(DemoSection.Map, onSectionChange)
     }
 }
 
@@ -1823,7 +1964,14 @@ private fun AddressQueryRow(
                     onValueChange = onValueChange,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
+                        .focusRequester(focusRequester)
+                        .semantics {
+                            contentDescription = if (target == SearchTarget.Origin) {
+                                "Початкова адреса"
+                            } else {
+                                "Адреса призначення"
+                            }
+                        },
                     singleLine = true,
                     textStyle = TextStyle(
                         color = MaterialTheme.colorScheme.onSurface,
@@ -1867,6 +2015,7 @@ private fun AddressQueryRow(
             Text(
                 "×",
                 modifier = Modifier
+                    .semantics { contentDescription = "Очистити пошуковий запит" }
                     .clickable(role = Role.Button) { onValueChange("") }
                     .padding(horizontal = 8.dp),
                 fontSize = 18.sp,
@@ -2002,12 +2151,13 @@ private fun SearchMapPicker(onClick: () -> Unit) {
 
 @Composable
 private fun SearchVehicleCard(
+    vehicleClass: String,
     mode: String,
     onModeChange: (String) -> Unit
 ) {
     val dark = isDarkXrnaviTheme()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
+        if (vehicleClassUnavailableMessage(vehicleClass) == null) Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 68.dp)
@@ -2031,14 +2181,14 @@ private fun SearchVehicleCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    "Ford Mustang GT",
+                    demoVehicle.name,
                     fontWeight = FontWeight.Bold,
                     fontSize = 21.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
                 Text(
-                    "Легковий · 1,4 м · 1,8 т",
+                    demoVehicle.specification,
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -2048,6 +2198,11 @@ private fun SearchVehicleCard(
                 dark = Res.drawable.search_car_dark,
                 modifier = Modifier.size(18.dp),
                 contentDescription = "Транспорт"
+            )
+        } else {
+            StatusCard(
+                title = "Профіль транспорту недоступний",
+                message = vehicleClassUnavailableMessage(vehicleClass).orEmpty()
             )
         }
         Row(
