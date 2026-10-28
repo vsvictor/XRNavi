@@ -176,26 +176,34 @@ final class ProfileSettingsUITests: XCTestCase {
         XCTAssertEqual(content.maxX - second.maxX, 24, accuracy: 1)
     }
 
-    func testGarageNavigationEmptyCategoriesAndHonestUnavailableActions() {
+    func testGarageNavigationListsDemoVehiclesByCategoryAndKeepsRealActionsUnavailable() {
         tap("Продовжити без входу · деморежим")
         tap("Гараж")
         assertGarageScreen()
         tap("Вантажне")
-        XCTAssertTrue(find("Немає сумісних демопрофілів").exists, app.debugDescription)
-        XCTAssertFalse(
-            app.descendants(matching: .any)["garage-profile-card"].isHittable,
-            app.debugDescription
-        )
+        XCTAssertTrue(find("Вантажний транспорт · демо 01").exists, app.debugDescription)
+        XCTAssertFalse(find("Ford Mustang GT").exists, app.debugDescription)
         for orientation in [UIDeviceOrientation.landscapeLeft, .portrait, .landscapeRight] {
             rotate(orientation)
-            XCTAssertTrue(find("Немає сумісних демопрофілів").exists, app.debugDescription)
-            screenshot("garage-empty-category-rotation-\(orientation.rawValue)")
+            XCTAssertTrue(find("Вантажний транспорт · демо 01").exists, app.debugDescription)
+            screenshot("garage-cargo-category-rotation-\(orientation.rawValue)")
         }
+        tap("Спецтехніка")
+        XCTAssertTrue(find("Спецтехніка · демо 01").exists, app.debugDescription)
+        XCTAssertFalse(find("Вантажний транспорт · демо 01").exists, app.debugDescription)
+        tap("Легкове")
+        XCTAssertTrue(find("Ford Mustang GT").exists, app.debugDescription)
+        XCTAssertTrue(find("Легковий автомобіль · демо 02").exists, app.debugDescription)
         tap("Усі")
-        assertGarageScreen()
+        XCTAssertTrue(find("Ford Mustang GT").exists, app.debugDescription)
+        XCTAssertTrue(find("Вантажний транспорт · демо 01").exists, app.debugDescription)
+        XCTAssertTrue(find("Спецтехніка · демо 01").exists, app.debugDescription)
+        XCTAssertFalse(find("VIN").exists)
+        XCTAssertFalse(find("Зареєстровано").exists)
+        XCTAssertFalse(find("Синхронізовано").exists)
         tap("Додати транспорт · не підключено")
         XCTAssertTrue(find("Можливість не підключено").waitForExistence(timeout: 3))
-        XCTAssertTrue(find("Додавання транспорту не підключено").exists)
+        XCTAssertTrue(find("Додавання реального транспорту не підключено").exists)
         tap("Зрозуміло")
         tap("Назад до попереднього розділу")
         XCTAssertTrue(find("Панель маршруту").exists, app.debugDescription)
@@ -226,7 +234,8 @@ final class ProfileSettingsUITests: XCTestCase {
 
         tap("Гараж")
         tap("Вантажне")
-        XCTAssertTrue(find("Немає сумісних демопрофілів").exists)
+        XCTAssertTrue(find("Вантажний транспорт · демо 01").exists)
+        XCTAssertFalse(find("Ford Mustang GT").exists)
         tap("Назад до попереднього розділу")
         XCTAssertTrue(find("площа Ринок, 1").exists)
         XCTAssertTrue(find("площа Ринок, 10").exists)
@@ -241,15 +250,20 @@ final class ProfileSettingsUITests: XCTestCase {
         XCTAssertTrue(find("Почати маршрут").exists)
 
         tap("Вантажне")
-        XCTAssertFalse(find("Почати маршрут").exists)
+        XCTAssertTrue(find("Переглянути маршрут").exists)
         tap("Гараж")
-        tap("Усі")
-        XCTAssertTrue(find("Обрати Ford Mustang GT").isEnabled)
-        tap("Обрати Ford Mustang GT")
+        tap("Вантажне")
+        XCTAssertTrue(find("Обрати Вантажний транспорт · демо 01").isEnabled)
+        tap("Обрати Вантажний транспорт · демо 01")
+        XCTAssertTrue(find("Обрано наявний демопрофіль Вантажний транспорт · демо 01").exists)
         XCTAssertTrue(find("Переглянути маршрут").exists)
         XCTAssertTrue(find("площа Ринок, 1").exists)
         XCTAssertTrue(find("площа Ринок, 10").exists)
-        XCTAssertTrue(find("Обрано наявний демопрофіль Ford Mustang GT").exists)
+        tap("Переглянути маршрут")
+        XCTAssertTrue(find("Вантажний транспорт · демо 01").exists)
+        tap("Почати маршрут")
+        XCTAssertTrue(find("Маршрут і навігацію не підключено").exists)
+        XCTAssertFalse(find("Навігацію запущено").exists)
     }
 
     func testVehicleProfileReadOnlyReturnPreservesGarageAndMapPreview() {
@@ -322,14 +336,12 @@ final class ProfileSettingsUITests: XCTestCase {
             if state != "Розгорнута" { panel.tap() }
         }
         tap("Вантажне")
-        XCTAssertFalse(find("Почати маршрут").exists)
+        XCTAssertTrue(find("Переглянути маршрут").exists)
         tap("Профіль")
-        let warning = find("Активна категорія на мапі: Вантажне.")
-        reveal("Активна категорія на мапі: Вантажне.")
-        XCTAssertTrue(warning.exists)
-        screenshot("profile-truck-unavailable")
+        XCTAssertTrue(find("Вантажний транспорт · демо 01").exists)
+        screenshot("profile-truck-demo")
         tap("Мапа")
-        XCTAssertTrue(find("Профіль недоступний").exists)
+        XCTAssertTrue(find("Вантажний транспорт · демо 01").exists)
         tap("Легкове")
         XCTAssertTrue(find("Переглянути маршрут").exists)
         tap("Налаштування")
@@ -381,7 +393,7 @@ final class ProfileSettingsUITests: XCTestCase {
     private func assertVehicleProfileDetails() {
         XCTAssertTrue(find("Профіль автомобіля").waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(find("Ford Mustang GT").exists, app.debugDescription)
-        XCTAssertTrue(find("Особистий демопрофіль · не підтверджено зовнішнім сервісом").exists)
+        XCTAssertTrue(find("Локальний демопрофіль · дані не підтверджено зовнішнім сервісом").exists)
         XCTAssertTrue(find("Категорія: Легкове").exists, app.debugDescription)
         XCTAssertTrue(find("Легковий · 1,4 м · 1,8 т").exists, app.debugDescription)
         XCTAssertTrue(find("не визначає 1,8 т як максимальну допустиму масу").exists)

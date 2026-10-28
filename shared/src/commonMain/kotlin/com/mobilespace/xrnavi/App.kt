@@ -71,19 +71,58 @@ internal data class AddressSearchState(
 }
 
 internal data class DemoVehicleProfile(
+    val id: String,
     val name: String,
     val category: String,
-    val specification: String
+    val specification: String,
+    val artwork: DemoVehicleArtwork
 )
+
+internal enum class DemoVehicleArtwork {
+    Mustang,
+    Passenger,
+    Cargo,
+    Special
+}
 
 internal val demoVehicle = DemoVehicleProfile(
+    id = "ford-mustang-gt",
     name = "Ford Mustang GT",
     category = "Легкове",
-    specification = "Легковий · 1,4 м · 1,8 т"
+    specification = "Легковий · 1,4 м · 1,8 т",
+    artwork = DemoVehicleArtwork.Mustang
 )
 
+internal val demoVehicles = listOf(
+    demoVehicle,
+    DemoVehicleProfile(
+        id = "demo-passenger-02",
+        name = "Легковий автомобіль · демо 02",
+        category = "Легкове",
+        specification = "Легкове · характеристики не задані",
+        artwork = DemoVehicleArtwork.Passenger
+    ),
+    DemoVehicleProfile(
+        id = "demo-cargo-01",
+        name = "Вантажний транспорт · демо 01",
+        category = "Вантажне",
+        specification = "Вантажне · характеристики не задані",
+        artwork = DemoVehicleArtwork.Cargo
+    ),
+    DemoVehicleProfile(
+        id = "demo-special-01",
+        name = "Спецтехніка · демо 01",
+        category = "Спецтехніка",
+        specification = "Спецтехніка · характеристики не задані",
+        artwork = DemoVehicleArtwork.Special
+    )
+)
+
+internal fun demoVehicleById(vehicleId: String): DemoVehicleProfile? =
+    demoVehicles.firstOrNull { it.id == vehicleId }
+
 internal fun demoVehicleForClass(vehicleClass: String): DemoVehicleProfile? =
-    demoVehicle.takeIf { it.category == vehicleClass }
+    demoVehicles.firstOrNull { it.category == vehicleClass }
 
 internal fun routePreviewBlockMessage(
     origin: String,
@@ -103,7 +142,7 @@ internal fun vehicleClassUnavailableMessage(vehicleClass: String): String? =
     if (demoVehicleForClass(vehicleClass) != null) {
         null
     } else {
-        "Демо-профіль для транспорту «$vehicleClass» не налаштовано. Автомобіль ${demoVehicle.name} є легковим і не вибраний для цього класу. Виберіть «Легкове», щоб повернутися до наявного демо-профілю."
+        "Демо-профіль для транспорту «$vehicleClass» не налаштовано. Виберіть категорію з наявними локальними демопрофілями."
     }
 
 internal enum class GeoStatus {
@@ -180,6 +219,7 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
     var geoStatusName by rememberSaveable { mutableStateOf(GeoStatus.NotConfigured.name) }
     var notice by rememberSaveable { mutableStateOf("") }
     var vehicleClass by rememberSaveable { mutableStateOf("Легкове") }
+    var selectedVehicleId by rememberSaveable { mutableStateOf(demoVehicle.id) }
     var vehicleMode by rememberSaveable { mutableStateOf("Особистий") }
     var sectionNavigation by rememberSaveable(stateSaver = DemoSectionNavigation.Saver) {
         mutableStateOf(DemoSectionNavigation())
@@ -224,14 +264,15 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
         if (sectionNavigation.section != DemoSection.Map && demoMode) {
             DemoAccountScreen(
                 section = sectionNavigation.section,
-                profile = DemoProfileState(vehicleClass, vehicleMode),
+                profile = DemoProfileState(vehicleClass, vehicleMode, selectedVehicleId),
                 themeSettings = themeSettings,
                 onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
                 onBack = { sectionNavigation = sectionNavigation.back() },
                 onSelectVehicle = { vehicle ->
-                    val selection = selectGarageVehicle(vehicleClass, vehicle)
+                    val selection = selectGarageVehicle(selectedVehicleId, vehicle)
                     if (selection.changed) {
                         vehicleClass = selection.vehicleClass
+                        selectedVehicleId = selection.vehicleId
                         screenName = AppScreen.Map.name
                         sheetName = SheetLevel.Collapsed.name
                         sectionNavigation = sectionNavigation.back()
@@ -309,10 +350,12 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 geoStatus = geoStatus,
                 notice = notice,
                 vehicleClass = vehicleClass,
+                selectedVehicle = demoVehicleById(selectedVehicleId),
                 vehicleMode = vehicleMode,
                 onVehicleClassChange = { nextClass ->
                     if (nextClass != vehicleClass) {
                         vehicleClass = nextClass
+                        selectedVehicleId = demoVehicleForClass(nextClass)?.id ?: selectedVehicleId
                         screenName = AppScreen.Map.name
                         notice = vehicleClassUnavailableMessage(nextClass).orEmpty()
                     }
@@ -360,6 +403,7 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 origin = origin,
                 destination = destination,
                 vehicleClass = vehicleClass,
+                selectedVehicle = demoVehicleById(selectedVehicleId),
                 target = target,
                 query = query,
                 status = searchStatus,

@@ -192,7 +192,7 @@ internal fun DemoAccountScreen(
                                     if (section == DemoSection.Garage) {
                                         GarageContent(
                                             layout = layout,
-                                            currentVehicleClass = profile.vehicleClass,
+                                            currentVehicleId = profile.vehicleId,
                                             filter = garageFilter,
                                             onFilterChange = { garageFilterName = it.name },
                                             onSelectVehicle = onSelectVehicle,
@@ -202,7 +202,7 @@ internal fun DemoAccountScreen(
                                             unavailable = { unavailableAction = it }
                                         )
                                     } else if (section == DemoSection.VehicleDetails) {
-                                        VehicleProfileDetails(demoVehicle, layout)
+                                        VehicleProfileDetails(profile.selectedVehicle ?: demoVehicle, layout)
                                     } else if (section == DemoSection.Profile) {
                                     val accountActions: @Composable ColumnScope.() -> Unit = {
                                         ProfileOrganization(profile, layout)
@@ -404,7 +404,7 @@ internal fun DemoAccountScreen(
 @Composable
 private fun GarageContent(
     layout: AccountLayout,
-    currentVehicleClass: String,
+    currentVehicleId: String,
     filter: GarageFilter,
     onFilterChange: (GarageFilter) -> Unit,
     onSelectVehicle: (DemoVehicleProfile) -> Unit,
@@ -412,35 +412,24 @@ private fun GarageContent(
     unavailable: (String) -> Unit
 ) {
     val vehicles = garageVehicles(filter)
-    val list: @Composable ColumnScope.() -> Unit = {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         GarageFilterBar(filter, onFilterChange)
         GarageSectionHeading(
-            text = if (filter == GarageFilter.All) "Доступний демопрофіль"
+            text = if (filter == GarageFilter.All) "Доступні демопрофілі"
             else "${filter.label} транспорт"
         )
         if (vehicles.isEmpty()) {
             GarageEmptyState(filter)
         } else {
-            AccountCard(tonal = true) {
-                CardHeading(demoVehicle.name)
-                AccountBody(
-                    if (currentVehicleClass == demoVehicle.category)
-                        "Поточний вибір для демомаршруту"
-                    else "Доступний легковий демопрофіль"
+            vehicles.forEach { vehicle ->
+                GarageVehicleCard(
+                    vehicle = vehicle,
+                    layout = layout,
+                    selected = currentVehicleId == vehicle.id,
+                    onSelect = { onSelectVehicle(vehicle) },
+                    onDetails = onOpenVehicleProfile
                 )
-                AccountBody("Це демонстраційний транспорт, не підтвердження власності.")
             }
-        }
-    }
-    val preview: @Composable ColumnScope.() -> Unit = {
-        if (vehicles.isNotEmpty()) {
-            GarageVehicleCard(
-                vehicle = demoVehicle,
-                layout = layout,
-                selected = currentVehicleClass == demoVehicle.category,
-                onSelect = { onSelectVehicle(demoVehicle) },
-                onDetails = onOpenVehicleProfile
-            )
         }
         Button(
             onClick = {
@@ -459,51 +448,6 @@ private fun GarageContent(
             garageCorporateUnavailableExplanation
         )
     }
-
-    if (layout.landscape) {
-        ResponsiveSections(
-            columns = true,
-            firstWeight = if (layout.tablet) 0.39f else 0.43f,
-            gap = if (layout.tablet) 24 else 12,
-            first = list,
-            second = preview
-        )
-    } else {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            GarageFilterBar(filter, onFilterChange)
-            GarageSectionHeading(
-                text = if (filter == GarageFilter.All) "Доступний демопрофіль"
-                else "${filter.label} транспорт"
-            )
-            if (vehicles.isEmpty()) {
-                GarageEmptyState(filter)
-            } else {
-                GarageVehicleCard(
-                    vehicle = demoVehicle,
-                    layout = layout,
-                    selected = currentVehicleClass == demoVehicle.category,
-                    onSelect = { onSelectVehicle(demoVehicle) },
-                    onDetails = onOpenVehicleProfile
-                )
-            }
-            Button(
-                onClick = {
-                    unavailable(garageAddUnavailableExplanation)
-                },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                Text("Додати транспорт · не підключено", fontSize = 14.sp, textAlign = TextAlign.Center)
-            }
-            AccountBody(
-                garageCorporateUnavailableExplanation
-            )
-        }
-    }
 }
 
 @Composable
@@ -513,6 +457,7 @@ private fun GarageFilterBar(
 ) {
     Row(
         Modifier.fillMaxWidth()
+            .selectableGroup()
             .clip(RoundedCornerShape(10.dp))
             .background(accountSurfaceColor())
             .padding(4.dp),
@@ -528,17 +473,20 @@ private fun GarageFilterBar(
                         if (active) MaterialTheme.colorScheme.primaryContainer
                         else Color.Transparent
                     )
-                    .clickable(role = Role.Tab) { onSelected(filter) }
-                    .semantics {
-                        this.selected = active
-                        contentDescription = filter.label
-                    }
+                    .selectable(
+                        selected = active,
+                        role = Role.Tab,
+                        onClick = { onSelected(filter) }
+                    )
                     .testTag("garage-filter-${filter.name}"),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     filter.label,
-                    modifier = Modifier.padding(horizontal = 2.dp),
+                    modifier = Modifier.padding(horizontal = 2.dp).semantics {
+                        this.selected = active
+                        stateDescription = if (active) "Вибрано" else "Не вибрано"
+                    },
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     color = if (active) MaterialTheme.colorScheme.onSurface
@@ -570,7 +518,7 @@ private fun GarageEmptyState(filter: GarageFilter) {
         CardHeading("Немає сумісних демопрофілів")
         AccountBody(
             "Для категорії «${filter.label}» локальних демопрофілів немає. " +
-                "Ford Mustang GT є легковим і не відображається як сумісний транспорт."
+                "Профіль іншої категорії не відображається як сумісний транспорт."
         )
     }
 }
@@ -583,7 +531,6 @@ private fun GarageVehicleCard(
     onSelect: () -> Unit,
     onDetails: () -> Unit
 ) {
-    val dark = MaterialTheme.colorScheme.background.red < 0.5f
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("garage-profile-card"),
         shape = RoundedCornerShape(12.dp),
@@ -596,22 +543,30 @@ private fun GarageVehicleCard(
     ) {
         Column {
             Box {
-                Image(
-                    painterResource(
-                        if (dark) Res.drawable.profile_mustang_hero_dark
-                        else Res.drawable.profile_mustang_hero_light
-                    ),
-                    contentDescription = "Фото демопрофілю ${vehicle.name}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(
+                Box(
+                    Modifier.fillMaxWidth().aspectRatio(
                         when (layout) {
                             AccountLayout.PhonePortrait -> 1.8f
                             AccountLayout.PhoneLandscape -> 1.9f
                             AccountLayout.TabletPortrait -> 2.45f
                             AccountLayout.TabletLandscape -> 1.85f
                         }
+                    ).background(
+                        if (vehicle.artwork == DemoVehicleArtwork.Mustang) Color.Transparent
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    DemoVehicleImage(
+                        vehicle = vehicle,
+                        modifier = if (vehicle.artwork == DemoVehicleArtwork.Mustang) {
+                            Modifier.fillMaxSize()
+                        } else {
+                            Modifier.size(112.dp)
+                        },
+                        contentDescription = "Демонстраційне зображення ${vehicle.name}"
                     )
-                )
+                }
                 Box(
                     Modifier.fillMaxWidth().heightIn(min = 82.dp)
                         .align(Alignment.BottomCenter)
@@ -647,7 +602,11 @@ private fun GarageVehicleCard(
                 ) {
                     Text(
                         if (selected) "ОБРАНО ДЛЯ ДЕМОМАРШРУТУ" else "ДОСТУПНИЙ ДЕМОПРОФІЛЬ",
-                        Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        Modifier.padding(horizontal = 8.dp, vertical = 5.dp).semantics {
+                            contentDescription = "${vehicle.name} · " +
+                                if (selected) "обрано для демомаршруту"
+                                else "доступний демопрофіль"
+                        },
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 10.sp,
                         lineHeight = 14.sp,
@@ -808,7 +767,7 @@ private fun ProfileVehicle(
     onOpenGarage: () -> Unit,
     onOpenVehicleProfile: () -> Unit
 ) {
-    val dark = MaterialTheme.colorScheme.background.red < 0.5f
+    val vehicle = profile.selectedVehicle ?: demoVehicle
     Row(
         Modifier.fillMaxWidth().testTag("profile-garage-heading"),
         verticalAlignment = Alignment.CenterVertically
@@ -846,22 +805,30 @@ private fun ProfileVehicle(
     ) {
         Column {
             Box {
-                Image(
-                    painterResource(
-                        if (dark) Res.drawable.profile_mustang_hero_dark
-                        else Res.drawable.profile_mustang_hero_light
-                    ),
-                    contentDescription = "Демонстраційний Ford Mustang GT",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(
+                Box(
+                    Modifier.fillMaxWidth().aspectRatio(
                         when (layout) {
                             AccountLayout.TabletPortrait -> 3.93f
                             AccountLayout.TabletLandscape -> 1.95f
                             AccountLayout.PhoneLandscape -> 3f
                             AccountLayout.PhonePortrait -> 3.48f
                         }
+                    ).background(
+                        if (vehicle.artwork == DemoVehicleArtwork.Mustang) Color.Transparent
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    DemoVehicleImage(
+                        vehicle = vehicle,
+                        modifier = if (vehicle.artwork == DemoVehicleArtwork.Mustang) {
+                            Modifier.fillMaxSize()
+                        } else {
+                            Modifier.size(112.dp)
+                        },
+                        contentDescription = "Демонстраційне зображення ${vehicle.name}"
                     )
-                )
+                }
                 Row(
                     Modifier.fillMaxWidth().padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -878,7 +845,7 @@ private fun ProfileVehicle(
                     Box(
                         modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 48.dp)
                             .clickable(role = Role.Button, onClick = onOpenVehicleProfile)
-                            .semantics { contentDescription = "Переглянути профіль ${demoVehicle.name}" }
+                            .semantics { contentDescription = "Переглянути профіль ${vehicle.name}" }
                     ) {
                         Surface(shape = RoundedCornerShape(4.dp), color = accountSurfaceColor()) {
                             Row(
@@ -906,14 +873,14 @@ private fun ProfileVehicle(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    demoVehicle.name,
+                    vehicle.name,
                     fontSize = if (layout.tablet) 32.sp else 22.sp,
                     lineHeight = if (layout.tablet) 40.sp else 28.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.sp,
                     fontFamily = rememberRobotoCondensedFontFamily()
                 )
-                AccountBody(demoVehicle.specification)
+                AccountBody("${vehicle.category} · демонстраційні характеристики")
             }
         }
     }
@@ -926,7 +893,6 @@ private fun ProfileVehicle(
 
 @Composable
 private fun VehicleProfileDetails(vehicle: DemoVehicleProfile, layout: AccountLayout) {
-    val dark = MaterialTheme.colorScheme.background.red < 0.5f
     val overview: @Composable ColumnScope.() -> Unit = {
         Surface(
             shape = RoundedCornerShape(12.dp),
@@ -934,29 +900,37 @@ private fun VehicleProfileDetails(vehicle: DemoVehicleProfile, layout: AccountLa
             modifier = Modifier.fillMaxWidth().testTag("vehicle-profile-details")
         ) {
             Column {
-                Image(
-                    painterResource(
-                        if (dark) Res.drawable.profile_mustang_hero_dark
-                        else Res.drawable.profile_mustang_hero_light
-                    ),
-                    contentDescription = "Демонстраційне фото ${vehicle.name}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(
+                Box(
+                    Modifier.fillMaxWidth().aspectRatio(
                         when (layout) {
                             AccountLayout.PhonePortrait -> 1.8f
                             AccountLayout.PhoneLandscape -> 1.9f
                             AccountLayout.TabletPortrait -> 2.45f
                             AccountLayout.TabletLandscape -> 1.85f
                         }
+                    ).background(
+                        if (vehicle.artwork == DemoVehicleArtwork.Mustang) Color.Transparent
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    DemoVehicleImage(
+                        vehicle = vehicle,
+                        modifier = if (vehicle.artwork == DemoVehicleArtwork.Mustang) {
+                            Modifier.fillMaxSize()
+                        } else {
+                            Modifier.size(112.dp)
+                        },
+                        contentDescription = "Демонстраційне зображення ${vehicle.name}"
                     )
-                )
+                }
                 Column(
                     Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     SectionTitle(vehicle.name, fontSize = if (layout.tablet) 30 else 24)
-                    AccountBody("Особистий демопрофіль · не підтверджено зовнішнім сервісом")
-                    AccountBody("Це демонстраційний транспорт, а не підтвердження права власності.")
+                    AccountBody("Локальний демопрофіль · дані не підтверджено зовнішнім сервісом")
+                    AccountBody("Це демонстраційний запис, а не підтвердження права власності.")
                 }
             }
         }
@@ -966,7 +940,8 @@ private fun VehicleProfileDetails(vehicle: DemoVehicleProfile, layout: AccountLa
             CardHeading("Дані з локальної моделі")
             VehicleProfileFact("Категорія", vehicle.category)
             VehicleProfileFact("Характеристики", vehicle.specification)
-            AccountBody(
+            AccountBody("Параметри демонстраційні й не перевірені зовнішнім сервісом.")
+            if (vehicle.id == demoVehicle.id) AccountBody(
                 "Модель не уточнює, яке саме габаритне вимірювання позначене як 1,4 м, " +
                     "і не визначає 1,8 т як максимальну допустиму масу."
             )

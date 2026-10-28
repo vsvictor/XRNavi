@@ -25,41 +25,48 @@ class ProfileSettingsTest {
     }
 
     @Test
-    fun profileOnlyMatchesTheExistingPassengerVehicle() {
+    fun profileSelectionMatchesTheSelectedVehicleAcrossCategories() {
         assertEquals(demoVehicle, DemoProfileState("Легкове", "Особистий").selectedVehicle)
-        listOf("Вантажне", "Спецтехніка").forEach {
-            assertNull(DemoProfileState(it, "Корпоративний").selectedVehicle)
+        listOf("Вантажне", "Спецтехніка").forEach { category ->
+            val vehicle = demoVehicleForClass(category)
+            assertNotNull(vehicle)
+            assertEquals(category, DemoProfileState(category, "Особистий", vehicle.id).selectedVehicle?.category)
         }
     }
 
     @Test
-    fun garageFiltersOnlyTheSharedDemoVehicleAndShowsNoUnsupportedCategories() {
-        assertEquals(listOf(demoVehicle), garageVehicles(GarageFilter.All))
-        assertEquals(listOf(demoVehicle), garageVehicles(GarageFilter.Passenger))
-        assertTrue(garageVehicles(GarageFilter.Cargo).isEmpty())
-        assertTrue(garageVehicles(GarageFilter.Special).isEmpty())
-        assertEquals(1, listOf(demoVehicle).distinct().size)
+    fun garageFiltersMoreThanThreeUniqueDemoProfilesByActualCategory() {
+        assertEquals(4, garageVehicles(GarageFilter.All).size)
+        assertEquals(2, garageVehicles(GarageFilter.Passenger).size)
+        assertEquals(listOf("Вантажне"), garageVehicles(GarageFilter.Cargo).map { it.category }.distinct())
+        assertEquals(listOf("Спецтехніка"), garageVehicles(GarageFilter.Special).map { it.category }.distinct())
+        assertEquals(4, garageVehicles(GarageFilter.All).map { it.id }.distinct().size)
+        assertTrue(garageVehicles(GarageFilter.All).all { it.specification.contains("не задані") || it.id == demoVehicle.id })
     }
 
     @Test
-    fun explicitGarageSelectionOnlyInvalidatesPreviewWhenProfileChanges() {
-        val repeatedSelection = selectGarageVehicle("Легкове", demoVehicle)
+    fun explicitGarageSelectionInvalidatesPreviewWhenVehicleChangesEvenWithinCategory() {
+        val repeatedSelection = selectGarageVehicle(demoVehicle.id, demoVehicle)
+        assertEquals(demoVehicle.id, repeatedSelection.vehicleId)
         assertEquals("Легкове", repeatedSelection.vehicleClass)
         assertFalse(repeatedSelection.changed)
 
-        val changedSelection = selectGarageVehicle("Вантажне", demoVehicle)
-        assertEquals("Легкове", changedSelection.vehicleClass)
+        val secondPassengerVehicle = garageVehicles(GarageFilter.Passenger).last()
+        val changedPassenger = selectGarageVehicle(demoVehicle.id, secondPassengerVehicle)
+        assertEquals("Легкове", changedPassenger.vehicleClass)
+        assertEquals(secondPassengerVehicle.id, changedPassenger.vehicleId)
+        assertTrue(changedPassenger.changed)
+
+        val changedSelection = selectGarageVehicle(demoVehicle.id, demoVehicleForClass("Вантажне")!!)
+        assertEquals("Вантажне", changedSelection.vehicleClass)
         assertTrue(changedSelection.changed)
     }
 
     @Test
-    fun garageHasNoFakeVehiclesOrConnectedCatalogContract() {
-        assertEquals(listOf(demoVehicle), garageVehicles(GarageFilter.All))
-        val emptyCargo = garageVehicles(GarageFilter.Cargo)
-        val emptySpecial = garageVehicles(GarageFilter.Special)
-        assertTrue(emptyCargo.isEmpty())
-        assertTrue(emptySpecial.isEmpty())
+    fun garageProfilesStayExplicitlyDemoAndRealVehicleActionsRemainUnavailable() {
+        assertEquals(4, garageVehicles(GarageFilter.All).size)
         assertTrue(demoVehicle.name == "Ford Mustang GT")
+        assertTrue(garageVehicles(GarageFilter.All).all { it.name.contains("демо") || it.id == demoVehicle.id })
         assertTrue(garageAddUnavailableExplanation.contains("не підключено"))
         assertTrue(garageEditUnavailableExplanation.contains("не підключені"))
         assertTrue(garageCorporateUnavailableExplanation.contains("не підключено"))
@@ -210,10 +217,10 @@ class ProfileSettingsTest {
     }
 
     @Test
-    fun vehicleDetailsUseTheSameUnmodifiedDemoProfileAsGarageAndMap() {
-        val garageVehicle = garageVehicles(GarageFilter.All).single()
+    fun vehicleDetailsUseTheSameSelectedProfileAsGarageAndMap() {
+        val garageVehicle = garageVehicles(GarageFilter.All).first()
         val mapVehicle = demoVehicleForClass("Легкове")
-        val detailsVehicle = demoVehicle
+        val detailsVehicle = assertNotNull(demoVehicleById(garageVehicle.id))
 
         assertSame(garageVehicle, detailsVehicle)
         assertSame(mapVehicle, detailsVehicle)

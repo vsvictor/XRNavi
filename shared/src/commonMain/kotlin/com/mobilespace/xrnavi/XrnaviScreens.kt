@@ -613,6 +613,7 @@ internal fun MapScreen(
     geoStatus: GeoStatus,
     notice: String,
     vehicleClass: String,
+    selectedVehicle: DemoVehicleProfile?,
     vehicleMode: String,
     onVehicleClassChange: (String) -> Unit,
     onOpenSearch: (SearchTarget) -> Unit,
@@ -784,6 +785,7 @@ internal fun MapScreen(
                     level = sheetLevel,
                     showInlineAttribution = showInlineAttribution,
                     vehicleClass = vehicleClass,
+                    selectedVehicle = selectedVehicle,
                     onVehicleClassChange = onVehicleClassChange,
                     sheetHeightDp = sheetHeightDp,
                     scrollConnection = scrollConnection,
@@ -1184,6 +1186,7 @@ private fun RouteBottomSheet(
     level: SheetLevel,
     showInlineAttribution: Boolean,
     vehicleClass: String,
+    selectedVehicle: DemoVehicleProfile?,
     onVehicleClassChange: (String) -> Unit,
     sheetHeightDp: Dp,
     scrollConnection: NestedScrollConnection,
@@ -1321,7 +1324,9 @@ private fun RouteBottomSheet(
                         }
                         if (level != SheetLevel.Collapsed) {
                             if (demoVehicleForClass(vehicleClass) != null) {
-                                VehicleSummaryCard()
+                                if (selectedVehicle != null) {
+                                    VehicleSummaryCard(selectedVehicle)
+                                }
                             }
                             VehicleClassSelector(
                                 selected = vehicleClass,
@@ -1356,7 +1361,9 @@ private fun RouteBottomSheet(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    "Mustang GT",
+                                    selectedVehicle?.name ?: "Транспорт",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1377,7 +1384,9 @@ private fun RouteBottomSheet(
                             StatusCard(title = "Стан маршруту", message = notice)
                         }
                         if (vehicleClassUnavailableMessage(vehicleClass) == null) {
-                            VehicleSummaryCard()
+                            if (selectedVehicle != null) {
+                                VehicleSummaryCard(selectedVehicle)
+                            }
                         } else {
                             StatusCard(
                                 title = "Профіль транспорту недоступний",
@@ -1449,8 +1458,7 @@ private fun RouteBottomSheet(
 }
 
 @Composable
-private fun VehicleSummaryCard() {
-    val dark = isDarkXrnaviTheme()
+private fun VehicleSummaryCard(vehicle: DemoVehicleProfile) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1458,12 +1466,10 @@ private fun VehicleSummaryCard() {
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Image(
-            painter = painterResource(
-                if (dark) Res.drawable.mustang_thumbnail_dark else Res.drawable.mustang_thumbnail_light
-            ),
-            contentDescription = "Демонстраційне фото Ford Mustang GT",
-            contentScale = ContentScale.Crop,
+        DemoVehicleImage(
+            vehicle = vehicle,
+            contentDescription = "Демонстраційне зображення ${vehicle.name}",
+            thumbnail = true,
             modifier = Modifier
                 .size(width = 94.dp, height = 64.dp)
                 .clip(RoundedCornerShape(8.dp))
@@ -1475,14 +1481,14 @@ private fun VehicleSummaryCard() {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                demoVehicle.name,
+                vehicle.name,
                 fontWeight = FontWeight.Bold,
                 fontSize = 21.sp,
                 lineHeight = 25.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                demoVehicle.specification,
+                vehicle.specification,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1669,6 +1675,7 @@ internal fun SearchScreen(
     origin: String,
     destination: String,
     vehicleClass: String,
+    selectedVehicle: DemoVehicleProfile?,
     target: SearchTarget,
     query: String,
     status: SearchStatus,
@@ -1823,6 +1830,7 @@ internal fun SearchScreen(
             SearchMapPicker(onClick = onPickMap)
             SearchVehicleCard(
                 vehicleClass = vehicleClass,
+                vehicle = selectedVehicle,
                 mode = vehicleMode,
                 onModeChange = onVehicleModeChange
             )
@@ -2150,24 +2158,22 @@ private fun SearchMapPicker(onClick: () -> Unit) {
 @Composable
 private fun SearchVehicleCard(
     vehicleClass: String,
+    vehicle: DemoVehicleProfile?,
     mode: String,
     onModeChange: (String) -> Unit
 ) {
-    val dark = isDarkXrnaviTheme()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (vehicleClassUnavailableMessage(vehicleClass) == null) Row(
+        if (vehicleClassUnavailableMessage(vehicleClass) == null && vehicle != null) Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 68.dp)
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = painterResource(
-                    if (dark) Res.drawable.mustang_thumbnail_dark else Res.drawable.mustang_thumbnail_light
-                ),
-                contentDescription = "Демонстраційне фото Ford Mustang GT",
-                contentScale = ContentScale.Crop,
+            DemoVehicleImage(
+                vehicle = vehicle,
+                contentDescription = "Демонстраційне зображення ${vehicle.name}",
+                thumbnail = true,
                 modifier = Modifier
                     .size(width = 94.dp, height = 64.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -2179,7 +2185,7 @@ private fun SearchVehicleCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    demoVehicle.name,
+                    vehicle.name,
                     fontWeight = FontWeight.Bold,
                     fontSize = 21.sp,
                     color = MaterialTheme.colorScheme.onSurface,

@@ -18,28 +18,30 @@ internal enum class GarageFilter(val label: String) {
 }
 
 internal fun garageVehicles(filter: GarageFilter): List<DemoVehicleProfile> =
-    listOf(demoVehicle).filter { vehicle ->
+    demoVehicles.filter { vehicle ->
         filter == GarageFilter.All || vehicle.category == filter.label
     }
 
 internal data class GarageVehicleSelection(
+    val vehicleId: String,
     val vehicleClass: String,
     val changed: Boolean
 )
 
 internal fun selectGarageVehicle(
-    currentVehicleClass: String,
+    currentVehicleId: String,
     vehicle: DemoVehicleProfile
 ): GarageVehicleSelection = GarageVehicleSelection(
+    vehicleId = vehicle.id,
     vehicleClass = vehicle.category,
-    changed = currentVehicleClass != vehicle.category
+    changed = currentVehicleId != vehicle.id
 )
 
 internal const val garageAddUnavailableExplanation =
-    "Додавання транспорту не підключено. Доступний лише наявний демопрофіль Ford Mustang GT; онлайн-каталог, VIN-перевірка й реєстрація права власності відсутні."
+    "Додавання реального транспорту не підключено. У гаражі показані лише локальні демонстраційні профілі; онлайн-каталог, VIN-перевірка й реєстрація права власності відсутні."
 
 internal const val garageEditUnavailableExplanation =
-    "Редагування й перевірка характеристик не підключені. Ford Mustang GT — наявний демопрофіль; право власності не підтверджувалося."
+    "Редагування й перевірка характеристик не підключені. Параметри локальних демопрофілів не підтверджені; право власності не перевірялося."
 
 internal const val garageCorporateUnavailableExplanation =
     "Корпоративний транспорт не підключено. Автопарк або членство в організації не перевірялися."
@@ -95,14 +97,19 @@ internal data class DemoSectionNavigation(
     }
 }
 
-internal data class DemoProfileState(val vehicleClass: String, val vehicleMode: String) {
+internal data class DemoProfileState(
+    val vehicleClass: String,
+    val vehicleMode: String,
+    val vehicleId: String = demoVehicleForClass(vehicleClass)?.id ?: demoVehicle.id
+) {
     val title = "Демо-профіль"
     val identity = "Без авторизації"
     val accountDetails = "Ім’я та пошту не отримано. Акаунт і підтвердження пошти відсутні."
     val organization = "Корпоративне членство не підключено. Організацію й роль не підтверджено."
     val statisticsExplanation =
         "Історія поїздок і статистика відсутні; серверні дані не отримувалися."
-    val selectedVehicle: DemoVehicleProfile? get() = demoVehicleForClass(vehicleClass)
+    val selectedVehicle: DemoVehicleProfile? get() =
+        demoVehicleById(vehicleId)?.takeIf { it.category == vehicleClass }
 }
 
 internal data class UnavailableSetting(val title: String, val explanation: String) {

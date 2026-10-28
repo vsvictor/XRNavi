@@ -1,14 +1,13 @@
 package com.mobilespace.xrnavi
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Rect
 import android.os.Build
 import android.view.KeyEvent
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.InputDevice
-import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -18,6 +17,8 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.FileInputStream
+import kotlin.math.roundToInt
 
 @RunWith(AndroidJUnit4::class)
 class ProfileSettingsRuntimeTest {
@@ -32,9 +33,15 @@ class ProfileSettingsRuntimeTest {
             context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ).orEmpty()
         assumeTrue("Ordinary touch test must run separately from screen readers", readers.isEmpty())
-        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        val scenario = launchFreshApp()
         try {
             tap("Продовжити без входу · деморежим")
+            tap("Вибрати початкову точку")
+            tap("площа Ринок, 1")
+            tap("Знайти адресу")
+            tap("площа Ринок, 10")
+            capture("cargo-before-preview")
+            tap("Переглянути маршрут")
             tap("Гараж")
             waitFor("Garage profile card") { find("Ford Mustang GT") != null }
             tap("Переглянути профіль Ford Mustang GT")
@@ -49,6 +56,92 @@ class ProfileSettingsRuntimeTest {
             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             waitFor("Garage after system Back") { find("Мій гараж") != null }
             assertNotNull(find("Обрано для демомаршруту"))
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun explicitCargoSelectionUpdatesTheMapProfileWithoutStartingNavigation() {
+        val readers = Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        assumeTrue("Ordinary touch test must run separately from screen readers", readers.isEmpty())
+        val scenario = launchFreshApp()
+        try {
+            tap("Продовжити без входу · деморежим")
+            tap("Гараж")
+            waitFor("Garage demo profiles") { find("Доступні демопрофілі") != null }
+            listOf(
+                "Ford Mustang GT",
+                "Легковий автомобіль · демо 02",
+                "Вантажний транспорт · демо 01",
+                "Спецтехніка · демо 01"
+            ).forEach {
+                reveal(it)
+                assertNotNull("All four Garage profiles must be listed: $it", find(it))
+            }
+            scrollTop()
+            tap("Спецтехніка")
+            waitFor("special category profile remains available") {
+                find("Обрати Спецтехніка · демо 01") != null &&
+                    find("ДОСТУПНИЙ ДЕМОПРОФІЛЬ") != null
+            }
+            assertNull("Filtering must not select the special profile", find("Обрано для демомаршруту"))
+            tap("Легкове")
+            waitFor("passenger category") { find("Легкове транспорт") != null }
+            if (find("Обрати Ford Mustang GT") != null) {
+                tap("Обрати Ford Mustang GT")
+                waitFor("Map after establishing the Mustang baseline") {
+                    find("Вибрати початкову точку") != null
+                }
+                tap("Гараж")
+                waitFor("Garage after establishing the Mustang baseline") {
+                    find("Легкове транспорт") != null
+                }
+            }
+            assertNotNull("Test precondition must select the Mustang", find("ОБРАНО ДЛЯ ДЕМОМАРШРУТУ"))
+            tap("Вантажне")
+            waitFor("cargo category heading") { find("Вантажне транспорт") != null }
+            waitFor("Cargo profile remains available without becoming selected") {
+                find("Обрати Вантажний транспорт · демо 01") != null &&
+                    find("ДОСТУПНИЙ ДЕМОПРОФІЛЬ") != null
+            }
+            assertNotNull(
+                "Cargo filter must show an available profile",
+                find("Вантажний транспорт · демо 01 · доступний демопрофіль")
+            )
+            assertNull("Filtering must not select the cargo profile", find("Обрано для демомаршруту"))
+            val cargoFilterNodes = nodes().filter {
+                it.text?.toString() == "Вантажне"
+            }
+            assertTrue(
+                "Cargo filter must be selected: " + cargoFilterNodes.joinToString {
+                    "text=${it.text}, desc=${it.contentDescription}, selected=${it.isSelected}, " +
+                        "checked=${it.isChecked}, state=${it.stateDescription}, clickable=${it.isClickable}"
+                },
+                cargoFilterNodes.any { it.isSelected || it.stateDescription == "Вибрано" }
+            )
+            waitFor("cargo demo vehicle") { find("Вантажний транспорт · демо 01") != null }
+            tap("Обрати Вантажний транспорт · демо 01")
+            waitFor("Map after explicit cargo selection") {
+                find("Вибрати початкову точку") != null
+            }
+            assertNull(find("Почати маршрут"))
+
+            tap("Вибрати початкову точку")
+            tap("площа Ринок, 1")
+            tap("Знайти адресу")
+            tap("площа Ринок, 10")
+            tap("Переглянути маршрут")
+            waitFor("cargo route preview") { find("Почати маршрут") != null }
+            assertNotNull(find("Вантажний транспорт · демо 01"))
+            tap("Почати маршрут")
+            waitFor("honest demo navigation warning") {
+                find("Маршрут і навігацію не підключено") != null
+            }
+            assertNull(find("Навігацію запущено"))
+            capture("garage-cargo-demo-preview-warning")
         } finally {
             scenario.close()
         }
@@ -70,7 +163,7 @@ class ProfileSettingsRuntimeTest {
                 "Rotation: requested by test Activity only; system rotation settings unchanged\n" +
                 "Portrait-only run: $portraitOnly\n"
         )
-        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        val scenario = launchFreshApp()
         try {
             tap("Продовжити без входу · деморежим")
             for ((stored, label) in listOf("Light" to "Світла", "Dark" to "Темна")) {
@@ -97,17 +190,19 @@ class ProfileSettingsRuntimeTest {
                     assertNotNull(find("Демо-профіль"))
                     assertNull(find("Пошту підтверджено"))
                     capture("S08-$suffix-$stored")
-                    tap("Керувати гаражем · не підключено")
-                    waitFor("garage explanation") {
-                        find("Повний гараж і редагування автомобілів не підключено.") != null
+                    tap("Керувати гаражем")
+                    waitFor("garage from profile") { find("Мій гараж") != null }
+                    tap("Переглянути профіль Ford Mustang GT")
+                    waitFor("S11 vehicle profile from garage") {
+                        find("Профіль автомобіля") != null
                     }
-                    tap("Зрозуміло")
-                    tap("Деталі демоавто · не підключено")
-                    waitFor("car detail explanation") {
-                        find("Деталі авто й редагування не підключено.") != null
-                    }
-                    capture("details-$suffix-$stored")
-                    tap("Зрозуміло")
+                    assertNotNull(find("Ford Mustang GT"))
+                    assertNotNull(find("Категорія: Легкове"))
+                    assertNotNull(find("Легковий · 1,4 м · 1,8 т"))
+                    capture("S11-$suffix-$stored")
+                    instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+                    waitFor("garage after S11") { find("Мій гараж") != null }
+                    tap("Назад до попереднього розділу")
                     reveal("Історія поїздок і статистика відсутні; серверні дані не отримувалися.")
                     capture("disclosure-$suffix-$stored")
                     tap("Налаштування")
@@ -152,10 +247,18 @@ class ProfileSettingsRuntimeTest {
         tap("Зрозуміло")
     }
 
+    private fun launchFreshApp(): ActivityScenario<MainActivity> = ActivityScenario.launch(
+        Intent(context, MainActivity::class.java).addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        )
+    )
+
     private fun nodes(): List<AccessibilityNodeInfo> {
         val root = automation.rootInActiveWindow ?: return emptyList()
+        root.refresh()
         val result = mutableListOf<AccessibilityNodeInfo>()
         fun visit(node: AccessibilityNodeInfo) {
+            node.refresh()
             result += node
             for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
         }
@@ -178,25 +281,24 @@ class ProfileSettingsRuntimeTest {
 
     private fun tap(text: String) {
         reveal(text)
+        val matched = requireNotNull(find(text))
+        var target = matched
+        while (!target.isClickable && target.parent != null) {
+            target = target.parent
+        }
         val bounds = Rect()
         var stableFrames = 0
         waitFor("stable target bounds: $text") {
             val current = Rect()
-            find(text)?.getBoundsInScreen(current)
+            target.getBoundsInScreen(current)
             stableFrames = if (current == bounds && !current.isEmpty) stableFrames + 1 else 0
             bounds.set(current)
-            stableFrames >= 2
+            stableFrames >= 5
         }
         assertFalse("Nonempty target bounds: $text", bounds.isEmpty)
-        val now = SystemClock.uptimeMillis()
-        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
-            val event = MotionEvent.obtain(
-                now, SystemClock.uptimeMillis(), action, bounds.exactCenterX(), bounds.exactCenterY(), 0
-            ).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-            assertTrue("Touch injection failed: $text", automation.injectInputEvent(event, true))
-            event.recycle()
-            if (action == MotionEvent.ACTION_DOWN) SystemClock.sleep(60)
-        }
+        injectShellInput(
+            "input tap ${bounds.exactCenterX().roundToInt()} ${bounds.exactCenterY().roundToInt()}"
+        )
         instrumentation.waitForIdleSync()
         automation.waitForIdle(300, 5_000)
     }
@@ -223,22 +325,15 @@ class ProfileSettingsRuntimeTest {
         val x = bounds.width() * 0.65f
         val start = bounds.height() * if (forward) 0.76f else 0.3f
         val end = bounds.height() * if (forward) 0.3f else 0.76f
-        val downTime = SystemClock.uptimeMillis()
-        for (step in 0..20) {
-            val action = when (step) {
-                0 -> MotionEvent.ACTION_DOWN
-                20 -> MotionEvent.ACTION_UP
-                else -> MotionEvent.ACTION_MOVE
-            }
-            val event = MotionEvent.obtain(
-                downTime, SystemClock.uptimeMillis(), action,
-                x, start + (end - start) * step / 20f, 0
-            ).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-            assertTrue("Scroll touch injection failed", automation.injectInputEvent(event, true))
-            event.recycle()
-            SystemClock.sleep(20)
-        }
+        injectShellInput(
+            "input swipe ${x.roundToInt()} ${start.roundToInt()} ${x.roundToInt()} ${end.roundToInt()} 420"
+        )
         automation.waitForIdle(300, 5_000)
+    }
+
+    private fun injectShellInput(command: String) {
+        val descriptor = automation.executeShellCommand(command)
+        FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText() }
     }
 
     private fun waitFor(description: String, predicate: () -> Boolean) {
@@ -247,7 +342,14 @@ class ProfileSettingsRuntimeTest {
             if (predicate()) return
             SystemClock.sleep(100)
         }
-        fail("Timed out waiting for $description")
+        fail(
+            "Timed out waiting for $description\n" +
+                nodes().joinToString("\n") {
+                    val bounds = Rect().also(it::getBoundsInScreen)
+                    "${it.text ?: it.contentDescription} | visible=${it.isVisibleToUser} " +
+                        "clickable=${it.isClickable} selected=${it.isSelected} bounds=$bounds"
+                }
+        )
     }
 
     private fun capture(name: String) {

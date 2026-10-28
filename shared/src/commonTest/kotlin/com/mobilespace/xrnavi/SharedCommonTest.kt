@@ -2,6 +2,7 @@ package com.mobilespace.xrnavi
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SharedCommonTest {
@@ -78,8 +79,9 @@ class SharedCommonTest {
     @Test
     fun categoriesDoNotSilentlySelectAnotherVehicle() {
         assertEquals(demoVehicle, demoVehicleForClass("Легкове"))
-        assertEquals(null, demoVehicleForClass("Вантажне"))
-        assertEquals(null, demoVehicleForClass("Спецтехніка"))
+        assertEquals("Вантажне", demoVehicleForClass("Вантажне")?.category)
+        assertEquals("Спецтехніка", demoVehicleForClass("Спецтехніка")?.category)
+        assertNull(demoVehicleForClass("Невідома категорія"))
         assertEquals(demoVehicle, demoVehicleForClass("Легкове"))
         assertEquals("Легковий · 1,4 м · 1,8 т", demoVehicle.specification)
     }
@@ -95,7 +97,7 @@ class SharedCommonTest {
                 ?.contains("початкову та кінцеву точки") == true
         )
         assertTrue(
-            routePreviewBlockMessage("Хрещатик, 22", "площа Ринок, 1", "Вантажне")
+            routePreviewBlockMessage("Хрещатик, 22", "площа Ринок, 1", "Невідома категорія")
                 ?.contains("не налаштовано") == true
         )
         assertEquals(
@@ -105,10 +107,11 @@ class SharedCommonTest {
     }
 
     @Test
-    fun unavailableVehicleClassDoesNotClaimMustangAsSelected() {
+    fun availableVehicleClassesHaveProfilesAndUnknownClassesRemainUnavailable() {
         assertEquals(null, vehicleClassUnavailableMessage("Легкове"))
-        assertTrue(vehicleClassUnavailableMessage("Вантажне")!!.contains("не вибраний"))
-        assertTrue(vehicleClassUnavailableMessage("Спецтехніка")!!.contains("не налаштовано"))
+        assertEquals(null, vehicleClassUnavailableMessage("Вантажне"))
+        assertEquals(null, vehicleClassUnavailableMessage("Спецтехніка"))
+        assertTrue(vehicleClassUnavailableMessage("Невідома категорія")!!.contains("не налаштовано"))
     }
 
     @Test
