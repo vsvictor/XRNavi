@@ -53,12 +53,10 @@ final class ProfileSettingsUITests: XCTestCase {
                     tap("Профіль")
                     XCTAssertTrue(find("Демо-профіль").exists)
                     screenshot("profile-\(suffix)-\(mode)")
-                    tap("Керувати гаражем · не підключено")
-                    screenshot("after-garage-tap-\(suffix)-\(mode)")
-                    assertGarageDialog()
-                    screenshot("garage-unavailable-\(suffix)-\(mode)")
-                    attachText(app.debugDescription, name: "garage-dialog-tree-\(suffix)-\(mode)")
-                    tap("Зрозуміло")
+                    tap("Керувати гаражем")
+                    assertGarageScreen()
+                    screenshot("garage-from-profile-\(suffix)-\(mode)")
+                    tap("Назад до попереднього розділу")
                     tap("Налаштування")
                 }
 
@@ -84,12 +82,12 @@ final class ProfileSettingsUITests: XCTestCase {
                 tap("Профіль")
                 let suffix = "\(mode)-\(orientation == .landscapeLeft ? "left" : "right")"
                 screenshot("garage-scroll-before-\(suffix)")
-                tap("Керувати гаражем · не підключено")
-                assertGarageDialog()
-                screenshot("garage-scroll-dialog-\(suffix)")
-                tap("Зрозуміло")
+                tap("Керувати гаражем")
+                assertGarageScreen()
+                screenshot("garage-from-profile-\(suffix)")
+                tap("Назад до попереднього розділу")
                 let content = app.descendants(matching: .any)["demo-account-content"]
-                let garage = find("Керувати гаражем · не підключено")
+                let garage = find("Керувати гаражем")
                 XCTAssertTrue(garage.isHittable)
                 XCTAssertTrue(content.frame.contains(garage.frame), app.debugDescription)
                 screenshot("garage-scroll-revealed-\(suffix)")
@@ -154,10 +152,9 @@ final class ProfileSettingsUITests: XCTestCase {
                 }
                 screenshot("figma-S08-\(suffix)")
                 attachText(app.debugDescription, name: "figma-S08-tree-\(suffix)")
-                tap("Деталі демоавто · не підключено")
-                XCTAssertTrue(find("Можливість не підключено").waitForExistence(timeout: 3))
-                XCTAssertTrue(find("Деталі авто й редагування не підключено. Ford Mustang GT: Легковий · 1,4 м · 1,8 т. Це демонстраційний профіль, не підтверджене володіння.").exists)
-                tap("Зрозуміло")
+                tap("Переглянути профіль Ford Mustang GT")
+                assertVehicleProfileDetails()
+                tap("Назад до попереднього розділу")
                 reveal("Історія поїздок і статистика відсутні; серверні дані не отримувалися.")
                 XCTAssertTrue(find("Ім’я та пошту не отримано. Акаунт і підтвердження пошти відсутні.").exists)
                 tap("Налаштування")
@@ -179,30 +176,125 @@ final class ProfileSettingsUITests: XCTestCase {
         XCTAssertEqual(content.maxX - second.maxX, 24, accuracy: 1)
     }
 
-    func testGarageDialogRotationAndDismissal() {
+    func testGarageNavigationEmptyCategoriesAndHonestUnavailableActions() {
         tap("Продовжити без входу · деморежим")
-        tap("Профіль")
-        tap("Керувати гаражем · не підключено")
-        assertGarageDialog()
-        find("Повний гараж і редагування автомобілів не підключено. Наявний лише легковий демопрофіль Ford Mustang GT.")
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        assertGarageDialog()
+        tap("Гараж")
+        assertGarageScreen()
+        tap("Вантажне")
+        XCTAssertTrue(find("Немає сумісних демопрофілів").exists, app.debugDescription)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["garage-profile-card"].isHittable,
+            app.debugDescription
+        )
         for orientation in [UIDeviceOrientation.landscapeLeft, .portrait, .landscapeRight] {
             rotate(orientation)
-            assertGarageDialog()
-            screenshot("open-dialog-rotation-\(orientation.rawValue)")
-            attachText(app.debugDescription, name: "open-dialog-rotation-tree-\(orientation.rawValue)")
+            XCTAssertTrue(find("Немає сумісних демопрофілів").exists, app.debugDescription)
+            screenshot("garage-empty-category-rotation-\(orientation.rawValue)")
         }
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
-        let dismissed = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: app.buttons["Зрозуміло"]
-        )
-        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 3), .completed, app.debugDescription)
-        tap("Керувати гаражем · не підключено")
-        assertGarageDialog()
+        tap("Усі")
+        assertGarageScreen()
+        tap("Додати транспорт · не підключено")
+        XCTAssertTrue(find("Можливість не підключено").waitForExistence(timeout: 3))
+        XCTAssertTrue(find("Додавання транспорту не підключено").exists)
         tap("Зрозуміло")
+        tap("Назад до попереднього розділу")
+        XCTAssertTrue(find("Панель маршруту").exists, app.debugDescription)
+
+        tap("Профіль")
+        tap("Керувати гаражем")
+        assertGarageScreen()
+        tap("Назад до попереднього розділу")
+        scrollTop()
+        attachText(app.debugDescription, name: "profile-return-from-garage-tree")
+        screenshot("profile-return-from-garage")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["profile-identity"].exists,
+            app.debugDescription
+        )
         rotate(.portrait)
+    }
+
+    func testGarageFilterSelectionAndMapPreviewAreIndependent() {
+        tap("Продовжити без входу · деморежим")
+        tap("Вибрати початкову точку")
+        result("площа Ринок, 1").tap()
+        tap("Знайти адресу")
+        result("площа Ринок, 10").tap()
+        tap("Переглянути маршрут")
+        let panel = find("Панель маршруту")
+        XCTAssertTrue(find("Почати маршрут").exists)
+
+        tap("Гараж")
+        tap("Вантажне")
+        XCTAssertTrue(find("Немає сумісних демопрофілів").exists)
+        tap("Назад до попереднього розділу")
+        XCTAssertTrue(find("площа Ринок, 1").exists)
+        XCTAssertTrue(find("площа Ринок, 10").exists)
+        XCTAssertTrue(find("Почати маршрут").exists)
+
+        tap("Гараж")
+        tap("Усі")
+        XCTAssertTrue(find("Обрано для демомаршруту").exists)
+        XCTAssertFalse(app.buttons["Обрано для демомаршруту"].isEnabled)
+        tap("Назад до попереднього розділу")
+        XCTAssertEqual(panel.value as? String, "Розгорнута")
+        XCTAssertTrue(find("Почати маршрут").exists)
+
+        tap("Вантажне")
+        XCTAssertFalse(find("Почати маршрут").exists)
+        tap("Гараж")
+        tap("Усі")
+        XCTAssertTrue(find("Обрати Ford Mustang GT").isEnabled)
+        tap("Обрати Ford Mustang GT")
+        XCTAssertTrue(find("Переглянути маршрут").exists)
+        XCTAssertTrue(find("площа Ринок, 1").exists)
+        XCTAssertTrue(find("площа Ринок, 10").exists)
+        XCTAssertTrue(find("Обрано наявний демопрофіль Ford Mustang GT").exists)
+    }
+
+    func testVehicleProfileReadOnlyReturnPreservesGarageAndMapPreview() {
+        tap("Продовжити без входу · деморежим")
+        tap("Вибрати початкову точку")
+        result("площа Ринок, 1").tap()
+        tap("Знайти адресу")
+        result("площа Ринок, 10").tap()
+        tap("Переглянути маршрут")
+        let panel = find("Панель маршруту")
+        for _ in 0..<3 {
+            if panel.value as? String == "Розгорнута" { break }
+            panel.tap()
+        }
+        XCTAssertEqual(panel.value as? String, "Розгорнута", app.debugDescription)
+        let originalPanelState = panel.value as? String
+
+        tap("Гараж")
+        tap("Легкове")
+        XCTAssertTrue(find("Обрано для демомаршруту").exists)
+        tap("Переглянути профіль")
+        assertVehicleProfileDetails()
+        XCTAssertFalse(find("Зберегти").exists)
+        XCTAssertFalse(find("Редагувати").exists)
+        XCTAssertFalse(find("Запросити диспетчера").exists)
+        screenshot("s11-garage-vehicle-profile")
+
+        tap("Назад до попереднього розділу")
+        XCTAssertTrue(find("Мій гараж").exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["garage-filter-Passenger"].isSelected,
+            app.debugDescription
+        )
+        XCTAssertTrue(find("Обрано для демомаршруту").exists)
+
+        tap("Переглянути профіль")
+        assertVehicleProfileDetails()
+        tap("Назад до попереднього розділу")
+        tap("Мапа")
+        XCTAssertTrue(find("площа Ринок, 1").exists)
+        XCTAssertTrue(find("площа Ринок, 10").exists)
+        XCTAssertTrue(find("Почати маршрут").exists)
+        XCTAssertEqual(panel.value as? String, originalPanelState, app.debugDescription)
+        XCTAssertTrue(find("Демо · Особистий").exists)
+        screenshot("s11-map-preview-preserved")
     }
 
     func testMapPreviewAndPanelSurviveProfileSettings() {
@@ -276,16 +368,23 @@ final class ProfileSettingsUITests: XCTestCase {
         XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5))
     }
 
-    private func assertGarageDialog() {
-        let message = "Повний гараж і редагування автомобілів не підключено. Наявний лише легковий демопрофіль Ford Mustang GT."
+    private func assertGarageScreen() {
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            let body = self.find(message)
-            let button = self.app.buttons["Зрозуміло"]
-            return body.exists && body.frame.height > 0 &&
-                self.app.windows.firstMatch.frame.contains(body.frame) &&
-                button.exists && button.isHittable && button.frame.height > 0
+            let title = self.find("Мій гараж")
+            let card = self.find("Ford Mustang GT")
+            return title.exists && title.frame.height > 0 &&
+                card.exists && card.frame.height > 0
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed, app.debugDescription)
+    }
+
+    private func assertVehicleProfileDetails() {
+        XCTAssertTrue(find("Профіль автомобіля").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(find("Ford Mustang GT").exists, app.debugDescription)
+        XCTAssertTrue(find("Особистий демопрофіль · не підтверджено зовнішнім сервісом").exists)
+        XCTAssertTrue(find("Категорія: Легкове").exists, app.debugDescription)
+        XCTAssertTrue(find("Легковий · 1,4 м · 1,8 т").exists, app.debugDescription)
+        XCTAssertTrue(find("не визначає 1,8 т як максимальну допустиму масу").exists)
     }
 
     private func find(_ text: String) -> XCUIElement {

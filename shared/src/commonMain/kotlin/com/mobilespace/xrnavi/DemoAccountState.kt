@@ -3,8 +3,46 @@ package com.mobilespace.xrnavi
 import androidx.compose.runtime.saveable.listSaver
 
 internal enum class DemoSection(val label: String) {
-    Map("Мапа"), Settings("Налаштування"), Profile("Профіль")
+    Map("Мапа"),
+    Garage("Гараж"),
+    VehicleDetails("Профіль автомобіля"),
+    Settings("Налаштування"),
+    Profile("Профіль")
 }
+
+internal enum class GarageFilter(val label: String) {
+    All("Усі"),
+    Passenger("Легкове"),
+    Cargo("Вантажне"),
+    Special("Спецтехніка")
+}
+
+internal fun garageVehicles(filter: GarageFilter): List<DemoVehicleProfile> =
+    listOf(demoVehicle).filter { vehicle ->
+        filter == GarageFilter.All || vehicle.category == filter.label
+    }
+
+internal data class GarageVehicleSelection(
+    val vehicleClass: String,
+    val changed: Boolean
+)
+
+internal fun selectGarageVehicle(
+    currentVehicleClass: String,
+    vehicle: DemoVehicleProfile
+): GarageVehicleSelection = GarageVehicleSelection(
+    vehicleClass = vehicle.category,
+    changed = currentVehicleClass != vehicle.category
+)
+
+internal const val garageAddUnavailableExplanation =
+    "Додавання транспорту не підключено. Доступний лише наявний демопрофіль Ford Mustang GT; онлайн-каталог, VIN-перевірка й реєстрація права власності відсутні."
+
+internal const val garageEditUnavailableExplanation =
+    "Редагування й перевірка характеристик не підключені. Ford Mustang GT — наявний демопрофіль; право власності не підтверджувалося."
+
+internal const val garageCorporateUnavailableExplanation =
+    "Корпоративний транспорт не підключено. Автопарк або членство в організації не перевірялися."
 
 internal enum class AccountLayout {
     PhonePortrait, PhoneLandscape, TabletPortrait, TabletLandscape;
@@ -27,21 +65,31 @@ internal enum class AccountLayout {
 
 internal data class DemoSectionNavigation(
     val section: DemoSection = DemoSection.Map,
-    val backTarget: DemoSection = DemoSection.Map
+    val backStack: List<DemoSection> = emptyList()
 ) {
-    fun open(next: DemoSection) = if (next == section) this else DemoSectionNavigation(
-        section = next,
-        backTarget = if (section == DemoSection.Profile && next == DemoSection.Settings)
-            DemoSection.Profile else DemoSection.Map
-    )
+    fun open(next: DemoSection): DemoSectionNavigation {
+        if (next == section) return this
+        if (next == DemoSection.Map) return DemoSectionNavigation()
+        if (section == DemoSection.VehicleDetails) {
+            val parent = back()
+            return if (next == parent.section) parent else parent.open(next)
+        }
+        return copy(section = next, backStack = backStack + section)
+    }
 
-    fun back() = DemoSectionNavigation(section = backTarget)
+    fun back(): DemoSectionNavigation = if (backStack.isEmpty()) this else copy(
+        section = backStack.last(),
+        backStack = backStack.dropLast(1)
+    )
 
     companion object {
         val Saver = listSaver<DemoSectionNavigation, String>(
-            save = { listOf(it.section.name, it.backTarget.name) },
+            save = { state -> listOf(state.section.name) + state.backStack.map { it.name } },
             restore = {
-                DemoSectionNavigation(DemoSection.valueOf(it[0]), DemoSection.valueOf(it[1]))
+                DemoSectionNavigation(
+                    section = DemoSection.valueOf(it.first()),
+                    backStack = it.drop(1).map(DemoSection::valueOf)
+                )
             }
         )
     }

@@ -1580,20 +1580,18 @@ internal fun BottomNavigation(
         tabs.forEachIndexed { index, tab ->
             val section = when (index) {
                 0 -> DemoSection.Map
-                2 -> DemoSection.Settings
-                3 -> DemoSection.Profile
-                else -> null
-            }
+            1 -> DemoSection.Garage
+            2 -> DemoSection.Settings
+            3 -> DemoSection.Profile
+            else -> DemoSection.Map
+        }
             val active = section == selectedSection
             val tabModifier = itemModifier
                     .semantics {
                         selected = active
-                        if (section == null) contentDescription = "Гараж — не підключено"
-                        else if (rail && compactRail) contentDescription = tab.first
+                        if (rail && compactRail) contentDescription = tab.first
                     }
-                    .clickable(enabled = section != null, role = Role.Tab) {
-                        section?.let(onSectionChange)
-                    }
+                    .clickable(role = Role.Tab) { onSectionChange(section) }
                     .then(
                         if (accountStyle && (rail && !compactRail || horizontalLabels) && !active)
                             Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)

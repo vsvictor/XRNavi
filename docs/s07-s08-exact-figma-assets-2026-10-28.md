@@ -23,12 +23,12 @@ Both source URLs use a `.png` suffix, but the downloaded bytes are JPEG. The ori
 
 | App theme | Figma asset ID | Source nodes | Repository resource | SHA-256 |
 |---|---|---|---|---|
-| Light | `f5f233278c14275a51b2fb1cb465d4f999ff132e` | `302:310`, `302:340`, `302:398`, `302:452` | `shared/src/commonMain/composeResources/drawable/profile_mustang_hero_light.jpg` | `ecdf69851874a01c9fdeabf2fff760b2e81491de8918c8962ac4070fc444ba52` |
-| Dark | `f1bdea1d4c90f26ccaf537df6caa1d983ea744ab` | `302:134`, `302:164`, `302:222`, `302:276` | `shared/src/commonMain/composeResources/drawable/profile_mustang_hero_dark.jpg` | `79981d63c7f16dc30431211c152faf0a4b2ae15676079a8965f01b52f6d1cfca` |
+| Light | `f5f233278c14275a51b2fb1cb465d4f999ff132e` | `302:310`, `302:340`, `302:398`, `302:452` | [profile_mustang_hero_light.jpg](https://github.com/vsvictor/XRNavi/blob/30be278edb7538f219f95400c8513d109ad931bc/shared/src/commonMain/composeResources/drawable/profile_mustang_hero_light.jpg) | `ecdf69851874a01c9fdeabf2fff760b2e81491de8918c8962ac4070fc444ba52` |
+| Dark | `f1bdea1d4c90f26ccaf537df6caa1d983ea744ab` | `302:134`, `302:164`, `302:222`, `302:276` | [profile_mustang_hero_dark.jpg](https://github.com/vsvictor/XRNavi/blob/30be278edb7538f219f95400c8513d109ad931bc/shared/src/commonMain/composeResources/drawable/profile_mustang_hero_dark.jpg) | `79981d63c7f16dc30431211c152faf0a4b2ae15676079a8965f01b52f6d1cfca` |
 
 ## Exact icon vectors
 
-The path data is represented by common `ImageVector` builders, so no SVG runtime decoder is used. Light and dark source paths are geometrically identical except for Help, whose source vectors differ; both exact variants are retained. The source SVG digests below refer to the Figma exports used to construct the vectors.
+The path data is represented by common `ImageVector` builders in [`AccountIcon.kt`](https://github.com/vsvictor/XRNavi/blob/30be278edb7538f219f95400c8513d109ad931bc/shared/src/commonMain/kotlin/com/mobilespace/xrnavi/AccountIcon.kt), so no SVG runtime decoder is used. Light and dark source paths are geometrically identical except for Help, whose source vectors differ; both exact variants are retained. The source SVG digests below refer to the Figma exports used to construct the vectors.
 
 | Icon | Light node / SVG SHA-256 | Dark node / SVG SHA-256 | Viewport | Source colors |
 |---|---|---|---:|---|
@@ -47,13 +47,21 @@ The path data is represented by common `ImageVector` builders, so no SVG runtime
 
 Stroke-only vectors use the Figma path geometry and 1-unit round caps. Dark Help uses its source stroke width of 1.8; light Help preserves its filled, masked source geometry and clips it to its original circular mask. Chevron arrows in S07/S08 are now vectors instead of text glyphs. Existing text, click targets and accessibility descriptions remain on the same controls.
 
-The 24 original light/dark SVG exports are preserved under `docs/figma-assets/s07-s08/` using the icon names in the table (for example, `arrow-left.svg` and `dark-arrow-left.svg`). Their SHA-256 digests match the values above. A path-data check found all 25 SVG path records represented in `shared/src/commonMain/kotlin/com/mobilespace/xrnavi/AccountIcon.kt`; the app uses Compose `ImageVector` and does not decode SVG at runtime. The app-wide navigation rail icons remain the pre-existing PNG resources and are not represented by this set of verified vector exports.
+The 24 original light/dark SVG exports are preserved under [`docs/figma-assets/s07-s08/`](https://github.com/vsvictor/XRNavi/tree/30be278edb7538f219f95400c8513d109ad931bc/docs/figma-assets/s07-s08) using the icon names in the table (for example, `arrow-left.svg` and `dark-arrow-left.svg`). Their SHA-256 digests match the values above. A path-data check found all 25 SVG path records represented in `shared/src/commonMain/kotlin/com/mobilespace/xrnavi/AccountIcon.kt`; the app uses Compose `ImageVector` and does not decode SVG at runtime. The app-wide navigation rail icons remain the pre-existing PNG resources and are not represented by this set of verified vector exports.
 
 ## Visual comparison method and limits
 
-Figma reference images are captured at the frame dimensions above. Runtime evidence is from iOS Simulator UI-test screenshots; those files remain at their captured pixel dimensions and are not rescaled to match Figma. No overlay or pixel-diff is claimed: Figma pixels cannot be treated as UIKit points, and the simulator viewport, density, system chrome and the intentionally different demo content are not a matched pair. The comparison is manual at original capture sizes. Areas containing Figma's fictional identity/organization/metrics are not treated as product content, but layout geometry is not excluded.
+Figma MCP metadata was queried for all 16 S07/S08 variants. It confirms the frame and system-region geometry listed here: phone portrait is 402 × 874 with a 48 px status bar and an 87 px bottom navigation/home-indicator region; phone landscape is 874 × 402; tablet portrait is 834 × 1194 with a 28 px safe-area region, 88 px app header, 72 px section navigation and 20 px gesture region; tablet landscape is 1120 × 768 with a 28 px safe-area region, 72 px header, 648 px work area and 20 px gesture region.
 
-App theme is selected independently from system appearance in the UI matrix. The recorded simulator runs identify the devices and OS versions below; per-screenshot viewport, system appearance, and Dynamic Type metadata are not archived in this document. Orientation follows the Figma layout, and S07/S08 content is captured from the top of its scroll container. Simulator evidence is not a physical-device result.
+The iPhone 16 Pro UI-test screenshot is 1206 × 2622 pixels; its portrait and landscape logical viewports are 402 × 874 and 874 × 402. Thus phone frame dimensions match, with a measured 3× raster ratio from the actual captures rather than an assumed equivalence of Figma pixels and UIKit points. The tested iPad Pro 11-inch (M4) viewport is 834 × 1210 portrait / 1210 × 834 landscape, so it differs from both Figma tablet frame sizes. The differing tablet viewport cannot be repaired by stretching screenshots.
+
+No numeric overlay or pixel-diff was computed in this cycle. Figma MCP returned a viewable screenshot for S08 Phone Portrait Light, but not a locally retained raw image artifact for pixel-wise processing. The phone pair is dimension-compatible; it is not blocked by viewport size. A valid numeric comparison still requires a raw Figma export and a declared treatment for system chrome and demo-content differences; no threshold or excluded layout area is inferred after the fact. The visual review remains manual. Simulator evidence is not a physical-device result.
+
+### Question for Figma
+
+Can Figma provide the original downloadable image bytes (or a direct export URL) for the S08 Mustang photo assets used by nodes `302:310`, `302:134`, `302:340`, and `302:164`, and a raw PNG export of the complete S08 Phone Portrait Light frame `179:970` at its native 402 × 874 frame size? The MCP screenshot calls for the photo nodes returned only cropped card previews with CTA overlays, not the underlying image bytes. For a meaningful phone-frame pixel comparison, can Figma also confirm the export scale and whether status/navigation system-like regions are included in that full-frame export?
+
+App theme is selected independently from system appearance in the UI matrix. Runtime conditions record VoiceOver off and content size `UICTContentSizeCategoryL` on iOS 18.6; screenshots are captured from the top of the S07/S08 scroll container. Figma's displayed status/navigation chrome is not assumed to be identical to runtime system chrome.
 
 ## Verification record
 
@@ -61,10 +69,33 @@ The source SVG hashes above were rechecked against all 24 archived exports; all 
 
 - Shared tests: 52 passed, 0 failures, 0 errors, 0 skipped.
 - Android Debug: `assembleDebug` succeeded. APK SHA-256: `c2c6229bf6a6fe7cfa18949216a781cc7aacf612622031e7c686912075f98a50`.
-- iOS Simulator: Kotlin compilation succeeded. `testFigmaVariantMatrix` passed on iPhone 16 Pro and iPad Pro 13-inch M4, both running iOS 18.6 (1 test per device; 0 failures and 0 skipped on each). The app-bundle file-manifest SHA-256 is `d59649a94afe492feba796c6b764cf8b9b34aecd56ec6f95d829cc8046f2771f`.
-- Runtime warning: a prior run reported a QoS/priority-inversion warning involving `dispatch_semaphore_wait`; it did not recur in the latest matrix run. Its cause is not established and is not considered fixed.
+- iOS Simulator: the Figma variant matrix and landscape garage-scroll checks passed on iPhone 16 Pro and iPad Pro 11-inch (M4), both running iOS 18.6 (2 tests per device; 0 failures and 0 skipped on each). The tested `XRNavi` executable SHA-256 is `b753e38fef07fd7f591e225276036eb6f6ffaf82e09391cf4d67be3a0934a411`.
+- Runtime warning: `xcresult` records 3 occurrences of the same QoS/priority-inversion warning involving `dispatch_semaphore_wait`; it recurred across the iPhone and iPad simulator runs. The observed main-thread stack reaches Compose/Skia paragraph text drawing and glyph-strike caching; an XRNavi-specific root cause is not established, and no fix is claimed.
 
-Build identity: HEAD `65c92efe2b726d204eae66d69a2d3ed3978a6a6b`; the worktree is dirty, including unrelated changes, so HEAD alone does not identify the tested build. Simulator build products and source exports under `/tmp` are local evidence only. No public evidence links are claimed.
+Build identity: tested `XRNavi` executable SHA-256 is recorded above. At test time HEAD was `65c92efe2b726d204eae66d69a2d3ed3978a6a6b` with a dirty worktree; HEAD alone therefore does not identify the tested source snapshot. The implementation is now present at repository HEAD `30be278edb7538f219f95400c8513d109ad931bc`, but the exact test-time dirty snapshot was not archived. The test attachments linked below are published with this report; other build products and source downloads under `/tmp` remain local evidence only.
+
+### Published simulator screenshot attachments
+
+These are the 16 XCTest PNG attachments named for the S07/S08 variant matrix. They were captured on iOS 18.6 simulators with VoiceOver off and content size `UICTContentSizeCategoryL`; app theme was selected independently while system appearance remained Light. The screenshots are runtime evidence, not Figma exports, and are not used as pixel-diff inputs. Raster dimensions below describe the stored attachment; they do not imply that tablet viewports match Figma.
+
+| Variant | Attachment | Stored raster | SHA-256 |
+|---|---|---:|---|
+| S07 Phone Landscape — Dark | [PNG](images/s07-s08-final/figma-S07-PhoneLandscape-dark_0.png) | 1206 × 2622 | `a8ab5995f507235595fbac3445171d1314292089667cb25d4a61e8e7f0a9daf8` |
+| S07 Phone Landscape — Light | [PNG](images/s07-s08-final/figma-S07-PhoneLandscape-light_0.png) | 1206 × 2622 | `d6e697f71635273724db686a0fe9cfe825106cea231fe3ccf3a69ff1b80fbb8c` |
+| S07 Phone Portrait — Dark | [PNG](images/s07-s08-final/figma-S07-PhonePortrait-dark_0.png) | 1206 × 2622 | `b32eaa374bb5f0f4c81097a8d07af0cd84283fb6ccb2028dbec020d640749145` |
+| S07 Phone Portrait — Light | [PNG](images/s07-s08-final/figma-S07-PhonePortrait-light_0.png) | 1206 × 2622 | `9c4cbe5e1869ce4b0fe6008f178d3ea848a11c314727785f29ff0456ad526ec7` |
+| S07 Tablet Landscape — Dark | [PNG](images/s07-s08-final/figma-S07-TabletLandscape-dark_0.png) | 1668 × 2420 | `33db8d8e470e909171429d373b4f6f807f008ab2ac19d18715a248d7a55aa2b3` |
+| S07 Tablet Landscape — Light | [PNG](images/s07-s08-final/figma-S07-TabletLandscape-light_0.png) | 1668 × 2420 | `c8970eeff63105197925ea93b6ac747d5ffd225305271258a657daf0d5646b56` |
+| S07 Tablet Portrait — Dark | [PNG](images/s07-s08-final/figma-S07-TabletPortrait-dark_0.png) | 1668 × 2420 | `1554f6628a546a58dc3d9ad0ea52793d8d7f46d72c2a767e9ca28182038f4163` |
+| S07 Tablet Portrait — Light | [PNG](images/s07-s08-final/figma-S07-TabletPortrait-light_0.png) | 1668 × 2420 | `523341b12d31d6062db1cef568b578d3227e9d646e1de8fc78f9c90bd099656c` |
+| S08 Phone Landscape — Dark | [PNG](images/s07-s08-final/figma-S08-PhoneLandscape-dark_0.png) | 1206 × 2622 | `93dfbb3d6d2986470810695a3b700357aca859a6470dddca767ea87899938a66` |
+| S08 Phone Landscape — Light | [PNG](images/s07-s08-final/figma-S08-PhoneLandscape-light_0.png) | 1206 × 2622 | `6097896174c6d62cca6f863922821dc9170e6f14d2574476b0945655b70e772a` |
+| S08 Phone Portrait — Dark | [PNG](images/s07-s08-final/figma-S08-PhonePortrait-dark_0.png) | 1206 × 2622 | `689034ba7373895a07862a997a043b04bf2d38661f285c391b2c1bd1ac17f461` |
+| S08 Phone Portrait — Light | [PNG](images/s07-s08-final/figma-S08-PhonePortrait-light_0.png) | 1206 × 2622 | `582fe74ea6699a1684df3a8da74f6505829cb8bccefdd6f1c37518c57ac10ed7` |
+| S08 Tablet Landscape — Dark | [PNG](images/s07-s08-final/figma-S08-TabletLandscape-dark_0.png) | 1668 × 2420 | `75b4b4bb69b9a40dcacce7fbf0d705b7e32d6d6d832de2ee6974a194a62b050f` |
+| S08 Tablet Landscape — Light | [PNG](images/s07-s08-final/figma-S08-TabletLandscape-light_0.png) | 1668 × 2420 | `4fdbb8b113535d7b9b41e5d4f105e86f6474126fceddea6a18cdfaedc1baa344` |
+| S08 Tablet Portrait — Dark | [PNG](images/s07-s08-final/figma-S08-TabletPortrait-dark_0.png) | 1668 × 2420 | `e272424860948283cc579c7af44440753e846cf24380ae69927f44cf6de5ea2d` |
+| S08 Tablet Portrait — Light | [PNG](images/s07-s08-final/figma-S08-TabletPortrait-light_0.png) | 1668 × 2420 | `4c6045168e03e5d0fbd5635540fc4a4bcf6fc882ddb11896cdd66ef6c9cc7280` |
 
 ## Evidence classes and exclusions
 
@@ -73,4 +104,4 @@ Build identity: HEAD `65c92efe2b726d204eae66d69a2d3ed3978a6a6b`; the worktree is
 - **C — Historical:** earlier geometry, assertions and deferred checks are documented in the prior S07/S08 report; not reused as current-cycle proof.
 - **D — Not verified here:** photo/font licensing; exact vector provenance for the app-wide navigation PNGs; physical X9 signing and device checks; VoiceOver/TalkBack announcement/navigation; P0–P4; release readiness; a matched numeric pixel-diff; reproducibility/root cause of the prior `dispatch_semaphore_wait` warning.
 
-Figma presence and asset delivery do not establish licensing. The hero source downloads and simulator evidence under `/tmp` are local evidence, not public links.
+Figma presence and asset delivery do not establish licensing. The original hero downloads under `/tmp` remain local evidence; the 16 simulator screenshots are linked in the published attachment table above.

@@ -33,6 +33,39 @@ class ProfileSettingsTest {
     }
 
     @Test
+    fun garageFiltersOnlyTheSharedDemoVehicleAndShowsNoUnsupportedCategories() {
+        assertEquals(listOf(demoVehicle), garageVehicles(GarageFilter.All))
+        assertEquals(listOf(demoVehicle), garageVehicles(GarageFilter.Passenger))
+        assertTrue(garageVehicles(GarageFilter.Cargo).isEmpty())
+        assertTrue(garageVehicles(GarageFilter.Special).isEmpty())
+        assertEquals(1, listOf(demoVehicle).distinct().size)
+    }
+
+    @Test
+    fun explicitGarageSelectionOnlyInvalidatesPreviewWhenProfileChanges() {
+        val repeatedSelection = selectGarageVehicle("Легкове", demoVehicle)
+        assertEquals("Легкове", repeatedSelection.vehicleClass)
+        assertFalse(repeatedSelection.changed)
+
+        val changedSelection = selectGarageVehicle("Вантажне", demoVehicle)
+        assertEquals("Легкове", changedSelection.vehicleClass)
+        assertTrue(changedSelection.changed)
+    }
+
+    @Test
+    fun garageHasNoFakeVehiclesOrConnectedCatalogContract() {
+        assertEquals(listOf(demoVehicle), garageVehicles(GarageFilter.All))
+        val emptyCargo = garageVehicles(GarageFilter.Cargo)
+        val emptySpecial = garageVehicles(GarageFilter.Special)
+        assertTrue(emptyCargo.isEmpty())
+        assertTrue(emptySpecial.isEmpty())
+        assertTrue(demoVehicle.name == "Ford Mustang GT")
+        assertTrue(garageAddUnavailableExplanation.contains("не підключено"))
+        assertTrue(garageEditUnavailableExplanation.contains("не підключені"))
+        assertTrue(garageCorporateUnavailableExplanation.contains("не підключено"))
+    }
+
+    @Test
     fun profileDoesNotInventStatisticsOrMembership() {
         val profile = DemoProfileState("Легкове", "Корпоративний")
         assertTrue(profile.statisticsExplanation.contains("відсутні"))
@@ -142,13 +175,52 @@ class ProfileSettingsTest {
         navigation = navigation.open(DemoSection.Profile)
         assertEquals(DemoSection.Profile, navigation.section)
         navigation = navigation.open(DemoSection.Settings)
-        assertEquals(DemoSection.Profile, navigation.backTarget)
-        navigation = navigation.open(DemoSection.Settings)
-        assertEquals(DemoSection.Profile, navigation.backTarget)
         navigation = navigation.back()
         assertEquals(DemoSection.Profile, navigation.section)
         navigation = navigation.back()
         assertEquals(DemoSection.Map, navigation.section)
+    }
+
+    @Test
+    fun garageBackReturnsToTheScreenThatOpenedIt() {
+        val fromMap = DemoSectionNavigation().open(DemoSection.Garage)
+        assertEquals(DemoSection.Garage, fromMap.section)
+        assertEquals(DemoSection.Map, fromMap.back().section)
+
+        val fromProfile = DemoSectionNavigation()
+            .open(DemoSection.Profile)
+            .open(DemoSection.Garage)
+        assertEquals(DemoSection.Profile, fromProfile.back().section)
+        assertEquals(DemoSection.Map, fromProfile.back().back().section)
+    }
+
+    @Test
+    fun vehicleDetailsAreNestedInGarageAndBackRestoresItsParent() {
+        val garage = DemoSectionNavigation().open(DemoSection.Garage)
+        val details = garage.open(DemoSection.VehicleDetails)
+
+        assertEquals(DemoSection.VehicleDetails, details.section)
+        assertEquals(garage, details.back())
+        assertEquals(garage, details.open(DemoSection.Garage))
+
+        val profileDetails = DemoSectionNavigation()
+            .open(DemoSection.Profile)
+            .open(DemoSection.VehicleDetails)
+        assertEquals(DemoSection.Profile, profileDetails.back().section)
+    }
+
+    @Test
+    fun vehicleDetailsUseTheSameUnmodifiedDemoProfileAsGarageAndMap() {
+        val garageVehicle = garageVehicles(GarageFilter.All).single()
+        val mapVehicle = demoVehicleForClass("Легкове")
+        val detailsVehicle = demoVehicle
+
+        assertSame(garageVehicle, detailsVehicle)
+        assertSame(mapVehicle, detailsVehicle)
+        assertEquals("Ford Mustang GT", detailsVehicle.name)
+        assertEquals("Легкове", detailsVehicle.category)
+        assertEquals("Легковий · 1,4 м · 1,8 т", detailsVehicle.specification)
+        assertFalse(detailsVehicle.specification.contains("максимально допустима"))
     }
 
     @Test

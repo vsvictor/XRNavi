@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Rect
 import android.os.Build
+import android.view.KeyEvent
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.InputDevice
@@ -24,6 +25,34 @@ class ProfileSettingsRuntimeTest {
     private val automation get() = instrumentation.uiAutomation
     private val context get() = instrumentation.targetContext
     private val output get() = File(context.getExternalFilesDir(null), "account-runtime").apply { mkdirs() }
+
+    @Test
+    fun garageVehicleProfileIsReadOnlyAndBackReturnsToGarage() {
+        val readers = Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        assumeTrue("Ordinary touch test must run separately from screen readers", readers.isEmpty())
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        try {
+            tap("Продовжити без входу · деморежим")
+            tap("Гараж")
+            waitFor("Garage profile card") { find("Ford Mustang GT") != null }
+            tap("Переглянути профіль Ford Mustang GT")
+            waitFor("S11 vehicle profile") { find("Профіль автомобіля") != null }
+            assertNotNull(find("Профіль автомобіля"))
+            assertNotNull(find("Категорія: Легкове"))
+            assertNotNull(find("Легковий · 1,4 м · 1,8 т"))
+            assertNotNull(find("не визначає 1,8 т як максимальну допустиму масу"))
+            assertNull(find("Запросити диспетчера"))
+            capture("S11-vehicle-profile")
+
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            waitFor("Garage after system Back") { find("Мій гараж") != null }
+            assertNotNull(find("Обрано для демомаршруту"))
+        } finally {
+            scenario.close()
+        }
+    }
 
     @Test
     fun themesRotationDialogsAndLocalPersistence() {

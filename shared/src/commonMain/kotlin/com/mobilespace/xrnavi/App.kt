@@ -228,6 +228,17 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 themeSettings = themeSettings,
                 onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
                 onBack = { sectionNavigation = sectionNavigation.back() },
+                onSelectVehicle = { vehicle ->
+                    val selection = selectGarageVehicle(vehicleClass, vehicle)
+                    if (selection.changed) {
+                        vehicleClass = selection.vehicleClass
+                        screenName = AppScreen.Map.name
+                        sheetName = SheetLevel.Collapsed.name
+                        sectionNavigation = sectionNavigation.back()
+                        notice =
+                            "Обрано наявний демопрофіль ${vehicle.name}. Його характеристики не підтверджують право власності."
+                    }
+                },
                 onExitDemo = exitDemo,
                 onRegister = {
                     exitDemo()
