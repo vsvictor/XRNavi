@@ -32,8 +32,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,9 +61,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -74,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import kotlin.math.abs
 import xrnavi.shared.generated.resources.Res
 import xrnavi.shared.generated.resources.*
@@ -569,7 +577,8 @@ private fun XrnaviActionButton(
     height: Dp,
     cornerRadius: Dp,
     modifier: Modifier = Modifier,
-    compact: Boolean = false
+    compact: Boolean = false,
+    enabled: Boolean = true
 ) {
     val shape = RoundedCornerShape(cornerRadius)
     Row(
@@ -577,8 +586,11 @@ private fun XrnaviActionButton(
             .fillMaxWidth()
             .heightIn(min = height)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.primary)
-            .clickable(role = Role.Button, onClick = onClick)
+            .background(
+                if (enabled) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = if (compact) 10.dp else 16.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
@@ -598,7 +610,8 @@ private fun XrnaviActionButton(
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 0.1.sp,
-            color = MaterialTheme.colorScheme.onPrimary
+            color = if (enabled) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -621,6 +634,7 @@ internal fun MapScreen(
     onSheetLevelChange: (SheetLevel) -> Unit,
     onPreview: () -> Unit,
     onStartRoute: () -> Unit,
+    onOpenRouteSettings: () -> Unit,
     onBack: () -> Unit,
     onSectionChange: (DemoSection) -> Unit,
     onToggleTheme: () -> Unit
@@ -799,6 +813,7 @@ internal fun MapScreen(
                     onOpenSearch = onOpenSearch,
                     onPreview = onPreview,
                     onStartRoute = onStartRoute,
+                    onOpenRouteSettings = onOpenRouteSettings,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .widthIn(max = if (layoutWidth >= 600.dp && layoutHeight >= 600.dp) 680.dp else layoutWidth)
@@ -806,6 +821,365 @@ internal fun MapScreen(
             }
         }
         BottomNavigation(selectedSection = DemoSection.Map, onSectionChange = onSectionChange)
+    }
+}
+
+@Composable
+internal fun RouteSettingsScreen(
+    origin: String,
+    destination: String,
+    vehicle: DemoVehicleProfile?,
+    preferences: RoutePreferences,
+    hasPendingChanges: Boolean,
+    canApply: Boolean,
+    notice: String,
+    onPreferencesChange: (RoutePreferences) -> Unit,
+    onBack: () -> Unit,
+    onOpenGarage: () -> Unit,
+    onOpenConfiguration: () -> Unit,
+    onApply: () -> Unit,
+    onToggleTheme: () -> Unit
+) {
+    AuthBackHandler(onBack)
+    Column(
+        modifier = Modifier.fillMaxSize().imePadding()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Назад",
+                modifier = Modifier
+                    .clickable(role = Role.Button, onClick = onBack)
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp
+            )
+            ProductWordmark(modifier = Modifier.weight(1f))
+            Text(
+                "Тема",
+                modifier = Modifier
+                    .clickable(role = Role.Button, onClick = onToggleTheme)
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp
+            )
+        }
+        Text(
+            "Параметри маршруту",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .semantics { heading() },
+            fontSize = 24.sp,
+            lineHeight = 30.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            "Налаштування для демоперегляду",
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        BoxWithConstraints(
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        ) {
+            val wideLayout = maxWidth >= 720.dp
+            val contentModifier = Modifier
+                .widthIn(max = 1040.dp)
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = if (wideLayout) 32.dp else 20.dp, vertical = 8.dp)
+            if (wideLayout) {
+                Row(
+                    modifier = contentModifier,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    RouteVehicleCard(
+                        modifier = Modifier.weight(1f),
+                        vehicle = vehicle,
+                        origin = origin,
+                        destination = destination,
+                        onOpenGarage = onOpenGarage,
+                        onOpenConfiguration = onOpenConfiguration
+                    )
+                    RoutePreferenceCard(
+                        modifier = Modifier.weight(1f),
+                        preferences = preferences,
+                        hasPendingChanges = hasPendingChanges,
+                        onPreferencesChange = onPreferencesChange
+                    )
+                }
+            } else {
+                Column(
+                    modifier = contentModifier,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    RouteVehicleCard(
+                        vehicle = vehicle,
+                        origin = origin,
+                        destination = destination,
+                        onOpenGarage = onOpenGarage,
+                        onOpenConfiguration = onOpenConfiguration
+                    )
+                    RoutePreferenceCard(
+                        preferences = preferences,
+                        hasPendingChanges = hasPendingChanges,
+                        onPreferencesChange = onPreferencesChange
+                    )
+                }
+            }
+        }
+        Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 6.dp) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 1040.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    notice.ifBlank {
+                        "Параметри збережені локально. Сервіс маршрутизації не підключено; дотримання цих обмежень не перевірено."
+                    },
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (!canApply) {
+                    Text(
+                        "Застосування недоступне: спочатку виберіть автомобіль у Garage та доступну конфігурацію в S16.",
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                XrnaviActionButton(
+                    text = "Застосувати параметри",
+                    onClick = onApply,
+                    enabled = canApply,
+                    height = 52.dp,
+                    cornerRadius = 12.dp
+                )
+                Text(
+                    "Скасувати",
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .clickable(role = Role.Button, onClick = onBack)
+                        .padding(vertical = 5.dp, horizontal = 12.dp),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteVehicleCard(
+    vehicle: DemoVehicleProfile?,
+    origin: String,
+    destination: String,
+    onOpenGarage: () -> Unit,
+    onOpenConfiguration: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                "Демоавтомобіль",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (vehicle == null) {
+                Text(
+                    "Автомобіль не вибрано. Спочатку оберіть демопрофіль у гаражі.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    vehicle.name,
+                    fontSize = 18.sp,
+                    lineHeight = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Категорія: ${vehicle.category}",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Конфігурація: ${vehicle.configurationName ?: "Не задано"}",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    vehicle.specification,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Це локальні демонстраційні дані. Маса не є підтвердженим допустимим лімітом; технічні характеристики не редагуються тут.",
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            RouteReadOnlyValue("Початок", origin.ifBlank { "Не задано" })
+            RouteReadOnlyValue("Призначення", destination.ifBlank { "Не задано" })
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "Garage · змінити авто",
+                    modifier = Modifier
+                        .clickable(role = Role.Button, onClick = onOpenGarage)
+                        .padding(vertical = 6.dp),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "S16 · конфігурація",
+                    modifier = Modifier
+                        .clickable(role = Role.Button, onClick = onOpenConfiguration)
+                        .padding(vertical = 6.dp),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteReadOnlyValue(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun RoutePreferenceCard(
+    preferences: RoutePreferences,
+    hasPendingChanges: Boolean,
+    onPreferencesChange: (RoutePreferences) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "Переваги маршруту",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (hasPendingChanges) {
+                Text(
+                    "Зміни ще не застосовано",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            RoutePreferenceSwitch(
+                label = "Уникати платних доріг",
+                checked = preferences.avoidTolls,
+                onCheckedChange = { onPreferencesChange(preferences.copy(avoidTolls = it)) }
+            )
+            RoutePreferenceSwitch(
+                label = "Уникати ґрунтових доріг",
+                checked = preferences.avoidUnpavedRoads,
+                onCheckedChange = { onPreferencesChange(preferences.copy(avoidUnpavedRoads = it)) }
+            )
+            RoutePreferenceSwitch(
+                label = "Уникати поромів",
+                checked = preferences.avoidFerries,
+                onCheckedChange = { onPreferencesChange(preferences.copy(avoidFerries = it)) }
+            )
+            val enabledPreferences = listOfNotNull(
+                "платні дороги".takeIf { preferences.avoidTolls },
+                "ґрунтові дороги".takeIf { preferences.avoidUnpavedRoads },
+                "пороми".takeIf { preferences.avoidFerries }
+            )
+            Text(
+                text = if (enabledPreferences.isEmpty()) {
+                    "Обмеження не вибрано"
+                } else {
+                    "Увімкнено: ${enabledPreferences.joinToString()}"
+                },
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun RoutePreferenceSwitch(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Switch) { onCheckedChange(!checked) }
+            .clearAndSetSemantics {
+                contentDescription = label
+                stateDescription = if (checked) "Увімкнено" else "Вимкнено"
+                toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
+                onClick(label) {
+                    onCheckedChange(!checked)
+                    true
+                }
+            }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            fontSize = 14.sp,
+            lineHeight = 19.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = null
+        )
     }
 }
 
@@ -1200,6 +1574,7 @@ private fun RouteBottomSheet(
     onOpenSearch: (SearchTarget) -> Unit,
     onPreview: () -> Unit,
     onStartRoute: () -> Unit,
+    onOpenRouteSettings: () -> Unit,
     modifier: Modifier
 ) {
     val dark = isDarkXrnaviTheme()
@@ -1265,19 +1640,35 @@ private fun RouteBottomSheet(
                 )
             }
             if (showInlineAttribution) {
-                Text(
-                    text = "Демо-мапа · Mapbox / OpenStreetMap не підключені",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                        .semantics {
-                            contentDescription =
-                                "Демонстраційна мапа. Mapbox і OpenStreetMap не підключені."
-                        },
-                    fontSize = 10.sp,
-                    lineHeight = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Демо-мапа · Mapbox / OpenStreetMap не підключені",
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics {
+                                contentDescription =
+                                    "Демонстраційна мапа. Mapbox і OpenStreetMap не підключені."
+                            },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (level == SheetLevel.Expanded) {
+                        Text(
+                            "Параметри маршруту та альтернативи ›",
+                            modifier = Modifier
+                                .clickable(role = Role.Button, onClick = onOpenRouteSettings)
+                                .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
             Column(
                 modifier = Modifier
@@ -1419,12 +1810,12 @@ private fun RouteBottomSheet(
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (level == SheetLevel.Expanded) {
+                        if (level == SheetLevel.Expanded && !showInlineAttribution) {
                             Text(
                                 "Параметри маршруту та альтернативи ›",
                                 modifier = Modifier
                                     .align(Alignment.CenterHorizontally)
-                                    .clickable(role = Role.Button, onClick = onStartRoute)
+                                    .clickable(role = Role.Button, onClick = onOpenRouteSettings)
                                     .padding(vertical = 2.dp),
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1492,6 +1883,13 @@ private fun VehicleSummaryCard(vehicle: DemoVehicleProfile) {
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            vehicle.configurationName?.let {
+                Text(
+                    "Конфігурація: $it",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         Text(
             "⌄",
@@ -1680,6 +2078,7 @@ internal fun SearchScreen(
     query: String,
     status: SearchStatus,
     vehicleMode: String,
+    savedPlaceKeys: Set<String>,
     onVehicleModeChange: (String) -> Unit,
     onTargetChange: (SearchTarget) -> Unit,
     onQueryChange: (String) -> Unit,
@@ -1687,9 +2086,13 @@ internal fun SearchScreen(
     onBack: () -> Unit,
     onPickMap: () -> Unit,
     onSelectPlace: (DemoPlace) -> Unit,
+    onSavePlace: (DemoPlace) -> SavedPlaceAddStatus,
+    onOpenSavedPlaces: (SavedPlace?) -> Unit,
     onSectionChange: (DemoSection) -> Unit,
     onToggleTheme: () -> Unit
 ) {
+    var duplicatePlace by remember { mutableStateOf<SavedPlace?>(null) }
+    var saveNotice by remember { mutableStateOf("") }
     val matchingPlaces = if (query.isBlank()) {
         demoPlaces.take(3)
     } else {
@@ -1755,6 +2158,22 @@ internal fun SearchScreen(
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    "Обране · збережене локально",
+                    modifier = Modifier
+                        .clickable(role = Role.Button) { onOpenSavedPlaces(null) }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 13.sp
+                )
+            }
+            if (saveNotice.isNotBlank()) {
+                StatusCard("Обране", saveNotice)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1781,7 +2200,24 @@ internal fun SearchScreen(
                 SearchStatus.Idle -> {
                     if (demoMode) {
                         matchingPlaces.take(2).forEach { place ->
-                            SearchPlaceRow(place, recent = true) { onSelectPlace(place) }
+                            SearchPlaceRow(
+                                place = place,
+                                recent = true,
+                                isSaved = place.toSavedPlace().key in savedPlaceKeys,
+                                onClick = { onSelectPlace(place) },
+                                onSave = {
+                                    when (onSavePlace(place)) {
+                                        SavedPlaceAddStatus.Added -> saveNotice =
+                                            "Адресу додано до локального обраного."
+                                        SavedPlaceAddStatus.Duplicate -> {
+                                            duplicatePlace = place.toSavedPlace()
+                                            saveNotice = ""
+                                        }
+                                        SavedPlaceAddStatus.Invalid -> saveNotice =
+                                            "Цю адресу не вдалося перевірити для збереження."
+                                    }
+                                }
+                            )
                         }
                     } else {
                         StatusCard(
@@ -1822,7 +2258,24 @@ internal fun SearchScreen(
                         )
                     } else {
                         matchingPlaces.forEach { place ->
-                            SearchPlaceRow(place, recent = false) { onSelectPlace(place) }
+                            SearchPlaceRow(
+                                place = place,
+                                recent = false,
+                                isSaved = place.toSavedPlace().key in savedPlaceKeys,
+                                onClick = { onSelectPlace(place) },
+                                onSave = {
+                                    when (onSavePlace(place)) {
+                                        SavedPlaceAddStatus.Added -> saveNotice =
+                                            "Адресу додано до локального обраного."
+                                        SavedPlaceAddStatus.Duplicate -> {
+                                            duplicatePlace = place.toSavedPlace()
+                                            saveNotice = ""
+                                        }
+                                        SavedPlaceAddStatus.Invalid -> saveNotice =
+                                            "Цю адресу не вдалося перевірити для збереження."
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -1836,6 +2289,243 @@ internal fun SearchScreen(
             )
         }
         BottomNavigation(DemoSection.Map, onSectionChange)
+    }
+    duplicatePlace?.let { duplicate ->
+        AlertDialog(
+            onDismissRequest = { duplicatePlace = null },
+            title = { Text("Адресу вже збережено") },
+            text = { Text("${duplicate.address} уже є в обраному. Відкрити список або змінити ярлик?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    duplicatePlace = null
+                    onOpenSavedPlaces(null)
+                }) { Text("Відкрити обране") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    duplicatePlace = null
+                    onOpenSavedPlaces(duplicate)
+                }) { Text("Перейменувати") }
+            }
+        )
+    }
+}
+
+@Composable
+internal fun SavedPlacesScreen(
+    places: List<SavedPlace>,
+    initialEditKey: String?,
+    allowAddressSelection: Boolean,
+    allowDestinationUse: Boolean,
+    notice: String,
+    onBack: () -> Unit,
+    onSelectAddress: (SavedPlace) -> Unit,
+    onUseAsDestination: (SavedPlace) -> Unit,
+    onRename: (String, String) -> Unit,
+    onDelete: (SavedPlace) -> Unit,
+    onToggleTheme: () -> Unit
+) {
+    var editingPlace by remember { mutableStateOf<SavedPlace?>(null) }
+    var editedLabel by remember { mutableStateOf("") }
+    var deletingPlace by remember { mutableStateOf<SavedPlace?>(null) }
+    LaunchedEffect(initialEditKey, places) {
+        val initial = places.firstOrNull { it.key == initialEditKey }
+        if (initial != null && editingPlace?.key != initial.key) {
+            editingPlace = initial
+            editedLabel = initial.label
+        }
+    }
+
+    Column(Modifier.fillMaxSize().imePadding()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Назад",
+                modifier = Modifier.clickable(role = Role.Button, onClick = onBack)
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+            ProductWordmark(Modifier.weight(1f))
+            Text(
+                "Тема",
+                modifier = Modifier.clickable(role = Role.Button, onClick = onToggleTheme)
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                Modifier.widthIn(max = 760.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Збережені місця",
+                    fontSize = 24.sp,
+                    lineHeight = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.semantics { heading() }
+                )
+                Text(
+                    "Особисте обране · локально в деморежимі",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+                StatusCard(
+                    "Локальне збереження",
+                    "Місця зберігаються лише на цьому пристрої. Хмарну синхронізацію не підключено."
+                )
+                if (notice.isNotBlank()) StatusCard("Збереження", notice)
+                if (places.isEmpty()) {
+                    StatusCard(
+                        "Поки немає збережених місць",
+                        "Додавайте підтверджені адреси з результатів демопошуку. Нещодавні результати не додаються автоматично."
+                    )
+                } else {
+                    places.forEach { place ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().testTag("saved-place-${place.key}"),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Column(
+                                Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    place.label,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    place.address,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    place.detail,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (allowAddressSelection) Text(
+                                        "Вибрати адресу",
+                                        modifier = Modifier.clickable(role = Role.Button) {
+                                            onSelectAddress(place)
+                                        }.padding(vertical = 8.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 12.sp
+                                    )
+                                    if (allowDestinationUse) Text(
+                                        "Використати як призначення",
+                                        modifier = Modifier.clickable(role = Role.Button) {
+                                            onUseAsDestination(place)
+                                        }.padding(vertical = 8.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Text(
+                                        "Перейменувати ярлик",
+                                        modifier = Modifier.clickable(role = Role.Button) {
+                                            editingPlace = place
+                                            editedLabel = place.label
+                                        }.padding(vertical = 6.dp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        "Видалити",
+                                        modifier = Modifier.clickable(role = Role.Button) {
+                                            deletingPlace = place
+                                        }.padding(vertical = 6.dp),
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                StatusCard(
+                    "Організація",
+                    "Корпоративні місця ще не підключено. Особисте обране не означає членство чи доступ до автопарку."
+                )
+                Text(
+                    "Ярлики «Дім» і «Робота» можна задати лише вручну; адреси не заповнюються автоматично.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    editingPlace?.let { place ->
+        AlertDialog(
+            onDismissRequest = { editingPlace = null },
+            title = { Text("Перейменувати ярлик") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(place.address)
+                    BasicTextField(
+                        value = editedLabel,
+                        onValueChange = { editedLabel = it },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 16.sp
+                        ),
+                        modifier = Modifier.fillMaxWidth().background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            RoundedCornerShape(8.dp)
+                        ).padding(12.dp).testTag("saved-place-label-input")
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = editedLabel.isNotBlank(),
+                    onClick = {
+                        onRename(place.key, editedLabel)
+                        editingPlace = null
+                    }
+                ) { Text("Зберегти") }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingPlace = null }) { Text("Скасувати") }
+            }
+        )
+    }
+    deletingPlace?.let { place ->
+        AlertDialog(
+            onDismissRequest = { deletingPlace = null },
+            title = { Text("Видалити з обраного?") },
+            text = { Text("${place.label} · ${place.address}") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(place)
+                    deletingPlace = null
+                }) { Text("Видалити") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingPlace = null }) { Text("Скасувати") }
+            }
+        )
     }
 }
 
@@ -2055,13 +2745,15 @@ private fun AddressQueryRow(
 private fun SearchPlaceRow(
     place: DemoPlace,
     recent: Boolean,
-    onClick: () -> Unit
+    isSaved: Boolean,
+    onClick: () -> Unit,
+    onSave: () -> Unit
 ) {
     val dark = isDarkXrnaviTheme()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .heightIn(min = 64.dp)
             .clickable(role = Role.Button, onClick = onClick)
             .border(
                 width = 0.5.dp,
@@ -2103,6 +2795,14 @@ private fun SearchPlaceRow(
                 maxLines = 1
             )
         }
+        Text(
+            if (isSaved) "Збережено" else "Зберегти",
+            modifier = Modifier
+                .clickable(role = Role.Button, onClick = onSave)
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 11.sp
+        )
         FigmaIcon(
             light = Res.drawable.search_chevron_light,
             dark = Res.drawable.search_chevron_dark,
@@ -2192,10 +2892,17 @@ private fun SearchVehicleCard(
                     maxLines = 1
                 )
                 Text(
-                    demoVehicle.specification,
+                    vehicle.specification,
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                vehicle.configurationName?.let {
+                    Text(
+                        "Конфігурація: $it",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             FigmaIcon(
                 light = Res.drawable.search_car_light,

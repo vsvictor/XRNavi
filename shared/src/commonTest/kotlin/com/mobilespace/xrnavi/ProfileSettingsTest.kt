@@ -205,15 +205,23 @@ class ProfileSettingsTest {
     fun vehicleDetailsAreNestedInGarageAndBackRestoresItsParent() {
         val garage = DemoSectionNavigation().open(DemoSection.Garage)
         val details = garage.open(DemoSection.VehicleDetails)
+        val configurations = details.open(DemoSection.VehicleConfigurations)
 
         assertEquals(DemoSection.VehicleDetails, details.section)
         assertEquals(garage, details.back())
         assertEquals(garage, details.open(DemoSection.Garage))
+        assertEquals(DemoSection.VehicleConfigurations, configurations.section)
+        assertEquals(details, configurations.back())
+        assertEquals(garage, configurations.open(DemoSection.Garage))
 
         val profileDetails = DemoSectionNavigation()
             .open(DemoSection.Profile)
             .open(DemoSection.VehicleDetails)
         assertEquals(DemoSection.Profile, profileDetails.back().section)
+        assertEquals(
+            DemoSection.VehicleConfigurations,
+            profileDetails.open(DemoSection.VehicleConfigurations).section
+        )
     }
 
     @Test
@@ -231,11 +239,247 @@ class ProfileSettingsTest {
     }
 
     @Test
+    fun configurationsAreOwnedByEachOfTheFourDemoVehicles() {
+        assertEquals(4, garageVehicles(GarageFilter.All).size)
+        demoVehicles.forEach { vehicle ->
+            val configurations = vehicleConfigurationsFor(vehicle.id)
+            assertTrue(configurations.isNotEmpty())
+            assertTrue(configurations.all { it.vehicleId == vehicle.id })
+            assertEquals(
+                configurations.size,
+                configurations.map { it.id }.distinct().size
+            )
+        }
+        assertTrue(vehicleConfigurationsFor("missing-vehicle").isEmpty())
+    }
+
+    @Test
+    fun configurationDraftAndCancelNeverChangeAppliedSelections() {
+        val applied = defaultVehicleConfigurationSelections()
+        val selectedVehicle = demoVehicle
+        val appliedId = applied.getValue(selectedVehicle.id)
+        val alternate = vehicleConfigurationsFor(selectedVehicle.id)
+            .first { it.synthetic && it.availability == VehicleConfigurationAvailability.Available }
+        val draft = VehicleConfigurationDraft(selectedVehicle.id, appliedId, appliedId)
+            .select(alternate)
+
+        assertTrue(draft.hasPendingChange)
+        assertEquals(alternate.id, draft.selectedConfigurationId)
+        assertEquals(appliedId, applied[selectedVehicle.id])
+        assertEquals(appliedId, draft.cancel().selectedConfigurationId)
+        assertFalse(draft.cancel().hasPendingChange)
+        assertEquals(applied, defaultVehicleConfigurationSelections())
+    }
+
+    @Test
+    fun configurationIsAppliedOnlyAfterExplicitSelectionAndChangesOnlyItsVehicle() {
+        val initial = defaultVehicleConfigurationSelections()
+        val alternate = vehicleConfigurationsFor(demoVehicle.id)
+            .first { it.synthetic && it.availability == VehicleConfigurationAvailability.Available }
+        val result = applyVehicleConfiguration(demoVehicle.id, initial, alternate)
+
+        assertTrue(result.applied)
+        assertTrue(result.parametersChanged)
+        assertEquals(alternate.id, result.selections[demoVehicle.id])
+        demoVehicles.filter { it.id != demoVehicle.id }.forEach { vehicle ->
+            assertEquals(initial[vehicle.id], result.selections[vehicle.id])
+        }
+
+        val repeated = applyVehicleConfiguration(demoVehicle.id, result.selections, alternate)
+        assertTrue(repeated.applied)
+        assertFalse(repeated.parametersChanged)
+        assertEquals(result.selections, repeated.selections)
+    }
+
+    @Test
+    fun configurationFromAnotherVehicleAndIncompleteConfigurationAreRejected() {
+        val initial = defaultVehicleConfigurationSelections()
+        val otherVehicleConfiguration = vehicleConfigurationsFor("demo-cargo-01")
+            .first { it.availability == VehicleConfigurationAvailability.Available }
+        val mismatch = applyVehicleConfiguration(demoVehicle.id, initial, otherVehicleConfiguration)
+        assertFalse(mismatch.applied)
+        assertFalse(mismatch.parametersChanged)
+        assertEquals(initial, mismatch.selections)
+        assertTrue(mismatch.message.contains("іншому автомобілю"))
+
+        val incomplete = vehicleConfigurationsFor(demoVehicle.id)
+            .first { it.availability == VehicleConfigurationAvailability.Incomplete }
+        val rejected = applyVehicleConfiguration(demoVehicle.id, initial, incomplete)
+        assertFalse(rejected.applied)
+        assertEquals(initial, rejected.selections)
+        assertTrue(rejected.message.contains("неповні дані"))
+    }
+
+    @Test
+    fun changedConfigurationInvalidatesPreviewButReapplyingSameOneDoesNot() {
+        val initial = defaultVehicleConfigurationSelections()
+        val alternate = vehicleConfigurationsFor(demoVehicle.id)
+            .first { it.synthetic && it.availability == VehicleConfigurationAvailability.Available }
+        val changed = applyVehicleConfiguration(demoVehicle.id, initial, alternate)
+        assertTrue(changed.parametersChanged)
+
+        val unchanged = applyVehicleConfiguration(demoVehicle.id, changed.selections, alternate)
+        assertFalse(unchanged.parametersChanged)
+        assertEquals(changed.selections, unchanged.selections)
+        assertTrue(unchanged.message.contains("вже застосована"))
+    }
+
+    @Test
+    fun appliedConfigurationSelectionsRestoreWithoutMixingVehicles() {
+        val initial = defaultVehicleConfigurationSelections()
+        val cargoConfiguration = vehicleConfigurationsFor("demo-cargo-01")
+            .first { it.synthetic && it.availability == VehicleConfigurationAvailability.Available }
+        val applied = applyVehicleConfiguration(
+            activeVehicleId = cargoConfiguration.vehicleId,
+            currentSelections = initial,
+            configuration = cargoConfiguration
+        )
+        val restored = decodeVehicleConfigurationSelections(
+            encodeVehicleConfigurationSelections(applied.selections)
+        )
+
+        assertEquals(applied.selections, restored)
+        demoVehicles.filter { it.id != cargoConfiguration.vehicleId }.forEach { vehicle ->
+            assertEquals(initial[vehicle.id], restored[vehicle.id])
+        }
+        assertEquals(cargoConfiguration.id, restored[cargoConfiguration.vehicleId])
+    }
+
+    @Test
     fun directSettingsReturnsToMapAndMapSelectionClearsBackTarget() {
         val settings = DemoSectionNavigation().open(DemoSection.Settings)
         assertEquals(DemoSection.Map, settings.back().section)
         val map = settings.open(DemoSection.Profile).open(DemoSection.Map)
         assertEquals(DemoSectionNavigation(), map)
+    }
+
+    @Test
+    fun routePreferencesRemainDraftUntilExplicitApplyAndCancelDropsChanges() {
+        val vehicleId = demoVehicle.id
+        val applied = RoutePreferences(avoidTolls = true)
+        val draft = RoutePreferencesDraft(vehicleId, applied, applied)
+            .update(applied.copy(avoidFerries = true))
+        val stored = mapOf(vehicleId to applied)
+
+        assertTrue(draft.hasPendingChanges)
+        assertEquals(applied, stored[vehicleId])
+        assertEquals(applied, draft.cancel().selected)
+        assertEquals(stored, applyRoutePreferences(
+            activeVehicleId = vehicleId,
+            preferencesByVehicle = stored,
+            draft = draft.cancel(),
+            activeConfigurationAvailable = true
+        ).preferencesByVehicle)
+    }
+
+    @Test
+    fun routePreferencesApplyOnlyToActiveVehicleAndKeepIndependentVehicleValues() {
+        val initial = mapOf(
+            demoVehicle.id to RoutePreferences(avoidTolls = true),
+            "demo-cargo-01" to RoutePreferences(avoidFerries = true)
+        )
+        val draft = RoutePreferencesDraft(
+            vehicleId = demoVehicle.id,
+            applied = initial.getValue(demoVehicle.id),
+            selected = RoutePreferences(avoidUnpavedRoads = true)
+        )
+
+        val result = applyRoutePreferences(
+            activeVehicleId = demoVehicle.id,
+            preferencesByVehicle = initial,
+            draft = draft,
+            activeConfigurationAvailable = true
+        )
+        assertTrue(result.applied)
+        assertTrue(result.changed)
+        assertEquals(RoutePreferences(avoidUnpavedRoads = true), result.preferencesByVehicle[demoVehicle.id])
+        assertEquals(RoutePreferences(avoidFerries = true), result.preferencesByVehicle["demo-cargo-01"])
+        val addresses = AddressSearchState(
+            origin = "площа Ринок, 1",
+            destination = "площа Ринок, 10"
+        )
+        assertEquals("площа Ринок, 1", addresses.origin)
+        assertEquals("площа Ринок, 10", addresses.destination)
+    }
+
+    @Test
+    fun routePreferencesRejectWrongVehicleAndUnavailableConfiguration() {
+        val preferences = mapOf(demoVehicle.id to RoutePreferences(avoidTolls = true))
+        val wrongVehicleDraft = RoutePreferencesDraft(
+            vehicleId = "demo-cargo-01",
+            applied = RoutePreferences(),
+            selected = RoutePreferences(avoidFerries = true)
+        )
+        val wrongVehicle = applyRoutePreferences(
+            activeVehicleId = demoVehicle.id,
+            preferencesByVehicle = preferences,
+            draft = wrongVehicleDraft,
+            activeConfigurationAvailable = true
+        )
+        assertFalse(wrongVehicle.applied)
+        assertEquals(preferences, wrongVehicle.preferencesByVehicle)
+
+        val unavailable = applyRoutePreferences(
+            activeVehicleId = demoVehicle.id,
+            preferencesByVehicle = preferences,
+            draft = RoutePreferencesDraft(
+                demoVehicle.id,
+                preferences.getValue(demoVehicle.id),
+                RoutePreferences(avoidUnpavedRoads = true)
+            ),
+            activeConfigurationAvailable = false
+        )
+        assertFalse(unavailable.applied)
+        assertEquals(preferences, unavailable.preferencesByVehicle)
+        assertTrue(unavailable.message.contains("S16"))
+    }
+
+    @Test
+    fun routePreferencesPersistencePreservesVehicleIsolationAndDefaultValuesAreNotInvented() {
+        val values = mapOf(
+            demoVehicle.id to RoutePreferences(avoidTolls = true),
+            "demo-cargo-01" to RoutePreferences(avoidFerries = true)
+        )
+        val restored = decodeRoutePreferences(encodeRoutePreferences(values))
+        assertEquals(values, restored)
+        assertEquals(RoutePreferences(), restored["demo-special-01"] ?: RoutePreferences())
+        assertTrue(RoutePreferences().isDefault)
+    }
+
+    @Test
+    fun routePreviewIsInvalidatedOnlyWhenAppliedValuesChange() {
+        assertEquals(
+            AppScreen.Map,
+            routeSettingsReturnScreen(AppScreen.Preview, preferencesChanged = true)
+        )
+        assertEquals(
+            AppScreen.Preview,
+            routeSettingsReturnScreen(AppScreen.Preview, preferencesChanged = false)
+        )
+        assertEquals(
+            AppScreen.Map,
+            routeSettingsReturnScreen(AppScreen.Map, preferencesChanged = false)
+        )
+    }
+
+    @Test
+    fun routePreferencesReapplyingSameValuesKeepsStateAndDoesNotInvalidatePreview() {
+        val applied = RoutePreferences(avoidTolls = true)
+        val stored = mapOf(demoVehicle.id to applied)
+        val result = applyRoutePreferences(
+            activeVehicleId = demoVehicle.id,
+            preferencesByVehicle = stored,
+            draft = RoutePreferencesDraft(demoVehicle.id, applied, applied),
+            activeConfigurationAvailable = true
+        )
+
+        assertTrue(result.applied)
+        assertFalse(result.changed)
+        assertEquals(stored, result.preferencesByVehicle)
+        assertEquals(
+            AppScreen.Preview,
+            routeSettingsReturnScreen(AppScreen.Preview, result.changed)
+        )
     }
 
     private class MemoryThemeStore : ThemePreferenceStore {

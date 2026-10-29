@@ -25,7 +25,9 @@ internal enum class AppScreen {
     Recovery,
     Map,
     Search,
-    Preview
+    Preview,
+    RouteSettings,
+    SavedPlaces
 }
 
 internal fun initialScreenForSession(hasConfiguredSession: Boolean): AppScreen =
@@ -60,6 +62,8 @@ internal data class AddressSearchState(
         SearchTarget.Destination -> copy(destination = place.title, query = "")
     }
 
+    fun selectSavedPlace(place: SavedPlace) = select(DemoPlace(place.address, place.detail))
+
     fun cancel() = copy(query = "")
 
     companion object {
@@ -68,6 +72,31 @@ internal data class AddressSearchState(
             restore = { AddressSearchState(it[0], it[1], SearchTarget.valueOf(it[2]), it[3]) }
         )
     }
+
+}
+
+internal data class SavedPlaceAddressSelection(
+    val addresses: AddressSearchState,
+    val screen: AppScreen,
+    val changed: Boolean
+)
+
+internal fun selectSavedPlaceAddress(
+    addresses: AddressSearchState,
+    place: SavedPlace,
+    currentScreen: AppScreen
+): SavedPlaceAddressSelection {
+    val previousAddress = when (addresses.target) {
+        SearchTarget.Origin -> addresses.origin
+        SearchTarget.Destination -> addresses.destination
+    }
+    val updated = addresses.selectSavedPlace(place)
+    val changed = previousAddress != place.address
+    return SavedPlaceAddressSelection(
+        addresses = updated,
+        screen = if (changed) AppScreen.Map else currentScreen,
+        changed = changed
+    )
 }
 
 internal data class DemoVehicleProfile(
@@ -75,7 +104,8 @@ internal data class DemoVehicleProfile(
     val name: String,
     val category: String,
     val specification: String,
-    val artwork: DemoVehicleArtwork
+    val artwork: DemoVehicleArtwork,
+    val configurationName: String? = null
 )
 
 internal enum class DemoVehicleArtwork {
@@ -201,6 +231,27 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
     val recoveryViewModel: RecoveryViewModel = viewModel(
         factory = remember(previewEnabled) { recoveryViewModelFactory(previewEnabled) }
     )
+    val savedPlacesStore = rememberSavedPlacesStore()
+    val savedPlacesInitial = remember(savedPlacesStore) {
+        decodeSavedPlaces(savedPlacesStore.read())
+    }
+    val savedPlacesLoaded = savedPlacesInitial as? SavedPlacesDecodeResult.Success
+    var savedPlaces by remember(savedPlacesInitial) {
+        mutableStateOf(savedPlacesLoaded?.places.orEmpty())
+    }
+    var savedPlacesNotice by rememberSaveable {
+        mutableStateOf(
+            if (savedPlacesInitial is SavedPlacesDecodeResult.Invalid) {
+                "Збережені дані пошкоджені. Їх не перезаписано; зміни недоступні."
+            } else {
+                ""
+            }
+        )
+    }
+    var savedPlacesOriginName by rememberSaveable {
+        mutableStateOf(SavedPlacesOrigin.Search.name)
+    }
+    var savedPlacesEditKey by rememberSaveable { mutableStateOf<String?>(null) }
     var screenName by rememberSaveable {
         mutableStateOf(initialScreenForSession(SessionProbe.hasConfiguredSession()).name)
     }
@@ -221,6 +272,20 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
     var vehicleClass by rememberSaveable { mutableStateOf("Легкове") }
     var selectedVehicleId by rememberSaveable { mutableStateOf(demoVehicle.id) }
     var vehicleMode by rememberSaveable { mutableStateOf("Особистий") }
+    var configurationSelections by rememberSaveable(
+        stateSaver = vehicleConfigurationSelectionsSaver
+    ) {
+        mutableStateOf(defaultVehicleConfigurationSelections())
+    }
+    var routePreferencesByVehicle by rememberSaveable(stateSaver = routePreferencesSaver) {
+        mutableStateOf<Map<String, RoutePreferences>>(emptyMap())
+    }
+    var routePreferencesDraft by rememberSaveable(stateSaver = routePreferencesDraftSaver) {
+        mutableStateOf<RoutePreferencesDraft?>(null)
+    }
+    var routeSettingsReturnScreenName by rememberSaveable {
+        mutableStateOf(AppScreen.Map.name)
+    }
     var sectionNavigation by rememberSaveable(stateSaver = DemoSectionNavigation.Saver) {
         mutableStateOf(DemoSectionNavigation())
     }
@@ -261,23 +326,98 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
             notice = ""
             screenName = AppScreen.SignIn.name
         }
-        if (sectionNavigation.section != DemoSection.Map && demoMode) {
+        val persistSavedPlaces: (List<SavedPlace>) -> Boolean = { next ->
+            if (savedPlacesLoaded == null) {
+                savedPlacesNotice =
+                    "Збережені дані не вдалося прочитати. Існуючий вміст не перезаписано."
+                false
+            } else if (savedPlacesStore.write(encodeSavedPlaces(next))) {
+                savedPlaces = next
+                savedPlacesNotice = ""
+                true
+            } else {
+                savedPlacesNotice = "Не вдалося зберегти зміни на цьому пристрої."
+                false
+            }
+        }
+        val openSavedPlaces: (SavedPlacesOrigin, SavedPlace?) -> Unit = { source, editPlace ->
+            savedPlacesOriginName = source.name
+            savedPlacesEditKey = editPlace?.key
+            savedPlacesNotice = ""
+            screenName = AppScreen.SavedPlaces.name
+        }
+        val saveDemoPlace: (DemoPlace) -> SavedPlaceAddStatus = { place ->
+            if (savedPlacesLoaded == null) {
+                savedPlacesNotice =
+                    "Збережені дані не вдалося прочитати. Нову адресу не додано."
+                SavedPlaceAddStatus.Invalid
+            } else {
+                val result = addSavedPlace(savedPlaces, place)
+                when (result.status) {
+                    SavedPlaceAddStatus.Added ->
+                        if (persistSavedPlaces(result.places)) {
+                            SavedPlaceAddStatus.Added
+                        } else {
+                            SavedPlaceAddStatus.Invalid
+                        }
+                    SavedPlaceAddStatus.Duplicate -> SavedPlaceAddStatus.Duplicate
+                    SavedPlaceAddStatus.Invalid -> SavedPlaceAddStatus.Invalid
+                }
+            }
+        }
+        if (
+            sectionNavigation.section != DemoSection.Map &&
+            demoMode &&
+            screen != AppScreen.SavedPlaces
+        ) {
             DemoAccountScreen(
                 section = sectionNavigation.section,
                 profile = DemoProfileState(vehicleClass, vehicleMode, selectedVehicleId),
+                configurationSelections = configurationSelections,
                 themeSettings = themeSettings,
                 onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
+                savedPlacesCount = savedPlaces.size,
+                onOpenSavedPlaces = { openSavedPlaces(SavedPlacesOrigin.Profile, null) },
                 onBack = { sectionNavigation = sectionNavigation.back() },
                 onSelectVehicle = { vehicle ->
                     val selection = selectGarageVehicle(selectedVehicleId, vehicle)
                     if (selection.changed) {
                         vehicleClass = selection.vehicleClass
                         selectedVehicleId = selection.vehicleId
+                        routePreferencesDraft = null
                         screenName = AppScreen.Map.name
                         sheetName = SheetLevel.Collapsed.name
                         sectionNavigation = sectionNavigation.back()
                         notice =
                             "Обрано наявний демопрофіль ${vehicle.name}. Його характеристики не підтверджують право власності."
+                    }
+                },
+                onApplyVehicleConfiguration = { configuration ->
+                    val result = applyVehicleConfiguration(
+                        activeVehicleId = selectedVehicleId,
+                        currentSelections = configurationSelections,
+                        configuration = configuration
+                    )
+                    if (result.applied) {
+                        configurationSelections = result.selections
+                        notice = result.message
+                        if (
+                            result.parametersChanged &&
+                            (screenName == AppScreen.Preview.name ||
+                                (screenName == AppScreen.RouteSettings.name &&
+                                    routeSettingsReturnScreenName == AppScreen.Preview.name))
+                        ) {
+                            if (screenName == AppScreen.RouteSettings.name) {
+                                routeSettingsReturnScreenName = AppScreen.Map.name
+                            } else {
+                                screenName = AppScreen.Map.name
+                            }
+                            notice =
+                                "Параметри конфігурації змінено. Створіть попередній перегляд повторно."
+                        }
+                        sectionNavigation = DemoSectionNavigation()
+                    } else {
+                        notice = result.message
                     }
                 },
                 onExitDemo = exitDemo,
@@ -350,7 +490,9 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 geoStatus = geoStatus,
                 notice = notice,
                 vehicleClass = vehicleClass,
-                selectedVehicle = demoVehicleById(selectedVehicleId),
+                selectedVehicle = demoVehicleById(selectedVehicleId)?.withConfiguration(
+                    vehicleConfigurationFor(selectedVehicleId, configurationSelections)
+                ),
                 vehicleMode = vehicleMode,
                 onVehicleClassChange = { nextClass ->
                     if (nextClass != vehicleClass) {
@@ -385,6 +527,17 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                         ?: "Маршрут і навігацію не підключено. Це лише демонстраційний перегляд."
                     sheetName = SheetLevel.Expanded.name
                 },
+                onOpenRouteSettings = {
+                    val applied = routePreferencesByVehicle[selectedVehicleId] ?: RoutePreferences()
+                    routePreferencesDraft = RoutePreferencesDraft(
+                        vehicleId = selectedVehicleId,
+                        applied = applied,
+                        selected = applied
+                    )
+                    routeSettingsReturnScreenName = screenName
+                    notice = ""
+                    screenName = AppScreen.RouteSettings.name
+                },
                 onBack = {
                     screenName = if (screen == AppScreen.Preview) {
                         AppScreen.Map.name
@@ -398,16 +551,80 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 onToggleTheme = onToggleTheme
             )
 
+            AppScreen.RouteSettings -> {
+                val activeVehicle = demoVehicleById(selectedVehicleId)?.withConfiguration(
+                    vehicleConfigurationFor(selectedVehicleId, configurationSelections)
+                )
+                val draft = routePreferencesDraft
+                    ?: RoutePreferencesDraft(
+                        vehicleId = selectedVehicleId,
+                        applied = routePreferencesByVehicle[selectedVehicleId] ?: RoutePreferences(),
+                        selected = routePreferencesByVehicle[selectedVehicleId] ?: RoutePreferences()
+                    ).also { routePreferencesDraft = it }
+                RouteSettingsScreen(
+                    origin = origin,
+                    destination = destination,
+                    vehicle = activeVehicle,
+                    preferences = draft.selected,
+                    hasPendingChanges = draft.hasPendingChanges,
+                    canApply = draft.vehicleId == selectedVehicleId &&
+                        vehicleConfigurationFor(selectedVehicleId, configurationSelections)
+                            ?.availability == VehicleConfigurationAvailability.Available,
+                    notice = notice,
+                    onPreferencesChange = {
+                        routePreferencesDraft = routePreferencesDraft?.update(it)
+                    },
+                    onBack = {
+                        routePreferencesDraft = null
+                        screenName = routeSettingsReturnScreenName
+                    },
+                    onOpenGarage = {
+                        sectionNavigation = DemoSectionNavigation().open(DemoSection.Garage)
+                    },
+                    onOpenConfiguration = {
+                        sectionNavigation = DemoSectionNavigation()
+                            .open(DemoSection.Garage)
+                            .open(DemoSection.VehicleDetails)
+                            .open(DemoSection.VehicleConfigurations)
+                    },
+                    onApply = {
+                        val result = applyRoutePreferences(
+                            activeVehicleId = selectedVehicleId,
+                            preferencesByVehicle = routePreferencesByVehicle,
+                            draft = draft,
+                            activeConfigurationAvailable = vehicleConfigurationFor(
+                                selectedVehicleId,
+                                configurationSelections
+                            )?.availability == VehicleConfigurationAvailability.Available
+                        )
+                        notice = result.message
+                        if (result.applied) {
+                            routePreferencesByVehicle = result.preferencesByVehicle
+                            routePreferencesDraft = null
+                            screenName = routeSettingsReturnScreen(
+                                AppScreen.valueOf(routeSettingsReturnScreenName),
+                                result.changed
+                            ).name
+                        }
+                    },
+                    onToggleTheme = onToggleTheme
+                )
+
+            }
+
             AppScreen.Search -> SearchScreen(
                 demoMode = demoMode,
                 origin = origin,
                 destination = destination,
                 vehicleClass = vehicleClass,
-                selectedVehicle = demoVehicleById(selectedVehicleId),
+                selectedVehicle = demoVehicleById(selectedVehicleId)?.withConfiguration(
+                    vehicleConfigurationFor(selectedVehicleId, configurationSelections)
+                ),
                 target = target,
                 query = query,
                 status = searchStatus,
                 vehicleMode = vehicleMode,
+                savedPlaceKeys = savedPlaces.mapTo(mutableSetOf()) { it.key },
                 onVehicleModeChange = { vehicleMode = it },
                 onTargetChange = {
                     addresses = addresses.activate(it)
@@ -427,10 +644,19 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                     screenName = AppScreen.Map.name
                 },
                 onSelectPlace = { place ->
-                    addresses = addresses.select(place)
+                    val selection = selectSavedPlaceAddress(
+                        addresses,
+                        place.toSavedPlace(),
+                        AppScreen.valueOf(previousScreenName)
+                    )
+                    addresses = selection.addresses
                     notice =
                         "Демо-адресу вибрано; геокодування й маршрут провайдером не перевірялися."
-                    screenName = AppScreen.Map.name
+                    screenName = selection.screen.name
+                },
+                onSavePlace = saveDemoPlace,
+                onOpenSavedPlaces = { editPlace ->
+                    openSavedPlaces(SavedPlacesOrigin.Search, editPlace)
                 },
                 onSectionChange = {
                     if (it == DemoSection.Map) {
@@ -442,6 +668,67 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 },
                 onToggleTheme = onToggleTheme
             )
+
+            AppScreen.SavedPlaces -> {
+                val savedPlacesOrigin = SavedPlacesOrigin.valueOf(savedPlacesOriginName)
+                SavedPlacesScreen(
+                    places = savedPlaces,
+                    initialEditKey = savedPlacesEditKey,
+                    allowAddressSelection = savedPlacesOrigin == SavedPlacesOrigin.Search,
+                    allowDestinationUse = savedPlacesOrigin == SavedPlacesOrigin.Profile,
+                    notice = savedPlacesNotice,
+                    onBack = {
+                        savedPlacesEditKey = null
+                        screenName = if (savedPlacesOrigin == SavedPlacesOrigin.Search) {
+                            AppScreen.Search.name
+                        } else {
+                            AppScreen.Map.name
+                        }
+                    },
+                    onSelectAddress = { place ->
+                        val selection = selectSavedPlaceAddress(
+                            addresses,
+                            place,
+                            AppScreen.valueOf(previousScreenName)
+                        )
+                        addresses = selection.addresses
+                        notice =
+                            "Збережену адресу вибрано для ${
+                                if (target == SearchTarget.Origin) "початку" else "призначення"
+                            }. Повторний вибір тієї самої адреси не змінює Preview."
+                        savedPlacesEditKey = null
+                        screenName = selection.screen.name
+                    },
+                    onUseAsDestination = { place ->
+                        val selection = selectSavedPlaceAddress(
+                            addresses.copy(target = SearchTarget.Destination),
+                            place,
+                            AppScreen.Map
+                        )
+                        addresses = selection.addresses.copy(query = "")
+                        notice = if (origin.isBlank()) {
+                            "Адресу призначення вибрано. Початок не задано — виберіть його вручну на мапі."
+                        } else {
+                            "Адресу призначення вибрано. Демо-попередній перегляд не запускався."
+                        }
+                        savedPlacesEditKey = null
+                        screenName = selection.screen.name
+                        sectionNavigation = DemoSectionNavigation()
+                    },
+                    onRename = { key, label ->
+                        val updated = renameSavedPlace(savedPlaces, key, label)
+                        if (updated == null) {
+                            savedPlacesNotice = "Введіть непорожній ярлик і спробуйте ще раз."
+                        } else {
+                            persistSavedPlaces(updated)
+                        }
+                    },
+                    onDelete = { place ->
+                        persistSavedPlaces(removeSavedPlace(savedPlaces, place.key))
+                    },
+                    onToggleTheme = onToggleTheme
+                )
+            }
         }
     }
 }

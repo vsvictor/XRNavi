@@ -37,6 +37,21 @@ private class IosThemePreferenceStore : ThemePreferenceStore {
 internal actual fun rememberThemePreferenceStore(): ThemePreferenceStore =
     remember { IosThemePreferenceStore() }
 
+private class IosSavedPlacesStore : SavedPlacesStore {
+    private val preferences = NSUserDefaults.standardUserDefaults
+
+    override fun read(): String? = preferences.stringForKey(savedPlacesPreferenceKey)
+
+    override fun write(value: String): Boolean {
+        preferences.setObject(value, forKey = savedPlacesPreferenceKey)
+        return true
+    }
+}
+
+@Composable
+internal actual fun rememberSavedPlacesStore(): SavedPlacesStore =
+    remember { IosSavedPlacesStore() }
+
 @Composable
 internal actual fun rememberAppVersion(): String = remember {
     val bundle = NSBundle.mainBundle

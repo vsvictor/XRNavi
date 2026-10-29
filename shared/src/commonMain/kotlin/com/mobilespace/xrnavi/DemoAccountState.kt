@@ -6,6 +6,7 @@ internal enum class DemoSection(val label: String) {
     Map("Мапа"),
     Garage("Гараж"),
     VehicleDetails("Профіль автомобіля"),
+    VehicleConfigurations("Конфігурації"),
     Settings("Налаштування"),
     Profile("Профіль")
 }
@@ -72,9 +73,19 @@ internal data class DemoSectionNavigation(
     fun open(next: DemoSection): DemoSectionNavigation {
         if (next == section) return this
         if (next == DemoSection.Map) return DemoSectionNavigation()
-        if (section == DemoSection.VehicleDetails) {
+        val parentIndex = backStack.lastIndexOf(next)
+        if (parentIndex >= 0) {
+            return copy(section = next, backStack = backStack.take(parentIndex))
+        }
+        if (
+            section in setOf(DemoSection.VehicleDetails, DemoSection.VehicleConfigurations) &&
+            next == back().section
+        ) {
             val parent = back()
-            return if (next == parent.section) parent else parent.open(next)
+            return parent
+        }
+        if (section == DemoSection.VehicleDetails && next == DemoSection.Garage) {
+            return back().open(next)
         }
         return copy(section = next, backStack = backStack + section)
     }

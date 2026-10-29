@@ -40,6 +40,23 @@ internal actual fun rememberThemePreferenceStore(): ThemePreferenceStore {
     return remember(context) { AndroidThemePreferenceStore(context) }
 }
 
+private class AndroidSavedPlacesStore(context: Context) : SavedPlacesStore {
+    private val preferences = context.applicationContext.getSharedPreferences(
+        "xrnavi_saved_places", Context.MODE_PRIVATE
+    )
+
+    override fun read(): String? = preferences.getString(savedPlacesPreferenceKey, null)
+
+    override fun write(value: String): Boolean =
+        preferences.edit().putString(savedPlacesPreferenceKey, value).commit()
+}
+
+@Composable
+internal actual fun rememberSavedPlacesStore(): SavedPlacesStore {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { AndroidSavedPlacesStore(context) }
+}
+
 @Composable
 internal actual fun rememberAppVersion(): String {
     val context = LocalContext.current
