@@ -29,14 +29,36 @@ class SavedPlacesTest {
     fun renamingAndDeletionAreAddressKeyedAndRejectBlankLabels() {
         val first = addSavedPlace(emptyList(), demoPlaces[0]).places.single()
         val second = addSavedPlace(listOf(first), demoPlaces[1]).places.last()
+        val longLabel = "Улюблене місце для тривалих поїздок у центральній частині Львова біля Ратуші"
 
-        val renamed = renameSavedPlace(listOf(first, second), first.key, "Дім")
+        val renamed = renameSavedPlace(listOf(first, second), first.key, longLabel)
         assertNotNull(renamed)
-        assertEquals("Дім", renamed.first().label)
+        assertEquals(longLabel, renamed.first().label)
+        assertEquals(first.address, renamed.first().address)
+        assertEquals(first.detail, renamed.first().detail)
         assertEquals(second, renamed.last())
         assertNull(renameSavedPlace(renamed, first.key, "  "))
 
         assertEquals(listOf(second), removeSavedPlace(renamed, first.key))
+    }
+
+    @Test
+    fun similarAddressPrefixesRemainDistinctAndUnchangedByLabelEdits() {
+        val first = addSavedPlace(emptyList(), demoPlaces[0])
+        val second = addSavedPlace(first.places, demoPlaces[1])
+        assertEquals(SavedPlaceAddStatus.Added, second.status)
+        assertEquals("площа Ринок, 1", second.places[0].address)
+        assertEquals("площа Ринок, 10", second.places[1].address)
+        assertEquals(2, second.places.map { it.key }.distinct().size)
+
+        val renamed = renameSavedPlace(
+            second.places,
+            second.places[0].key,
+            "Довгий ярлик, який не змінює підтверджену адресу"
+        )
+        assertNotNull(renamed)
+        assertEquals(second.places[0].address, renamed[0].address)
+        assertEquals(second.places[1], renamed[1])
     }
 
     @Test

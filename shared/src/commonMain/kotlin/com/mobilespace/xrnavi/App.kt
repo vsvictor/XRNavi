@@ -27,6 +27,8 @@ internal enum class AppScreen {
     Search,
     Preview,
     RouteSettings,
+    RouteStops,
+    RouteStopSearch,
     SavedPlaces
 }
 
@@ -232,8 +234,29 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
         factory = remember(previewEnabled) { recoveryViewModelFactory(previewEnabled) }
     )
     val savedPlacesStore = rememberSavedPlacesStore()
+    val routeStopsStore = rememberRouteStopsStore()
     val savedPlacesInitial = remember(savedPlacesStore) {
         decodeSavedPlaces(savedPlacesStore.read())
+    }
+    val routeStopsInitial = remember(routeStopsStore) {
+        decodeRouteStopsSnapshot(routeStopsStore.read())
+    }
+    var routeStopsState by rememberSaveable(stateSaver = RouteStopsState.Saver) {
+        mutableStateOf(
+            RouteStopsState(
+                applied = routeStopsInitial?.stops.orEmpty(),
+                nextStopOrdinal = routeStopsInitial?.nextStopOrdinal ?: 1
+            )
+        )
+    }
+    var routeStopsNotice by rememberSaveable {
+        mutableStateOf(
+            if (routeStopsInitial == null) {
+                "Дані зупинок не вдалося прочитати. Існуючий вміст не перезаписано."
+            } else {
+                ""
+            }
+        )
     }
     val savedPlacesLoaded = savedPlacesInitial as? SavedPlacesDecodeResult.Success
     var savedPlaces by remember(savedPlacesInitial) {
@@ -338,6 +361,47 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
             } else {
                 savedPlacesNotice = "Не вдалося зберегти зміни на цьому пристрої."
                 false
+            }
+        }
+        val dispatchRouteStops: (RouteStopsEvent) -> Unit = { event ->
+            when (event) {
+                RouteStopsEvent.Save -> {
+                    if (routeStopsInitial == null) {
+                        routeStopsNotice =
+                            "Дані зупинок недоступні для запису; попередній вміст не змінено."
+                    } else {
+                        val next = reduceRouteStops(routeStopsState, event)
+                        if (routeStopsStore.write(
+                                encodeRouteStopsSnapshot(
+                                    RouteStopsSnapshot(next.applied, next.nextStopOrdinal)
+                                )
+                            )
+                        ) {
+                            val changed = routeStopsChanged(next.applied, routeStopsState.applied)
+                            routeStopsState = next
+                            routeStopsNotice = if (next.applied.isNotEmpty()) {
+                                "Багатоточковий перегляд ще не підключено."
+                            } else {
+                                ""
+                            }
+                            screenName = if (changed) {
+                                AppScreen.Map.name
+                            } else {
+                                previousScreenName
+                            }
+                        } else {
+                            routeStopsNotice = "Не вдалося зберегти зупинки на цьому пристрої."
+                        }
+                    }
+                }
+
+                RouteStopsEvent.CancelEditing -> {
+                    routeStopsState = reduceRouteStops(routeStopsState, event)
+                    routeStopsNotice = ""
+                    screenName = previousScreenName
+                }
+
+                else -> routeStopsState = reduceRouteStops(routeStopsState, event)
             }
         }
         val openSavedPlaces: (SavedPlacesOrigin, SavedPlace?) -> Unit = { source, editPlace ->
@@ -486,6 +550,7 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 demoMode = demoMode,
                 origin = origin,
                 destination = destination,
+                routeStops = routeStopsState.applied,
                 sheetLevel = sheetLevel,
                 geoStatus = geoStatus,
                 notice = notice,
@@ -508,13 +573,23 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                     searchStatusName = SearchStatus.Idle.name
                     screenName = AppScreen.Search.name
                 },
+                onOpenRouteStops = {
+                    previousScreenName = screenName
+                    routeStopsState = reduceRouteStops(
+                        routeStopsState,
+                        RouteStopsEvent.BeginEditing
+                    )
+                    routeStopsNotice = ""
+                    screenName = AppScreen.RouteStops.name
+                },
                 onUseLocation = {
                     geoStatusName = GeoStatus.NotConfigured.name
                     notice = geoStatusMessage(GeoStatus.NotConfigured)
                 },
                 onSheetLevelChange = { sheetName = it.name },
                 onPreview = {
-                    val blockMessage = routePreviewBlockMessage(origin, destination, vehicleClass)
+                    val blockMessage = routeStopsPreviewBlockMessage(routeStopsState.applied)
+                        ?: routePreviewBlockMessage(origin, destination, vehicleClass)
                     if (blockMessage != null) {
                         notice = blockMessage
                     } else {
@@ -550,6 +625,67 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                 onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
                 onToggleTheme = onToggleTheme
             )
+
+            AppScreen.RouteStops -> RouteStopsScreen(
+                origin = origin.ifBlank { "Не обрано" },
+                destination = destination.ifBlank { "Не обрано" },
+                stops = routeStopsState.visibleStops,
+                notice = routeStopsNotice,
+                canSave = routeStopsInitial != null,
+                onAdd = {
+                    dispatchRouteStops(RouteStopsEvent.AddStop)
+                    if (routeStopsState.searchStopId != null) {
+                        screenName = AppScreen.RouteStopSearch.name
+                    }
+                },
+                onReplace = { stopId ->
+                    dispatchRouteStops(RouteStopsEvent.ReplaceAddress(stopId))
+                    if (routeStopsState.searchStopId != null) {
+                        screenName = AppScreen.RouteStopSearch.name
+                    }
+                },
+                onRemove = { dispatchRouteStops(RouteStopsEvent.RemoveStop(it)) },
+                onMoveUp = { dispatchRouteStops(RouteStopsEvent.MoveUp(it)) },
+                onMoveDown = { dispatchRouteStops(RouteStopsEvent.MoveDown(it)) },
+                onSave = { dispatchRouteStops(RouteStopsEvent.Save) },
+                onCancel = { dispatchRouteStops(RouteStopsEvent.CancelEditing) },
+                onToggleTheme = onToggleTheme
+            )
+
+            AppScreen.RouteStopSearch -> {
+                val searchStopId = routeStopsState.searchStopId
+                if (searchStopId == null) {
+                    screenName = AppScreen.RouteStops.name
+                } else {
+                    RouteStopSearchScreen(
+                        stopId = searchStopId,
+                        query = routeStopsState.query,
+                        savedPlaces = savedPlaces,
+                        onQueryChange = {
+                            dispatchRouteStops(RouteStopsEvent.UpdateQuery(it))
+                        },
+                        onSelectDemoPlace = { place ->
+                            dispatchRouteStops(
+                                RouteStopsEvent.SelectDemoPlace(searchStopId, place)
+                            )
+                            routeStopsNotice = ""
+                            screenName = AppScreen.RouteStops.name
+                        },
+                        onSelectSavedPlace = { place ->
+                            dispatchRouteStops(
+                                RouteStopsEvent.SelectSavedPlace(searchStopId, place)
+                            )
+                            routeStopsNotice = ""
+                            screenName = AppScreen.RouteStops.name
+                        },
+                        onBack = {
+                            dispatchRouteStops(RouteStopsEvent.CancelSearch)
+                            screenName = AppScreen.RouteStops.name
+                        },
+                        onToggleTheme = onToggleTheme
+                    )
+                }
+            }
 
             AppScreen.RouteSettings -> {
                 val activeVehicle = demoVehicleById(selectedVehicleId)?.withConfiguration(

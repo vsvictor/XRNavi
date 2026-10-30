@@ -57,6 +57,23 @@ internal actual fun rememberSavedPlacesStore(): SavedPlacesStore {
     return remember(context) { AndroidSavedPlacesStore(context) }
 }
 
+private class AndroidRouteStopsStore(context: Context) : RouteStopsStore {
+    private val preferences = context.applicationContext.getSharedPreferences(
+        "xrnavi_route_stops", Context.MODE_PRIVATE
+    )
+
+    override fun read(): String? = preferences.getString(routeStopsPreferenceKey, null)
+
+    override fun write(value: String): Boolean =
+        preferences.edit().putString(routeStopsPreferenceKey, value).commit()
+}
+
+@Composable
+internal actual fun rememberRouteStopsStore(): RouteStopsStore {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { AndroidRouteStopsStore(context) }
+}
+
 @Composable
 internal actual fun rememberAppVersion(): String {
     val context = LocalContext.current

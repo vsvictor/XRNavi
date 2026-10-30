@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.WindowInsets
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -26,7 +27,11 @@ class ProfileSettingsRuntimeTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
     private val context get() = instrumentation.targetContext
-    private val output get() = File(context.getExternalFilesDir(null), "account-runtime").apply { mkdirs() }
+    private val output
+        get() = File(
+            context.getExternalFilesDir(null),
+            "account-runtime"
+        ).apply { mkdirs() }
 
     @Test
     fun garageVehicleProfileIsReadOnlyAndBackReturnsToGarage() {
@@ -93,7 +98,10 @@ class ProfileSettingsRuntimeTest {
             waitFor("special category profile remains available") {
                 find("Обрати Спецтехніка · демо 01") != null
             }
-            assertNull("Filtering must not select the special profile", find("Обрано для демомаршруту"))
+            assertNull(
+                "Filtering must not select the special profile",
+                find("Обрано для демомаршруту")
+            )
             scrollTop()
             tap("Легкове")
             waitFor("passenger category") { find("Легкове транспорт") != null }
@@ -109,14 +117,20 @@ class ProfileSettingsRuntimeTest {
                 }
             }
             scrollTop()
-            assertNotNull("Test precondition must select the Mustang", find("ОБРАНО ДЛЯ ДЕМОМАРШРУТУ"))
+            assertNotNull(
+                "Test precondition must select the Mustang",
+                find("ОБРАНО ДЛЯ ДЕМОМАРШРУТУ")
+            )
             tap("Вантажне")
             waitFor("cargo category heading") { find("Вантажне транспорт") != null }
             reveal("Обрати Вантажний транспорт · демо 01")
             waitFor("Cargo profile remains available without becoming selected") {
                 find("Обрати Вантажний транспорт · демо 01") != null
             }
-            assertNull("Filtering must not select the cargo profile", find("Обрано для демомаршруту"))
+            assertNull(
+                "Filtering must not select the cargo profile",
+                find("Обрано для демомаршруту")
+            )
             scrollTop()
             val cargoFilterNodes = nodes().filter {
                 it.text?.toString() == "Вантажне"
@@ -124,7 +138,7 @@ class ProfileSettingsRuntimeTest {
             assertTrue(
                 "Cargo filter must be selected: " + cargoFilterNodes.joinToString {
                     "text=${it.text}, desc=${it.contentDescription}, selected=${it.isSelected}, " +
-                        "checked=${it.isChecked}, state=${it.stateDescription}, clickable=${it.isClickable}"
+                            "checked=${it.isChecked}, state=${it.stateDescription}, clickable=${it.isClickable}"
                 },
                 cargoFilterNodes.any { it.isSelected || it.stateDescription == "Вибрано" }
             )
@@ -168,15 +182,20 @@ class ProfileSettingsRuntimeTest {
                 .getString("appearance.theme", "system")
             File(output, "S16-reproduction-conditions.txt").writeText(
                 "Device: ${Build.MODEL}\nAndroid: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}\n" +
-                    "Font scale: ${context.resources.configuration.fontScale}\n" +
-                    "Accessibility services: $readers\n" +
-                    "UI mode: ${context.resources.configuration.uiMode}; app theme: $appearance\n" +
-                    "Orientation: ${context.resources.configuration.orientation}\n" +
-                    "Display size: ${rootBounds().width()}x${rootBounds().height()}\n" +
-                    "Window orientation policy: ${readOrientationOverride()}\n" +
-                    "Rotation override: ${readDeviceSetting("global", "ignore_orientation_request")}\n" +
-                    "Auto-rotate: ${readDeviceSetting("system", "accelerometer_rotation")}\n" +
-                    "User rotation: ${readDeviceSetting("system", "user_rotation")}\n"
+                        "Font scale: ${context.resources.configuration.fontScale}\n" +
+                        "Accessibility services: $readers\n" +
+                        "UI mode: ${context.resources.configuration.uiMode}; app theme: $appearance\n" +
+                        "Orientation: ${context.resources.configuration.orientation}\n" +
+                        "Display size: ${rootBounds().width()}x${rootBounds().height()}\n" +
+                        "Window orientation policy: ${readOrientationOverride()}\n" +
+                        "Rotation override: ${
+                            readDeviceSetting(
+                                "global",
+                                "ignore_orientation_request"
+                            )
+                        }\n" +
+                        "Auto-rotate: ${readDeviceSetting("system", "accelerometer_rotation")}\n" +
+                        "User rotation: ${readDeviceSetting("system", "user_rotation")}\n"
             )
             tap("Продовжити без входу · деморежим")
             tap("Вибрати початкову точку")
@@ -212,7 +231,7 @@ class ProfileSettingsRuntimeTest {
             capture("S16-incomplete-configuration")
             val incompleteApplyCandidates = nodes().filter {
                 it.contentDescription?.contains("Застосувати конфігурацію") == true ||
-                    it.text?.contains("Застосувати конфігурацію") == true
+                        it.text?.contains("Застосувати конфігурацію") == true
             }
             val incompleteApply = requireNotNull(
                 incompleteApplyCandidates.firstOrNull { it.isClickable }
@@ -222,7 +241,7 @@ class ProfileSettingsRuntimeTest {
             tap("Застосувати конфігурацію")
             waitFor("incomplete selection remains unapplied") {
                 find("Застосування недоступне") != null &&
-                    find("Обрано, ще не застосовано") != null
+                        find("Обрано, ще не застосовано") != null
             }
             tap("Скасувати")
             waitFor("vehicle profile after cancel") { find("Профіль автомобіля") != null }
@@ -233,7 +252,7 @@ class ProfileSettingsRuntimeTest {
             tap("Переглянути профіль Легковий автомобіль · демо 02")
             waitFor("inactive vehicle profile") {
                 find("Профіль автомобіля") != null &&
-                    find("Легковий автомобіль · демо 02") != null
+                        find("Легковий автомобіль · демо 02") != null
             }
             capture("S16-inactive-vehicle-profile")
             tap("Переглянути конфігурації Легковий автомобіль · демо 02")
@@ -244,13 +263,16 @@ class ProfileSettingsRuntimeTest {
             capture("S16-inactive-vehicle")
             val applyActionCandidates = nodes().filter {
                 it.contentDescription?.contains("Застосувати конфігурацію") == true ||
-                    it.text?.contains("Застосувати конфігурацію") == true
+                        it.text?.contains("Застосувати конфігурацію") == true
             }
             val applyAction = requireNotNull(
                 applyActionCandidates.firstOrNull { it.isClickable }
                     ?: applyActionCandidates.firstOrNull()
             ) { "Inactive profile must expose an apply action" }
-            assertFalse("Inactive profile configuration must not be clickable", applyAction.isClickable)
+            assertFalse(
+                "Inactive profile configuration must not be clickable",
+                applyAction.isClickable
+            )
             tap("Повернутися до гаража")
 
             tap("Мапа")
@@ -320,7 +342,9 @@ class ProfileSettingsRuntimeTest {
         assumeTrue("Ordinary touch test must run separately from screen readers", readers.isEmpty())
         val preferences = context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
         val originalTheme = preferences.getString("appearance.theme", null)
-        val portraitOnly = InstrumentationRegistry.getArguments().getString("portraitOnly") == "true"
+        val originalRotation = currentRotationSettings()
+        val portraitOnly =
+            InstrumentationRegistry.getArguments().getString("portraitOnly") == "true"
         val orientations = listOf(
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT to "portrait",
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE to "landscape"
@@ -342,14 +366,14 @@ class ProfileSettingsRuntimeTest {
                             "Toll preference did not become checked: ${routeSwitchDiagnostics("Уникати платних доріг")}",
                             nodes().any {
                                 it.contentDescription?.toString() == "Уникати платних доріг" &&
-                                    it.isChecked
+                                        it.isChecked
                             }
                         )
                         capture("S04-$orientationLabel-$storedTheme-draft")
                         tap("Застосувати параметри")
                         waitFor("S04 changed preferences invalidate old preview") {
                             find("Переглянути маршрут") != null &&
-                                find("Почати маршрут") == null
+                                    find("Почати маршрут") == null
                         }
                         assertNotNull(find("площа Ринок, 1"))
                         assertNotNull(find("площа Ринок, 10"))
@@ -371,6 +395,7 @@ class ProfileSettingsRuntimeTest {
                 }
             }
         } finally {
+            restoreRotationSettings(originalRotation)
             val editor = preferences.edit()
             if (originalTheme == null) editor.remove("appearance.theme")
             else editor.putString("appearance.theme", originalTheme)
@@ -389,7 +414,10 @@ class ProfileSettingsRuntimeTest {
             tap("Налаштування")
             chooseTheme(themeLabel)
             tap("Мапа")
-            scenario.onActivity { it.requestedOrientation = orientation }
+            scenario.onActivity {
+                it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+            forceDeviceOrientation(orientation)
             waitFor("S04 $orientationLabel orientation") {
                 val bounds = rootBounds()
                 if (orientationLabel == "landscape") {
@@ -431,7 +459,7 @@ class ProfileSettingsRuntimeTest {
             tap("Параметри маршруту та альтернативи")
             waitFor("S04 route settings screen") {
                 find("Параметри маршруту") != null &&
-                    find("Застосувати параметри") != null
+                        find("Застосувати параметри") != null
             }
             capture("S04-$orientationLabel-$themeLabel-entry")
             revealRouteSettingsContent("Ford Mustang GT")
@@ -454,16 +482,19 @@ class ProfileSettingsRuntimeTest {
         assumeTrue("Ordinary touch test must run separately from screen readers", readers.isEmpty())
         val preferences = context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
         val original = preferences.getString("appearance.theme", null)
+        val originalRotation = currentRotationSettings()
         val fontScale = context.resources.configuration.fontScale
-        val portraitOnly = InstrumentationRegistry.getArguments().getString("portraitOnly") == "true"
+        val portraitOnly =
+            InstrumentationRegistry.getArguments().getString("portraitOnly") == "true"
         File(output, "conditions.txt").writeText(
             "Device: ${Build.MODEL}\nAndroid: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}\n" +
-                "Font scale: $fontScale\nEnabled accessibility services: none\n" +
-                "Initial requested orientation: ${
-                    InstrumentationRegistry.getArguments().getString("testOrientation") ?: "unspecified"
-                }\n" +
-                "Rotation: requested by test Activity only; system rotation settings unchanged\n" +
-                "Portrait-only run: $portraitOnly\n"
+                    "Font scale: $fontScale\nEnabled accessibility services: none\n" +
+                    "Initial requested orientation: ${
+                        InstrumentationRegistry.getArguments()
+                            .getString("testOrientation") ?: "unspecified"
+                    }\n" +
+                    "Rotation: test temporarily locks display rotation; original settings restored\n" +
+                    "Portrait-only run: $portraitOnly\n"
         )
         val scenario = launchFreshApp()
         try {
@@ -477,7 +508,10 @@ class ProfileSettingsRuntimeTest {
                     ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE to "landscape"
                 ).filter { !portraitOnly || it.second == "portrait" }
                 for ((orientation, suffix) in orientations) {
-                    scenario.onActivity { it.requestedOrientation = orientation }
+                    scenario.onActivity {
+                        it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                    forceDeviceOrientation(orientation)
                     waitFor("window orientation $suffix") {
                         val bounds = rootBounds()
                         if (suffix == "portrait") bounds.height() > bounds.width()
@@ -555,7 +589,7 @@ class ProfileSettingsRuntimeTest {
                 assertTrue("Theme radio should remain checked", nodes().any { node ->
                     val bounds = Rect().also(node::getBoundsInScreen)
                     (node.isChecked || node.isSelected) &&
-                        bounds.centerY() in labelBounds.top..labelBounds.bottom
+                            bounds.centerY() in labelBounds.top..labelBounds.bottom
                 })
                 tap("Зрозуміло")
                 capture("restored-$stored")
@@ -565,8 +599,11 @@ class ProfileSettingsRuntimeTest {
             tap("Мапа")
             capture("map-returned")
         } finally {
-            scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+            scenario.onActivity {
+                it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
             scenario.close()
+            restoreRotationSettings(originalRotation)
             val editor = preferences.edit()
             if (original == null) editor.remove("appearance.theme")
             else editor.putString("appearance.theme", original)
@@ -584,6 +621,7 @@ class ProfileSettingsRuntimeTest {
         val savedPlaces = context.getSharedPreferences("xrnavi_saved_places", Context.MODE_PRIVATE)
         val originalTheme = appearance.getString("appearance.theme", null)
         val originalPlaces = savedPlaces.getString("saved.places.v1", null)
+        val originalRotation = currentRotationSettings()
         assertTrue(savedPlaces.edit().remove("saved.places.v1").commit())
         assertTrue(appearance.edit().putString("appearance.theme", "Light").commit())
         val orientationArgument =
@@ -604,9 +642,9 @@ class ProfileSettingsRuntimeTest {
             )
             File(output, "S37-conditions-$orientationLabel.txt").writeText(
                 "Device: ${Build.MODEL}\nAndroid: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}\n" +
-                    "Font scale: ${context.resources.configuration.fontScale}\n" +
-                    "Enabled accessibility services: $readers\n" +
-                    "Orientation: $orientationLabel\nTheme: Light, then Dark, then Light via the app UI\n"
+                        "Font scale: ${context.resources.configuration.fontScale}\n" +
+                        "Enabled accessibility services: $readers\n" +
+                        "Orientation: $orientationLabel\nTheme: Light, then Dark, then Light via the app UI\n"
             )
             tap("Продовжити без входу · деморежим")
             tap("Вибрати початкову точку")
@@ -620,8 +658,15 @@ class ProfileSettingsRuntimeTest {
             tap("Відкрити обране")
             waitFor("S37 saved address list") {
                 find("площа Ринок, 1") != null &&
-                    find("Хмарну синхронізацію не підключено") != null
+                        find("Хмарну синхронізацію не підключено") != null
             }
+            assertEquals(
+                "An address used as its own default label must not be repeated in the card",
+                1,
+                nodes().count {
+                    it.text?.toString() == "площа Ринок, 1" && it.isVisibleToUser
+                }
+            )
             capture("S37-light-$orientationLabel-saved-list")
             tap("Тема")
             assertEquals("Dark", appearance.getString("appearance.theme", null))
@@ -650,7 +695,9 @@ class ProfileSettingsRuntimeTest {
             waitFor("S37 rename dialog") {
                 nodes().any { it.isEditable && it.isVisibleToUser }
             }
-            val labelInput = requireNotNull(nodes().firstOrNull { it.isEditable && it.isVisibleToUser })
+            capture("S37-rename-dialog-$orientationLabel")
+            val labelInput =
+                requireNotNull(nodes().firstOrNull { it.isEditable && it.isVisibleToUser })
             val labelArgs = Bundle().apply {
                 putCharSequence(
                     AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
@@ -659,12 +706,16 @@ class ProfileSettingsRuntimeTest {
             }
             assertTrue(
                 "S37 label editor must accept an explicit user label",
-                labelInput.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT.id, labelArgs)
+                labelInput.performAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT.id,
+                    labelArgs
+                )
             )
             tap("Зберегти")
             waitFor("S37 renamed label") { find("Дім") != null }
             tap("Видалити")
             waitFor("S37 delete confirmation") { find("Видалити з обраного?") != null }
+            capture("S37-delete-confirmation-cancel-$orientationLabel")
             tap("Скасувати")
             assertNotNull(find("Дім"))
             tap("Використати як призначення")
@@ -679,7 +730,7 @@ class ProfileSettingsRuntimeTest {
             tap("Вибрати адресу")
             waitFor("S37 Origin selection returns to Map") {
                 find("площа Ринок, 1") != null &&
-                    find("Редагувати адресу призначення") != null
+                        find("Редагувати адресу призначення") != null
             }
             tap("Редагувати адресу призначення")
             tap("площа Ринок, 10")
@@ -701,7 +752,7 @@ class ProfileSettingsRuntimeTest {
                     it.text?.toString() == "площа Ринок, 1" && it.isVisibleToUser
                 }
                 originAddress >= 2 &&
-                    nodes().none { it.text?.toString() == "площа Ринок, 10" && it.isVisibleToUser }
+                        nodes().none { it.text?.toString() == "площа Ринок, 10" && it.isVisibleToUser }
             }
             capture("S37-profile-destination-action")
             tap("Профіль")
@@ -711,6 +762,7 @@ class ProfileSettingsRuntimeTest {
             waitFor("S37 delete saved place") { find("Видалити") != null }
             tap("Видалити")
             waitFor("S37 delete confirmation") { find("Видалити з обраного?") != null }
+            capture("S37-delete-confirmation-$orientationLabel")
             clickTextAction("Видалити")
             waitFor("S37 empty state after deletion") {
                 find("Поки немає збережених місць") != null
@@ -722,11 +774,204 @@ class ProfileSettingsRuntimeTest {
             if (originalPlaces == null) savedEditor.remove("saved.places.v1")
             else savedEditor.putString("saved.places.v1", originalPlaces)
             assertTrue("Original local saved places must be restored", savedEditor.commit())
+            restoreRotationSettings(originalRotation)
             val themeEditor = appearance.edit()
             if (originalTheme == null) themeEditor.remove("appearance.theme")
             else themeEditor.putString("appearance.theme", originalTheme)
             assertTrue("Original theme preference must be restored", themeEditor.commit())
         }
+    }
+
+    @Test
+    fun savedPlaceLongLabelEditorHandlesImeSaveCancelAndKeepsAddress() {
+        val readers = Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        assumeTrue("Ordinary touch test must run separately from screen readers", readers.isEmpty())
+        val appearance = context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
+        val savedPlaces = context.getSharedPreferences("xrnavi_saved_places", Context.MODE_PRIVATE)
+        val originalTheme = appearance.getString("appearance.theme", null)
+        val originalPlaces = savedPlaces.getString("saved.places.v1", null)
+        val requestedTheme =
+            InstrumentationRegistry.getArguments().getString("testTheme")
+                ?.replaceFirstChar { it.uppercase() } ?: "Light"
+        assertTrue(savedPlaces.edit().remove("saved.places.v1").commit())
+        assertTrue(appearance.edit().putString("appearance.theme", requestedTheme).commit())
+        val scenario = launchFreshApp()
+        try {
+            val bounds = rootBounds()
+            val orientationLabel = if (bounds.width() > bounds.height()) "landscape" else "portrait"
+            val themeLabel = requestedTheme.lowercase()
+            tap("Продовжити без входу · деморежим")
+            tap("Вибрати початкову точку")
+            waitFor("S37 long-label search") { find("Обране · збережене локально") != null }
+            tap("Зберегти")
+            waitFor("S37 long-label address added") {
+                find("Адресу додано до локального обраного.") != null
+            }
+            tap("Збережено")
+            waitFor("S37 long-label duplicate prompt") { find("Адресу вже збережено") != null }
+            tap("Відкрити обране")
+            waitFor("S37 long-label saved list") { find("площа Ринок, 1") != null }
+            val savedBeforeEdit = savedPlaces.getString("saved.places.v1", null)
+            assertNotNull("Confirmed demo place must be persisted before editing", savedBeforeEdit)
+            capture("S37-$themeLabel-$orientationLabel-long-label-before-edit")
+
+            tap("Перейменувати ярлик")
+            waitFor("S37 long-label editor") {
+                nodes().any { it.isEditable && it.isVisibleToUser }
+            }
+            capture("S37-$themeLabel-$orientationLabel-editor-open")
+            val input = requireNotNull(nodes().firstOrNull { it.isEditable && it.isVisibleToUser })
+            assertTrue("Rename editor must focus its label field", input.isFocused)
+            assertTrue(
+                "Rename editor must show the keyboard for the focused label field",
+                isImeVisible(scenario)
+            )
+
+            val longLabel =
+                "Улюблене місце для тривалих поїздок — площа Ринок у центральній частині Львова, біля Ратуші"
+            val setTextArgs = Bundle().apply {
+                putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                    longLabel
+                )
+            }
+            assertTrue(
+                "Rename editor must accept the full long label",
+                input.performAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT.id,
+                    setTextArgs
+                )
+            )
+            waitFor("S37 full long label in editor") {
+                nodes().any { it.isEditable && it.text?.toString() == longLabel }
+            }
+            assertNotNull("Save must remain available while the keyboard is open", find("Зберегти"))
+            assertNotNull(
+                "Cancel must remain available while the keyboard is open",
+                find("Скасувати")
+            )
+            capture("S37-$themeLabel-$orientationLabel-editor-long-label-ime")
+
+            assertTrue(
+                "IME Done action must be accepted by the focused label field",
+                input.performAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id
+                )
+            )
+            waitFor("S37 Done hides IME without applying or closing the draft") {
+                !isImeVisible(scenario) &&
+                        find("Зберегти") != null &&
+                        nodes().any {
+                            it.isEditable && it.text?.toString() == longLabel && !it.isFocused
+                        }
+            }
+            assertEquals(
+                "IME Done must not persist the rename",
+                savedBeforeEdit,
+                savedPlaces.getString("saved.places.v1", null)
+            )
+            capture("S37-$themeLabel-$orientationLabel-editor-long-label-after-done")
+
+            assertEquals(
+                "Editing the long label must remain a draft until Save",
+                savedBeforeEdit,
+                savedPlaces.getString("saved.places.v1", null)
+            )
+            capture("S37-$themeLabel-$orientationLabel-editor-long-label-draft")
+            tap("Зберегти")
+            waitFor("S37 long label saved explicitly") {
+                find(longLabel) != null && find("площа Ринок, 1") != null
+            }
+            assertEquals(
+                "A different label must leave the full confirmed address visible",
+                1,
+                nodes().count {
+                    it.text?.toString() == "площа Ринок, 1" && it.isVisibleToUser
+                }
+            )
+            capture("S37-$themeLabel-$orientationLabel-long-label-saved")
+
+            tap("Перейменувати ярлик")
+            waitFor("S37 second rename editor") {
+                nodes().any { it.isEditable && it.isVisibleToUser }
+            }
+            val cancelInput =
+                requireNotNull(nodes().firstOrNull { it.isEditable && it.isVisibleToUser })
+            val draft = "Чернетка, яку потрібно скасувати після закриття клавіатури"
+            val draftArgs = Bundle().apply {
+                putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                    draft
+                )
+            }
+            assertTrue(
+                cancelInput.performAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT.id,
+                    draftArgs
+                )
+            )
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            waitFor("S37 first Back closes IME") {
+                !isImeVisible(scenario) && find("Зберегти") != null
+            }
+            capture("S37-$themeLabel-$orientationLabel-cancel-draft")
+            tap("Скасувати")
+            waitFor("S37 cancel preserves original long label") {
+                find(longLabel) != null && find(draft) == null
+            }
+
+            tap("Перейменувати ярлик")
+            waitFor("S37 rename back to address") {
+                nodes().any { it.isEditable && it.isVisibleToUser }
+            }
+            val exactLabelInput =
+                requireNotNull(nodes().firstOrNull { it.isEditable && it.isVisibleToUser })
+            val exactLabelArgs = Bundle().apply {
+                putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                    " площа Ринок, 1 "
+                )
+            }
+            assertTrue(
+                exactLabelInput.performAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT.id,
+                    exactLabelArgs
+                )
+            )
+            tap("Зберегти")
+            waitFor("S37 same label and address render once") {
+                find("площа Ринок, 1") != null && find("Перейменувати ярлик") != null
+            }
+            assertEquals(
+                "Matching label and address must be shown once",
+                1,
+                nodes().count {
+                    it.text?.toString() == "площа Ринок, 1" && it.isVisibleToUser
+                }
+            )
+            capture("S37-$themeLabel-$orientationLabel-long-label-restored")
+        } finally {
+            scenario.close()
+            val savedEditor = savedPlaces.edit()
+            if (originalPlaces == null) savedEditor.remove("saved.places.v1")
+            else savedEditor.putString("saved.places.v1", originalPlaces)
+            assertTrue("Original local saved places must be restored", savedEditor.commit())
+            val themeEditor = appearance.edit()
+            if (originalTheme == null) themeEditor.remove("appearance.theme")
+            else themeEditor.putString("appearance.theme", originalTheme)
+            assertTrue("Original theme preference must be restored", themeEditor.commit())
+        }
+    }
+
+    private fun isImeVisible(scenario: ActivityScenario<MainActivity>): Boolean {
+        var visible = false
+        scenario.onActivity { activity ->
+            visible = activity.window.decorView.rootWindowInsets
+                ?.isVisible(WindowInsets.Type.ime()) == true
+        }
+        return visible
     }
 
     private fun chooseTheme(label: String) {
@@ -750,7 +995,10 @@ class ProfileSettingsRuntimeTest {
             else -> null
         }
         if (orientation != null) {
-            scenario.onActivity { it.requestedOrientation = orientation }
+            scenario.onActivity {
+                it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+            forceDeviceOrientation(orientation)
             waitFor("requested test orientation") {
                 val bounds = rootBounds()
                 if (orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
@@ -765,12 +1013,14 @@ class ProfileSettingsRuntimeTest {
 
     private fun readDeviceSetting(namespace: String, name: String): String {
         val descriptor = automation.executeShellCommand("settings get $namespace $name")
-        return FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText().trim() }
+        return FileInputStream(descriptor.fileDescriptor).bufferedReader()
+            .use { it.readText().trim() }
     }
 
     private fun readOrientationOverride(): String {
         val descriptor = automation.executeShellCommand("dumpsys window")
-        val output = FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText() }
+        val output =
+            FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText() }
         return output.lineSequence()
             .firstOrNull { "mSetIgnoreOrientationRequest" in it }
             ?.trim()
@@ -795,8 +1045,8 @@ class ProfileSettingsRuntimeTest {
         val matches = nodes().filter {
             val bounds = Rect().also(it::getBoundsInScreen)
             it.isVisibleToUser && !bounds.isEmpty && Rect.intersects(bounds, window) && (
-                it.text?.contains(text) == true || it.contentDescription?.contains(text) == true
-            )
+                    it.text?.contains(text) == true || it.contentDescription?.contains(text) == true
+                    )
         }
         return matches.firstOrNull { it.isClickable } ?: matches.firstOrNull()
     }
@@ -804,20 +1054,20 @@ class ProfileSettingsRuntimeTest {
     private fun routeSwitchDiagnostics(label: String): String =
         nodes().filter {
             it.contentDescription?.toString() == label ||
-                it.text?.toString()?.contains(label) == true
+                    it.text?.toString()?.contains(label) == true
         }.joinToString { node ->
             "text=${node.text}, description=${node.contentDescription}, checked=${node.isChecked}, " +
-                "state=${node.stateDescription}, clickable=${node.isClickable}"
+                    "state=${node.stateDescription}, clickable=${node.isClickable}"
         }
 
     private fun routePanelNode(): AccessibilityNodeInfo? =
         nodes().firstOrNull {
             it.isClickable &&
-                it.stateDescription?.toString() in setOf(
-                    "Згорнута",
-                    "Частково розгорнута",
-                    "Розгорнута"
-                )
+                    it.stateDescription?.toString() in setOf(
+                "Згорнута",
+                "Частково розгорнута",
+                "Розгорнута"
+            )
         }
 
     private fun rootBounds(): Rect = Rect().also {
@@ -861,7 +1111,8 @@ class ProfileSettingsRuntimeTest {
     private fun reveal(text: String) {
         if (find(text) != null) return
         for (direction in listOf(
-            AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+            AccessibilityNodeInfo.ACTION_SCROLL_FORWARD,
+            AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
         )) {
             repeat(16) {
                 if (find(text) != null) return
@@ -898,8 +1149,9 @@ class ProfileSettingsRuntimeTest {
             swipeRouteSettingsContent(forward = true)
             if (find(text) != null) return
         }
-        fail("Route settings content not found after scrolling: $text\n" +
-            nodes().map { it.text ?: it.contentDescription })
+        fail(
+            "Route settings content not found after scrolling: $text\n" +
+                    nodes().map { it.text ?: it.contentDescription })
     }
 
     private fun swipeRouteSettingsContent(forward: Boolean) {
@@ -934,6 +1186,26 @@ class ProfileSettingsRuntimeTest {
         FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText() }
     }
 
+    private fun currentRotationSettings(): Pair<Int, Int> = Pair(
+        Settings.System.getInt(context.contentResolver, "accelerometer_rotation", 1),
+        Settings.System.getInt(context.contentResolver, "user_rotation", 0)
+    )
+
+    private fun forceDeviceOrientation(orientation: Int) {
+        val rotation = when (orientation) {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE -> 1
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT -> 0
+            else -> error("Unsupported test orientation: $orientation")
+        }
+        injectShellInput("settings put system accelerometer_rotation 0")
+        injectShellInput("settings put system user_rotation $rotation")
+    }
+
+    private fun restoreRotationSettings(settings: Pair<Int, Int>) {
+        injectShellInput("settings put system user_rotation ${settings.second}")
+        injectShellInput("settings put system accelerometer_rotation ${settings.first}")
+    }
+
     private fun waitFor(description: String, predicate: () -> Boolean) {
         val deadline = SystemClock.uptimeMillis() + 10_000
         while (SystemClock.uptimeMillis() < deadline) {
@@ -942,12 +1214,12 @@ class ProfileSettingsRuntimeTest {
         }
         fail(
             "Timed out waiting for $description\n" +
-                nodes().joinToString("\n") {
-                    val bounds = Rect().also(it::getBoundsInScreen)
-                    "${it.text ?: it.contentDescription} | visible=${it.isVisibleToUser} " +
-                        "clickable=${it.isClickable} enabled=${it.isEnabled} " +
-                        "state=${it.stateDescription} selected=${it.isSelected} bounds=$bounds"
-                }
+                    nodes().joinToString("\n") {
+                        val bounds = Rect().also(it::getBoundsInScreen)
+                        "${it.text ?: it.contentDescription} | visible=${it.isVisibleToUser} " +
+                                "clickable=${it.isClickable} enabled=${it.isEnabled} " +
+                                "state=${it.stateDescription} selected=${it.isSelected} bounds=$bounds"
+                    }
         )
     }
 
@@ -963,10 +1235,12 @@ class ProfileSettingsRuntimeTest {
         File(output, "$name.txt").writeText(
             nodes().joinToString("\n") { node ->
                 val bounds = Rect().also(node::getBoundsInScreen)
-                "${node.text?.toString().orEmpty()} | ${node.contentDescription?.toString().orEmpty()} | $bounds" +
-                    " | checked=${node.isChecked} enabled=${node.isEnabled} " +
-                    "state=${node.stateDescription} selected=${node.isSelected} " +
-                    "scrollable=${node.isScrollable}"
+                "${node.text?.toString().orEmpty()} | ${
+                    node.contentDescription?.toString().orEmpty()
+                } | $bounds" +
+                        " | checked=${node.isChecked} enabled=${node.isEnabled} " +
+                        "state=${node.stateDescription} selected=${node.isSelected} " +
+                        "scrollable=${node.isScrollable}"
             }
         )
     }

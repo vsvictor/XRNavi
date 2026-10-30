@@ -52,6 +52,21 @@ private class IosSavedPlacesStore : SavedPlacesStore {
 internal actual fun rememberSavedPlacesStore(): SavedPlacesStore =
     remember { IosSavedPlacesStore() }
 
+private class IosRouteStopsStore : RouteStopsStore {
+    private val preferences = NSUserDefaults.standardUserDefaults
+
+    override fun read(): String? = preferences.stringForKey(routeStopsPreferenceKey)
+
+    override fun write(value: String): Boolean {
+        preferences.setObject(value, forKey = routeStopsPreferenceKey)
+        return true
+    }
+}
+
+@Composable
+internal actual fun rememberRouteStopsStore(): RouteStopsStore =
+    remember { IosRouteStopsStore() }
+
 @Composable
 internal actual fun rememberAppVersion(): String = remember {
     val bundle = NSBundle.mainBundle
