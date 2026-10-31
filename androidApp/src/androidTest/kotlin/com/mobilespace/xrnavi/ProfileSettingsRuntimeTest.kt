@@ -757,12 +757,21 @@ class ProfileSettingsRuntimeTest {
                     labelArgs
                 )
             )
-            tap("Зберегти")
-            waitFor("S37 renamed label") { find("Дім") != null }
-            tap("Видалити")
+            finishRenameIme(scenario)
+            clickTextAction("Зберегти", scenario)
+            waitFor("S37 rename dialog closes") {
+                nodes().none { it.isEditable && it.isVisibleToUser } &&
+                        find("Використати як призначення") != null
+            }
+            revealExactText("Дім")
+            waitFor("S37 exact renamed label in saved list") {
+                nodes().any { it.isVisibleToUser && it.text?.toString() == "Дім" }
+            }
+            capture("S37-renamed-label-$orientationLabel")
+            clickTextAction("Видалити", scenario)
             waitFor("S37 delete confirmation") { find("Видалити з обраного?") != null }
             capture("S37-delete-confirmation-cancel-$orientationLabel")
-            tap("Скасувати")
+            clickTextAction("Скасувати", scenario)
             assertNotNull(find("Дім"))
             tap("Використати як призначення")
             waitFor("S37 profile destination action handles missing Origin") {
@@ -772,6 +781,7 @@ class ProfileSettingsRuntimeTest {
 
             tap("Вибрати початкову точку")
             tap("Обране · збережене локально")
+            revealExactText("Вибрати адресу")
             waitFor("S37 address selectable for Origin") { find("Вибрати адресу") != null }
             tap("Вибрати адресу")
             waitFor("S37 Origin selection returns to Map") {
@@ -789,6 +799,7 @@ class ProfileSettingsRuntimeTest {
             waitFor("S37 profile entry with a confirmed route") { find("Мій профіль") != null }
             reveal("Збережені місця")
             tap("Збережені місця")
+            revealExactText("Використати як призначення")
             waitFor("S37 saved place available to replace destination") {
                 find("Використати як призначення") != null
             }
@@ -805,11 +816,12 @@ class ProfileSettingsRuntimeTest {
             waitFor("S37 profile after destination use") { find("Мій профіль") != null }
             reveal("Збережені місця")
             tap("Збережені місця")
+            revealExactText("Видалити")
             waitFor("S37 delete saved place") { find("Видалити") != null }
-            tap("Видалити")
+            clickTextAction("Видалити", scenario)
             waitFor("S37 delete confirmation") { find("Видалити з обраного?") != null }
             capture("S37-delete-confirmation-$orientationLabel")
-            clickTextAction("Видалити")
+            clickTextAction("Видалити", scenario)
             waitFor("S37 empty state after deletion") {
                 find("Поки немає збережених місць") != null
             }
@@ -926,10 +938,12 @@ class ProfileSettingsRuntimeTest {
                 savedPlaces.getString("saved.places.v1", null)
             )
             capture("S37-$themeLabel-$orientationLabel-editor-long-label-draft")
-            tap("Зберегти")
+            clickTextAction("Зберегти", scenario)
             waitFor("S37 long label saved explicitly") {
-                find(longLabel) != null && find("площа Ринок, 1") != null
+                nodes().none { it.isEditable && it.isVisibleToUser }
             }
+            revealExactText(longLabel)
+            assertNotNull(find("площа Ринок, 1"))
             assertEquals(
                 "A different label must leave the full confirmed address visible",
                 1,
@@ -963,11 +977,12 @@ class ProfileSettingsRuntimeTest {
                 !isImeVisible(scenario) && find("Зберегти") != null
             }
             capture("S37-$themeLabel-$orientationLabel-cancel-draft")
-            clickTextAction("Скасувати")
+            clickTextAction("Скасувати", scenario)
             capture("S37-$themeLabel-$orientationLabel-after-cancel-action")
             waitFor("S37 cancel preserves original long label") {
-                find(longLabel) != null && find(draft) == null
+                nodes().none { it.isEditable && it.isVisibleToUser } && find(draft) == null
             }
+            revealExactText(longLabel)
 
             tap("Перейменувати ярлик")
             waitFor("S37 rename back to address") {
@@ -987,9 +1002,11 @@ class ProfileSettingsRuntimeTest {
                     exactLabelArgs
                 )
             )
-            tap("Зберегти")
+            finishRenameIme(scenario)
+            clickTextAction("Зберегти", scenario)
             waitFor("S37 same label and address render once") {
-                find("площа Ринок, 1") != null && find("Перейменувати ярлик") != null
+                nodes().none { it.isEditable && it.isVisibleToUser } &&
+                        find("площа Ринок, 1") != null && find("Перейменувати ярлик") != null
             }
             assertEquals(
                 "Matching label and address must be shown once",
@@ -1019,6 +1036,21 @@ class ProfileSettingsRuntimeTest {
                 ?.isVisible(WindowInsets.Type.ime()) == true
         }
         return visible
+    }
+
+    private fun finishRenameIme(scenario: ActivityScenario<MainActivity>) {
+        if (!isImeVisible(scenario)) return
+        val input = requireNotNull(nodes().firstOrNull {
+            it.isEditable && it.isVisibleToUser && it.isFocused
+        })
+        assertTrue(
+            "Rename IME Done must be accepted without applying the draft",
+            input.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+        )
+        waitFor("rename IME hidden before ordinary touch") { !isImeVisible(scenario) }
+        assertTrue("Done must leave the rename editor open", nodes().any {
+            it.isEditable && it.isVisibleToUser
+        })
     }
 
     private fun chooseTheme(label: String) {
@@ -1230,7 +1262,7 @@ class ProfileSettingsRuntimeTest {
         )
     }
 
-    private fun clickTextAction(text: String) {
+    private fun clickTextAction(text: String, scenario: ActivityScenario<MainActivity>) {
         ensureXrnaviWindowActive()
         val query = normalizeUiText(text)
         fun exactTextNode(): AccessibilityNodeInfo? = nodes().firstOrNull {
@@ -1240,27 +1272,31 @@ class ProfileSettingsRuntimeTest {
                             normalizeUiText(it.contentDescription?.toString().orEmpty()) == query
                     )
         }
-        fun clickableNode(): AccessibilityNodeInfo? {
-            val textNode = exactTextNode() ?: return null
-            var ancestor: AccessibilityNodeInfo? = textNode
-            while (ancestor != null && !ancestor.isClickable) ancestor = ancestor.parent
-            ancestor?.takeIf { it.isEnabled && it.isVisibleToUser }?.let { return it }
-
-            val textBounds = Rect().also(textNode::getBoundsInScreen)
-            if (textBounds.isEmpty) return null
-            return nodes().asSequence()
-                .filter { it.isClickable && it.isEnabled && it.isVisibleToUser }
-                .map { node -> node to Rect().also(node::getBoundsInScreen) }
-                .filter { (_, bounds) ->
-                    !bounds.isEmpty && bounds.contains(textBounds.centerX(), textBounds.centerY())
+        fun actionTarget(): Pair<AccessibilityNodeInfo, AccessibilityNodeInfo>? {
+            fun visit(
+                node: AccessibilityNodeInfo,
+                clickableAncestor: AccessibilityNodeInfo?
+            ): Pair<AccessibilityNodeInfo, AccessibilityNodeInfo>? {
+                val action = if (node.isClickable) node else clickableAncestor
+                val bounds = Rect().also(node::getBoundsInScreen)
+                val matches = normalizeUiText(node.text?.toString().orEmpty()) == query ||
+                        normalizeUiText(node.contentDescription?.toString().orEmpty()) == query
+                if (matches && node.isVisibleToUser && !bounds.isEmpty &&
+                    action != null && action.isEnabled && action.isVisibleToUser &&
+                    Rect().also(action::getBoundsInScreen).contains(bounds)
+                ) return node to action
+                for (index in 0 until node.childCount) {
+                    val child = node.getChild(index) ?: continue
+                    visit(child, action)?.let { return it }
                 }
-                .minByOrNull { (_, bounds) -> bounds.width().toLong() * bounds.height() }
-                ?.first
+                return null
+            }
+            return automation.rootInActiveWindow?.let { visit(it, null) }
         }
         var previousBounds = Rect()
         var stableFrames = 0
         waitFor("stable clickable action bounds: $text") {
-            val node = clickableNode() ?: return@waitFor false
+            val node = actionTarget()?.first ?: return@waitFor false
             val bounds = Rect().also(node::getBoundsInScreen)
             stableFrames = if (bounds == previousBounds && !bounds.isEmpty) {
                 stableFrames + 1
@@ -1270,11 +1306,11 @@ class ProfileSettingsRuntimeTest {
             previousBounds = bounds
             stableFrames >= 5
         }
-        val actionNode = requireNotNull(clickableNode()) {
-            "Text action must expose a clickable accessibility ancestor: $text\n${nodeDiagnostics()}"
-        }
         val captureName = "action-target-${normalizeUiText(text)}-${SystemClock.uptimeMillis()}"
         capture(captureName, settle = false)
+        val (textNode, actionNode) = requireNotNull(actionTarget()) {
+            "Text action must expose a clickable accessibility ancestor: $text\n${nodeDiagnostics()}"
+        }
         fun describeTarget(node: AccessibilityNodeInfo?): String =
             node?.let {
                 "text=${it.text} description=${it.contentDescription} " +
@@ -1284,11 +1320,21 @@ class ProfileSettingsRuntimeTest {
         File(output, "$captureName-action.txt").writeText(
             "query=$text\nsubstringTarget=${describeTarget(find(text))}\n" +
                     "exactTextTarget=${describeTarget(exactTextNode())}\n" +
-                    "actionTarget=${describeTarget(actionNode)}\n"
+                    "actionTarget=${describeTarget(actionNode)}\n" +
+                    "imeVisible=${isImeVisible(scenario)}\nviewport=${rootBounds()}\n"
+        )
+        val bounds = Rect().also(textNode::getBoundsInScreen)
+        assertTrue(
+            "Ordinary touch action must not be covered by IME: $text",
+            !isImeVisible(scenario)
         )
         assertTrue(
-            "Text action must expose a clickable accessibility ancestor: $text\n${nodeDiagnostics()}",
-            actionNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            "Action must belong to the active app and be fully inside its viewport: $text",
+            actionNode.packageName?.toString() == context.packageName &&
+                    !bounds.isEmpty && rootBounds().contains(bounds)
+        )
+        injectShellInput(
+            "input tap ${bounds.centerX()} ${bounds.centerY()}"
         )
         instrumentation.waitForIdleSync()
         automation.waitForIdle(300, 5_000)

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Rect
 import android.os.SystemClock
+import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.core.app.ActivityScenario
@@ -13,6 +14,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,14 +30,260 @@ class RouteStopsRuntimeTest {
         get() = File(context.getExternalFilesDir(null), "route-stops-runtime").apply { mkdirs() }
 
     @Test
+    fun stopPlacesCatalogDetailsAddCancelSaveAcrossThemesAndOrientations() {
+        val readers = Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        assumeTrue(
+            "Ordinary touch UI test must run separately from screen readers",
+            readers.isEmpty()
+        )
+        val stops = context.getSharedPreferences("xrnavi_route_stops", Context.MODE_PRIVATE)
+        val appearance = context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
+        val originalStops = stops.getString("route.stops.v1", null)
+        val originalTheme = appearance.getString("appearance.theme", null)
+        val rotation = Pair(
+            Settings.System.getInt(context.contentResolver, "accelerometer_rotation", 1),
+            Settings.System.getInt(context.contentResolver, "user_rotation", 0)
+        )
+        assertTrue(stops.edit().putString("route.stops.v1", "1:0:").commit())
+        assertTrue(appearance.edit().putString("appearance.theme", "Light").commit())
+        val scenario = ActivityScenario.launch<MainActivity>(
+            Intent(context, MainActivity::class.java).addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            )
+        )
+
+        fun catalogContainer() = requireNotNull(nodes().firstOrNull {
+            it.viewIdResourceName == "stop-places-content" && it.isVisibleToUser
+        })
+
+        fun revealContent(text: String, containerId: String, maxScrolls: Int = 8) {
+            if (findExact(text) != null) return
+            for (attempt in 0 until maxScrolls) {
+                val container = requireNotNull(nodes().firstOrNull {
+                    it.viewIdResourceName == containerId && it.isVisibleToUser
+                })
+                if (!container.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)) break
+                automation.waitForIdle(300, 5_000)
+            }
+            repeat(maxScrolls) {
+                if (findExact(text) != null) return
+                val container = requireNotNull(nodes().firstOrNull {
+                    it.viewIdResourceName == containerId && it.isVisibleToUser
+                })
+                if (!container.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
+                    waitFor("exact visible target at scroll boundary: $text") { findExact(text) != null }
+                    return
+                }
+                automation.waitForIdle(300, 5_000)
+            }
+            assertNotNull("Visible catalog target: $text", findExact(text))
+        }
+
+        fun revealCatalog(text: String) = revealContent(text, "stop-places-content")
+        fun panelNode() = nodes().firstOrNull {
+            it.isVisibleToUser && it.isClickable && it.stateDescription?.toString() in setOf(
+                "Згорнута", "Частково розгорнута", "Розгорнута"
+            )
+        }
+
+        fun panelState() = panelNode()?.stateDescription?.toString()
+        fun exactTap(text: String) {
+            if (findExact(text) == null) {
+                if (nodes().any { it.viewIdResourceName == "stop-places-content" }) revealCatalog(
+                    text
+                )
+                else if (nodes().any { it.viewIdResourceName == "route-stops-content" }) {
+                    revealContent(text, "route-stops-content", maxScrolls = 32)
+                } else reveal(text)
+            }
+            waitFor("exact visible action $text") { findExact(text) != null }
+            var target = requireNotNull(findExact(text))
+            while (!target.isClickable) {
+                target =
+                    requireNotNull(target.parent) { "No clickable ancestor for exact action $text" }
+            }
+            assertTrue(
+                "Exact action is visible and enabled: $text",
+                target.isVisibleToUser && target.isEnabled
+            )
+            tapNode(target)
+        }
+        fun assertEndpoint(tag: String, title: String, value: String) {
+            revealContent(title, "route-stops-content", maxScrolls = 32)
+            val card = requireNotNull(nodes().firstOrNull { it.viewIdResourceName == tag })
+            val children = (0 until card.childCount).mapNotNull(card::getChild)
+            assertTrue("Confirmed endpoint remains in $tag", children.any { it.text?.toString() == value })
+        }
+        try {
+            scrollUntilVisible("Продовжити без входу · деморежим")
+            exactTap("Продовжити без входу · деморежим")
+            rotateTo(scenario, ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+            exactTap("Моє місцезнаходження")
+            exactTap("площа Ринок, 10")
+            waitFor("confirmed Origin on Map") { findExact("площа Ринок, 10") != null }
+            exactTap("Редагувати адресу призначення")
+            exactTap("площа Ринок, 1")
+            waitFor("confirmed Destination on Map") { findExact("площа Ринок, 1") != null }
+            var appliedCount = 0
+            for (dark in listOf(false, true)) {
+                for (orientation in listOf(
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                )) {
+                    rotateTo(scenario, orientation)
+                    val suffix =
+                        "${if (dark) "dark" else "light"}-${if (orientation == 1) "portrait" else "landscape"}"
+                    val before = stops.getString("route.stops.v1", null)
+                    exactTap("Місця зупинки")
+                    if (isDarkTheme() != dark) exactTap("Тема")
+                    waitForRenderedTheme(dark)
+                    assertRenderedCatalogText("Місця зупинки", dark)
+                    capture("s19-$suffix-entry", expectedDark = dark)
+                    exactTap("Зарядки")
+                    revealCatalog("У демокаталозі немає об’єктів цього типу")
+                    assertNotNull(findExact("У демокаталозі немає об’єктів цього типу"))
+                    capture("s19-$suffix-empty-category", expectedDark = dark)
+                    exactTap("Відпочинок")
+                    revealCatalog("Демонстраційне місце відпочинку 01")
+                    assertNotNull(findExact("Демонстраційне місце відпочинку 01"))
+                    fun query(value: String) {
+                        repeat(8) {
+                            if (nodes().none { it.isEditable && it.isVisibleToUser }) {
+                                assertTrue(catalogContainer().performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD))
+                                automation.waitForIdle(300, 5_000)
+                            }
+                        }
+                        val input =
+                            requireNotNull(nodes().firstOrNull { it.isEditable && it.isVisibleToUser })
+                        assertTrue(
+                            input.performAction(
+                            AccessibilityNodeInfo.ACTION_SET_TEXT,
+                            Bundle().apply {
+                                putCharSequence(
+                                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                                    value
+                                )
+                            }
+                        ))
+                        waitFor("catalog query is $value") {
+                            nodes().any { it.isEditable && it.isVisibleToUser && it.text?.toString() == value }
+                        }
+                    }
+                    query("немає такого демооб’єкта")
+                    revealCatalog("За цим запитом у демокаталозі нічого не знайдено")
+                    waitFor("empty local query") { findExact("За цим запитом у демокаталозі нічого не знайдено") != null }
+                    capture("s19-$suffix-empty-query", expectedDark = dark)
+                    query("відпочинку")
+                    exactTap("Демонстраційне місце відпочинку 01")
+                    waitFor("S20 details") { findExact("Додати зупинку") != null }
+                    assertRenderedCatalogText("Демонстраційне місце відпочинку 01", dark)
+                    capture("s20-$suffix-details-entry", expectedDark = dark)
+                    assertEquals(
+                        "Browsing must not save a plan",
+                        before,
+                        stops.getString("route.stops.v1", null)
+                    )
+                    revealCatalog("Габарити, маса та придатність для автомобіля: Не перевірено")
+                    assertNotNull(findExact("Габарити, маса та придатність для автомобіля: Не перевірено"))
+                    assertNotNull(findExact("Додати зупинку"))
+                    exactTap("Назад")
+                    assertEquals("Returning to list must not save", before, stops.getString("route.stops.v1", null))
+                    exactTap("Назад")
+                    waitFor("catalog back returns to Map") { findExact("Місця зупинки") != null }
+                    assertEquals("Returning to Map must not save", before, stops.getString("route.stops.v1", null))
+                    exactTap("Місця зупинки")
+                    exactTap("Відпочинок")
+                    exactTap("Демонстраційне місце відпочинку 01")
+                    exactTap("Додати зупинку")
+                    waitFor("draft stop") { findExact("Проміжні зупинки: ${appliedCount + 1}") != null }
+                    assertEquals(
+                        "Adding must not save",
+                        before,
+                        stops.getString("route.stops.v1", null)
+                    )
+                    capture("s20-$suffix-added-draft", expectedDark = dark)
+                    assertEndpoint("route-stops-origin", "Початок · лише для перегляду", "площа Ринок, 10")
+                    assertEndpoint("route-stops-destination", "Призначення · лише для перегляду", "площа Ринок, 1")
+                    exactTap("Скасувати")
+                    waitFor("cancel returns to Map") { findExact("Місця зупинки") != null }
+                    assertEquals(
+                        "Cancel must preserve plan",
+                        before,
+                        stops.getString("route.stops.v1", null)
+                    )
+                    exactTap(if (appliedCount == 0) "Зупинки маршруту · 0" else "Редагувати зупинки")
+                    exactTap("Додати зупинку")
+                    exactTap("Місця зупинки")
+                    exactTap("Демонстраційна стоянка 01")
+                    exactTap("Додати зупинку")
+                    waitFor("editor-source draft") { findExact("Проміжні зупинки: ${appliedCount + 1}") != null }
+                    exactTap("Зберегти зупинки")
+                    appliedCount++
+                    repeat(2) {
+                        val beforeState = panelState()
+                        if (beforeState != "Розгорнута") {
+                            tapNode(requireNotNull(panelNode()))
+                            waitFor("route panel advances from $beforeState") {
+                                panelState()?.let { it != beforeState } == true
+                            }
+                        }
+                    }
+                    waitFor("expanded route panel") {
+                        panelState() == "Розгорнута"
+                    }
+                    val routeContent = requireNotNull(nodes().firstOrNull {
+                        it.viewIdResourceName == "route-sheet-content" && it.isVisibleToUser
+                    })
+                    val routeBounds = Rect().also(routeContent::getBoundsInScreen)
+                    assertTrue(
+                        "Expanded Map leaves a readable scroll viewport above its pinned actions",
+                        routeBounds.height() / context.resources.displayMetrics.density >= 48f
+                    )
+                    revealContent("План збережено локально", "route-sheet-content", maxScrolls = 32)
+                    assertNotNull(findExact("План збережено локально"))
+                    val savedPlanMessage = "Багатоточковий перегляд ще не підключено. " +
+                            "Збережено проміжних зупинок: $appliedCount. " +
+                            "Лінія маршруту, відстань і час для цього плану не розраховуються."
+                    revealContent(savedPlanMessage, "route-sheet-content", maxScrolls = 32)
+                    assertNotNull(findExact(savedPlanMessage))
+                    assertNullText("Почати маршрут")
+                    assertNullText("540 км")
+                    capture("s20-$suffix-saved-map")
+                }
+            }
+        } catch (failure: AssertionError) {
+            capture("s19-s20-failure")
+            File(output, "s19-s20-failure-assertion.txt").writeText(failure.stackTraceToString())
+            throw failure
+        } finally {
+            scenario.close()
+            restoreRotationSettings(rotation)
+            val restoreStops = stops.edit()
+            if (originalStops == null) restoreStops.remove("route.stops.v1")
+            else restoreStops.putString("route.stops.v1", originalStops)
+            assertTrue(restoreStops.commit())
+            val restoreTheme = appearance.edit()
+            if (originalTheme == null) restoreTheme.remove("appearance.theme")
+            else restoreTheme.putString("appearance.theme", originalTheme)
+            assertTrue(restoreTheme.commit())
+        }
+    }
+
+    @Test
     fun routeStopsDraftSearchSaveCancelThemeAndRotationStayConsistent() {
         val enabledReaders = Settings.Secure.getString(
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ).orEmpty()
-        assumeTrue("Ordinary touch UI test must run separately from screen readers", enabledReaders.isEmpty())
+        assumeTrue(
+            "Ordinary touch UI test must run separately from screen readers",
+            enabledReaders.isEmpty()
+        )
 
-        val stopsPreferences = context.getSharedPreferences("xrnavi_route_stops", Context.MODE_PRIVATE)
+        val stopsPreferences =
+            context.getSharedPreferences("xrnavi_route_stops", Context.MODE_PRIVATE)
         val originalStops = stopsPreferences.getString("route.stops.v1", null)
         val savedPlacesPreferences =
             context.getSharedPreferences("xrnavi_saved_places", Context.MODE_PRIVATE)
@@ -53,7 +301,8 @@ class RouteStopsRuntimeTest {
             "Temporary saved place must be applied",
             savedPlacesPreferences.edit().putString("saved.places.v1", savedPlace).commit()
         )
-        val themePreferences = context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
+        val themePreferences =
+            context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
         val originalTheme = themePreferences.getString("appearance.theme", null)
         val originalRotation = Pair(
             Settings.System.getInt(context.contentResolver, "accelerometer_rotation", 1),
@@ -71,6 +320,7 @@ class RouteStopsRuntimeTest {
             )
             scrollUntilVisible("Продовжити без входу · деморежим")
             tap("Продовжити без входу · деморежим")
+            rotateTo(scenario, ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
             tap("Зупинки маршруту · 0")
             waitFor("S18 empty editor") { find("Проміжних зупинок немає") != null }
             assertNotNull(find("Додати зупинку"))
@@ -81,8 +331,8 @@ class RouteStopsRuntimeTest {
             tap("Мій офіс")
             waitFor("saved-place label and confirmed address") {
                 find("Мій офіс") != null &&
-                    find("площа Ринок, 1") != null &&
-                    find("Замінити адресу") != null
+                        find("площа Ринок, 1") != null &&
+                        find("Замінити адресу") != null
             }
             capture("s18-light-first-stop")
 
@@ -100,12 +350,12 @@ class RouteStopsRuntimeTest {
             tap("вулиця Хрещатик, 22")
             waitFor("replacement address keeps both stops") {
                 find("Проміжні зупинки: 2") != null &&
-                    findExact("вулиця Хрещатик, 22") != null
+                        findExact("вулиця Хрещатик, 22") != null
             }
             tapInRow("площа Ринок, 1", "Видалити")
             waitFor("one remaining stop") {
                 find("Проміжні зупинки: 1") != null &&
-                    find("вулиця Хрещатик, 22") != null
+                        find("вулиця Хрещатик, 22") != null
             }
 
             tap("Тема")
@@ -135,8 +385,8 @@ class RouteStopsRuntimeTest {
             tap("Панель маршруту")
             waitFor("map after saving stops") {
                 find("Зупинки маршруту · 1") != null &&
-                    find("План збережено локально") != null &&
-                    find("Багатоточковий перегляд ще не підключено") != null
+                        find("План збережено локально") != null &&
+                        find("Багатоточковий перегляд ще не підключено") != null
             }
             assertNotNull(find("Редагувати зупинки"))
             assertNullText("540 км")
@@ -213,14 +463,15 @@ class RouteStopsRuntimeTest {
             val row = requireNotNull(findExact(rowText))
             val rowBounds = Rect().also(row::getBoundsInScreen)
             val scrollContainer = nodes().firstOrNull { it.isScrollable && it.isVisibleToUser }
-            val scrollBounds = scrollContainer?.let { Rect().also(it::getBoundsInScreen) } ?: rootBounds()
+            val scrollBounds =
+                scrollContainer?.let { Rect().also(it::getBoundsInScreen) } ?: rootBounds()
             val maxActionDistancePx = (250 * context.resources.displayMetrics.density).toInt()
             val action = nodes().filter {
                 val bounds = Rect().also(it::getBoundsInScreen)
                 it.isVisibleToUser && it.isClickable && Rect.intersects(bounds, scrollBounds) &&
-                    bounds.centerY() >= rowBounds.centerY() &&
-                    bounds.centerY() - rowBounds.centerY() <= maxActionDistancePx &&
-                    it.text?.toString() == actionText
+                        bounds.centerY() >= rowBounds.centerY() &&
+                        bounds.centerY() - rowBounds.centerY() <= maxActionDistancePx &&
+                        it.text?.toString() == actionText
             }.minByOrNull {
                 kotlin.math.abs(
                     Rect().also(it::getBoundsInScreen).centerY() - rowBounds.centerY()
@@ -246,7 +497,10 @@ class RouteStopsRuntimeTest {
 
     private fun tapNode(node: AccessibilityNodeInfo) {
         if (node.isClickable) {
-            assertTrue("Expected clickable control", node.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            assertTrue(
+                "Expected clickable control",
+                node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            )
         } else {
             val bounds = Rect().also(node::getBoundsInScreen)
             injectShellInput("input tap ${bounds.centerX()} ${bounds.centerY()}")
@@ -260,14 +514,14 @@ class RouteStopsRuntimeTest {
         return nodes().firstOrNull {
             val bounds = Rect().also(it::getBoundsInScreen)
             it.isVisibleToUser && !bounds.isEmpty && Rect.intersects(bounds, window) &&
-                it.isClickable &&
-                (it.text?.toString()?.contains(text) == true ||
-                    it.contentDescription?.toString()?.contains(text) == true)
+                    it.isClickable &&
+                    (it.text?.toString()?.contains(text) == true ||
+                            it.contentDescription?.toString()?.contains(text) == true)
         } ?: nodes().firstOrNull {
             val bounds = Rect().also(it::getBoundsInScreen)
             it.isVisibleToUser && !bounds.isEmpty && Rect.intersects(bounds, window) &&
-                (it.text?.toString()?.contains(text) == true ||
-                    it.contentDescription?.toString()?.contains(text) == true)
+                    (it.text?.toString()?.contains(text) == true ||
+                            it.contentDescription?.toString()?.contains(text) == true)
         }
     }
 
@@ -276,7 +530,7 @@ class RouteStopsRuntimeTest {
         return nodes().firstOrNull {
             val bounds = Rect().also(it::getBoundsInScreen)
             it.isVisibleToUser && !bounds.isEmpty && Rect.intersects(bounds, window) &&
-                it.text?.toString() == text
+                    (it.text?.toString() == text || it.contentDescription?.toString() == text)
         }
     }
 
@@ -305,11 +559,11 @@ class RouteStopsRuntimeTest {
         }
         throw AssertionError(
             "Timed out waiting for $description\n${interactionTrace.joinToString("\n")}\n" +
-                nodes().joinToString("\n") { node ->
-                    val bounds = Rect().also(node::getBoundsInScreen)
-                    "${node.text ?: node.contentDescription} visible=${node.isVisibleToUser} " +
-                        "clickable=${node.isClickable} enabled=${node.isEnabled} bounds=$bounds"
-                }
+                    nodes().joinToString("\n") { node ->
+                        val bounds = Rect().also(node::getBoundsInScreen)
+                        "${node.text ?: node.contentDescription} visible=${node.isVisibleToUser} " +
+                                "clickable=${node.isClickable} enabled=${node.isEnabled} bounds=$bounds"
+                    }
         )
     }
 
@@ -321,11 +575,11 @@ class RouteStopsRuntimeTest {
                 if (target != null) return
                 throw AssertionError(
                     "No visible scroll container while looking for $text\n" +
-                        nodes().joinToString("\n") { node ->
-                            val bounds = Rect().also(node::getBoundsInScreen)
-                            "${node.text ?: node.contentDescription} visible=${node.isVisibleToUser} " +
-                                "clickable=${node.isClickable} bounds=$bounds"
-                        }
+                            nodes().joinToString("\n") { node ->
+                                val bounds = Rect().also(node::getBoundsInScreen)
+                                "${node.text ?: node.contentDescription} visible=${node.isVisibleToUser} " +
+                                        "clickable=${node.isClickable} bounds=$bounds"
+                            }
                 )
             }
             val bounds = Rect().also(scrollable::getBoundsInScreen)
@@ -342,7 +596,7 @@ class RouteStopsRuntimeTest {
         }
         throw AssertionError(
             "Could not scroll to $text\n" +
-                nodes().joinToString("\n") { it.text?.toString().orEmpty() }
+                    nodes().joinToString("\n") { it.text?.toString().orEmpty() }
         )
     }
 
@@ -373,6 +627,22 @@ class RouteStopsRuntimeTest {
         context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
             .getString("appearance.theme", null) == "Dark"
 
+    private fun assertRenderedCatalogText(text: String, dark: Boolean) {
+        val bounds = Rect().also(requireNotNull(findExact(text))::getBoundsInScreen)
+        val bitmap = requireNotNull(automation.takeScreenshot())
+        val foreground = if (dark) android.graphics.Color.rgb(242, 245, 250)
+        else android.graphics.Color.rgb(23, 32, 51)
+        assertTrue(bounds.intersect(0, 0, bitmap.width, bitmap.height))
+        var found = false
+        for (y in bounds.top until bounds.bottom) {
+            for (x in bounds.left until bounds.right) {
+                if (bitmap.getPixel(x, y) == foreground) found = true
+            }
+        }
+        bitmap.recycle()
+        assertTrue("Catalog text uses ${if (dark) "Dark" else "Light"} foreground: $text", found)
+    }
+
     private fun waitForRenderedTheme(dark: Boolean) {
         val expected = if (dark) android.graphics.Color.rgb(11, 18, 32)
         else android.graphics.Color.rgb(246, 248, 252)
@@ -388,7 +658,7 @@ class RouteStopsRuntimeTest {
         }
         throw AssertionError(
             "Expected rendered ${if (dark) "Dark" else "Light"} theme background " +
-                "0x${expected.toUInt().toString(16)}"
+                    "0x${expected.toUInt().toString(16)}"
         )
     }
 
@@ -407,10 +677,33 @@ class RouteStopsRuntimeTest {
         File(output, "$name.png").outputStream().use {
             assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
         }
+        File(output, "$name-conditions.txt").writeText(
+            "device=${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n" +
+                    "android=${android.os.Build.VERSION.RELEASE} sdk=${android.os.Build.VERSION.SDK_INT}\n" +
+                    "pixels=${bitmap.width}x${bitmap.height}\n" +
+                    "orientation=${context.resources.configuration.orientation}\n" +
+                    "densityDpi=${context.resources.configuration.densityDpi}\n" +
+                    "fontScale=${context.resources.configuration.fontScale}\n" +
+                    "theme=${
+                        context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
+                            .getString("appearance.theme", null)
+                    }\n" +
+                    "accessibilityServices=${
+                        Settings.Secure.getString(
+                            context.contentResolver,
+                            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                        ).orEmpty()
+                    }\n" +
+                    "capturedAtEpochMillis=${System.currentTimeMillis()}\n"
+        )
         bitmap.recycle()
         File(output, "$name.txt").writeText(nodes().joinToString("\n") { node ->
             val bounds = Rect().also(node::getBoundsInScreen)
-            "${node.text?.toString().orEmpty()} | ${node.contentDescription?.toString().orEmpty()} | $bounds"
+            "${node.text?.toString().orEmpty()} | ${
+                node.contentDescription?.toString().orEmpty()
+            } | $bounds | " +
+                    "visible=${node.isVisibleToUser} clickable=${node.isClickable} editable=${node.isEditable} " +
+                    "focused=${node.isFocused} state=${node.stateDescription} id=${node.viewIdResourceName}"
         })
     }
 

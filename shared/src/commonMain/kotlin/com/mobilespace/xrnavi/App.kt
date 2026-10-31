@@ -29,6 +29,7 @@ internal enum class AppScreen {
     RouteSettings,
     RouteStops,
     RouteStopSearch,
+    StopPlaces,
     SavedPlaces
 }
 
@@ -258,6 +259,9 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
             }
         )
     }
+    var stopPlacesState by rememberSaveable(stateSaver = StopPlacesState.Saver) {
+        mutableStateOf(StopPlacesState())
+    }
     val savedPlacesLoaded = savedPlacesInitial as? SavedPlacesDecodeResult.Success
     var savedPlaces by remember(savedPlacesInitial) {
         mutableStateOf(savedPlacesLoaded?.places.orEmpty())
@@ -279,6 +283,21 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
         mutableStateOf(initialScreenForSession(SessionProbe.hasConfiguredSession()).name)
     }
     var previousScreenName by rememberSaveable { mutableStateOf(AppScreen.Map.name) }
+    val dispatchStopPlaces: (StopPlacesEvent) -> Unit = { event ->
+        val transition = StopPlacesBloc.transition(stopPlacesState, routeStopsState, event)
+        stopPlacesState = transition.catalog
+        routeStopsState = transition.routeStops
+        if (transition.beganEditing) previousScreenName = AppScreen.Map.name
+        if (transition.destination == StopPlacesDestination.Editor) routeStopsNotice = ""
+        transition.destination?.let { destination ->
+            screenName = when (destination) {
+                StopPlacesDestination.Catalog -> AppScreen.StopPlaces.name
+                StopPlacesDestination.Map -> AppScreen.Map.name
+                StopPlacesDestination.StopSearch -> AppScreen.RouteStopSearch.name
+                StopPlacesDestination.Editor -> AppScreen.RouteStops.name
+            }
+        }
+    }
     var demoMode by rememberSaveable { mutableStateOf(false) }
     var addresses by rememberSaveable(stateSaver = AddressSearchState.Saver) {
         mutableStateOf(AddressSearchState())
@@ -582,6 +601,9 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                     routeStopsNotice = ""
                     screenName = AppScreen.RouteStops.name
                 },
+                onOpenStopPlaces = {
+                    dispatchStopPlaces(StopPlacesEvent.Open(StopPlacesSource.Map))
+                },
                 onUseLocation = {
                     geoStatusName = GeoStatus.NotConfigured.name
                     notice = geoStatusMessage(GeoStatus.NotConfigured)
@@ -682,10 +704,19 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                             dispatchRouteStops(RouteStopsEvent.CancelSearch)
                             screenName = AppScreen.RouteStops.name
                         },
+                        onOpenStopPlaces = {
+                            dispatchStopPlaces(StopPlacesEvent.Open(StopPlacesSource.StopSearch))
+                        },
                         onToggleTheme = onToggleTheme
                     )
                 }
             }
+
+            AppScreen.StopPlaces -> StopPlacesScreen(
+                state = stopPlacesState,
+                onEvent = dispatchStopPlaces,
+                onToggleTheme = onToggleTheme
+            )
 
             AppScreen.RouteSettings -> {
                 val activeVehicle = demoVehicleById(selectedVehicleId)?.withConfiguration(

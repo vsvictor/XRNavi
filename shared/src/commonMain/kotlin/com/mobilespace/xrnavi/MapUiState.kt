@@ -22,11 +22,13 @@ internal fun MapSheetAnchors.heightFor(level: SheetLevel): Float = when (level) 
 internal fun calculateMapSheetAnchors(
     mapHeightPx: Float,
     density: Float,
-    fontScale: Float
+    fontScale: Float,
+    inlineAttribution: Boolean = false
 ): MapSheetAnchors {
     val safeDensity = density.coerceAtLeast(0.1f)
     val safeFontScale = fontScale.coerceAtLeast(1f)
-    val attributionBand = maxOf(24f, 36f * safeFontScale + 8f) * safeDensity
+    val attributionBand =
+        if (inlineAttribution) 0f else maxOf(24f, 36f * safeFontScale + 8f) * safeDensity
     val availableHeight = (mapHeightPx - attributionBand).coerceAtLeast(1f)
     val actionHeight = maxOf(44f, 14f * safeFontScale + 16f)
     val collapsedBodyHeight = 24f * safeFontScale + 10f * safeFontScale + 32f * safeFontScale

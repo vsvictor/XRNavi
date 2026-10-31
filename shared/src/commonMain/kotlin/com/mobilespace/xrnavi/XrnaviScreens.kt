@@ -635,6 +635,7 @@ internal fun MapScreen(
     onVehicleClassChange: (String) -> Unit,
     onOpenSearch: (SearchTarget) -> Unit,
     onOpenRouteStops: () -> Unit,
+    onOpenStopPlaces: () -> Unit,
     onUseLocation: () -> Unit,
     onSheetLevelChange: (SheetLevel) -> Unit,
     onPreview: () -> Unit,
@@ -651,6 +652,7 @@ internal fun MapScreen(
             preview = effectivePreview,
             vehicleMode = vehicleMode,
             onBack = onBack,
+            onOpenStopPlaces = onOpenStopPlaces,
             onToggleTheme = onToggleTheme
         )
         BoxWithConstraints(
@@ -667,7 +669,8 @@ internal fun MapScreen(
             val anchors = calculateMapSheetAnchors(
                 mapHeightPx = mapHeightPx,
                 density = density.density,
-                fontScale = density.fontScale
+                fontScale = density.fontScale,
+                inlineAttribution = showInlineAttribution
             )
             val minHeightPx = anchors.collapsed
             val partialHeightPx = anchors.partial
@@ -1199,6 +1202,7 @@ private fun MapTopBar(
     preview: Boolean,
     vehicleMode: String,
     onBack: () -> Unit,
+    onOpenStopPlaces: () -> Unit,
     onToggleTheme: () -> Unit
 ) {
     BoxWithConstraints(
@@ -1207,7 +1211,7 @@ private fun MapTopBar(
             .height(56.dp)
             .background(MaterialTheme.colorScheme.background)
     ) {
-        val compact = maxWidth < 360.dp
+        val compact = maxWidth < 440.dp
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -1232,6 +1236,12 @@ private fun MapTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
             ) {
+                TextButton(
+                    onClick = onOpenStopPlaces,
+                    modifier = Modifier.widthIn(max = 90.dp)
+                ) {
+                    Text("Місця зупинки", fontSize = 11.sp, lineHeight = 14.sp)
+                }
                 Text(
                     text = when {
                         compact && demoMode -> "Демо"
@@ -1608,6 +1618,7 @@ private fun RouteBottomSheet(
         modifier = modifier
             .fillMaxWidth()
             .height(sheetHeightDp)
+            .exportTestTags()
             .nestedScroll(scrollConnection),
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -1665,7 +1676,7 @@ private fun RouteBottomSheet(
                         .background(MaterialTheme.colorScheme.onSurfaceVariant)
                 )
             }
-            if (showInlineAttribution) {
+            if (showInlineAttribution && level == SheetLevel.Collapsed) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1711,9 +1722,27 @@ private fun RouteBottomSheet(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
+                    .testTag("route-sheet-content")
                     .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (showInlineAttribution && level != SheetLevel.Collapsed) {
+                    Text(
+                        "Демо-мапа · Mapbox / OpenStreetMap не підключені",
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (level == SheetLevel.Expanded) {
+                        Text(
+                            "Параметри маршруту та альтернативи ›",
+                            modifier = Modifier.clickable(role = Role.Button, onClick = onOpenRouteSettings)
+                                .padding(vertical = 8.dp),
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 when {
                     routeStops.isNotEmpty() -> {
                         StatusCard(
@@ -3049,7 +3078,7 @@ internal fun RouteStopsScreen(
     AuthBackHandler(onCancel)
     val editorScrollState = rememberScrollState()
     LaunchedEffect(stops) { editorScrollState.scrollTo(0) }
-    Column(modifier = Modifier.fillMaxSize().imePadding()) {
+    Column(modifier = Modifier.fillMaxSize().imePadding().exportTestTags()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -3072,17 +3101,19 @@ internal fun RouteStopsScreen(
             )
         }
         Column(
-            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(editorScrollState)
+            modifier = Modifier.weight(1f).fillMaxWidth().testTag("route-stops-content").verticalScroll(editorScrollState)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             StatusCard(
                 "Початок · лише для перегляду",
-                origin.ifBlank { "Не обрано" }
+                origin.ifBlank { "Не обрано" },
+                modifier = Modifier.testTag("route-stops-origin")
             )
             StatusCard(
                 "Призначення · лише для перегляду",
-                destination.ifBlank { "Не обрано" }
+                destination.ifBlank { "Не обрано" },
+                modifier = Modifier.testTag("route-stops-destination")
             )
             Text(
                 "Проміжні зупинки: ${stops.size}",
@@ -3171,6 +3202,7 @@ internal fun RouteStopSearchScreen(
     onSelectDemoPlace: (DemoPlace) -> Unit,
     onSelectSavedPlace: (SavedPlace) -> Unit,
     onBack: () -> Unit,
+    onOpenStopPlaces: () -> Unit,
     onToggleTheme: () -> Unit
 ) {
     AuthBackHandler(onBack)
@@ -3210,6 +3242,13 @@ internal fun RouteStopSearchScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("Пошук прив’язано до $stopId", fontSize = 12.sp)
+            Text(
+                "Місця зупинки",
+                modifier = Modifier.fillMaxWidth().clickable(
+                    role = Role.Button, onClick = onOpenStopPlaces
+                ).padding(vertical = 12.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,

@@ -7,12 +7,15 @@ import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.runtime.remember
 import platform.Foundation.NSBundle
 import platform.Foundation.NSUserDefaults
+import androidx.compose.ui.Modifier
 
 class IOSPlatform: Platform {
     override val name: String = UIDevice.currentDevice.systemName() + " " + UIDevice.currentDevice.systemVersion
 }
 
 actual fun getPlatform(): Platform = IOSPlatform()
+
+internal actual fun Modifier.exportTestTags(): Modifier = this
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable

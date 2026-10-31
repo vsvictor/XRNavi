@@ -7,12 +7,18 @@ import androidx.compose.ui.platform.LocalContext
 import android.content.pm.ApplicationInfo
 import android.content.Context
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 
 class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
 }
 
 actual fun getPlatform(): Platform = AndroidPlatform()
+
+internal actual fun Modifier.exportTestTags(): Modifier =
+    semantics { testTagsAsResourceId = true }
 
 @Composable
 internal actual fun AuthBackHandler(onBack: () -> Unit) {

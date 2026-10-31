@@ -44,6 +44,24 @@ remain visible instead of copying authenticated or connected-service states from
 [Profile and settings verification, 2026-10-27 (Ukrainian)](docs/profile-settings-ui-2026-10-27.md)
 records the checks and remaining platform limitations.
 
+### Local stop-place catalog / Локальний каталог місць зупинки
+
+S19–S20 provide a local, explicitly synthetic catalog with category/query filtering and place
+details. Open it from Map's “Місця зупинки” action or S18's stop search. Adding a place changes
+only the S18 draft; apply it with “Зберегти зупинки”, or discard it with Cancel/Back.
+Unknown characteristics remain unspecified or unverified. There is no POI API, GPS,
+vehicle-suitability confirmation, multipoint routing, or working navigation.
+
+S19–S20 містять локальний, явно синтетичний каталог із категоріями, пошуком і деталями.
+Входи: дія «Місця зупинки» на Map та пошук зупинки S18. Додавання змінює лише чернетку S18;
+застосування — через «Зберегти зупинки», скасування — через Cancel/Back.
+Невідомі характеристики лишаються незаданими або неперевіреними. POI API, GPS,
+підтвердження придатності для авто, багатоточкова маршрутизація й справжня навігація відсутні.
+
+[S19–S20 local verification / Локальна перевірка, 2026-10-31](docs/s19-s20-local-verification-2026-10-31.md)
+identifies the checked artifacts and separates local Android evidence from unverified platforms.
+Звіт ідентифікує перевірені артефакти й відділяє локальні Android-докази від неперевірених платформ.
+
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
