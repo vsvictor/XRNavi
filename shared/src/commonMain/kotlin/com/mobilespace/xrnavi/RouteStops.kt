@@ -6,7 +6,8 @@ import androidx.compose.runtime.saveable.listSaver
 internal data class RouteStop(
     val stopId: String,
     val address: String,
-    val detail: String
+    val detail: String,
+    val placeName: String? = null
 )
 
 internal data class RouteStopsState(
@@ -128,7 +129,10 @@ internal fun reduceRouteStops(
 
     is RouteStopsEvent.SelectSavedPlace -> state.selectPlace(
         stopId = event.stopId,
-        place = DemoPlace(event.place.address.trim(), event.place.detail.trim())
+        place = DemoPlace(event.place.address.trim(), event.place.detail.trim()),
+        placeName = event.place.label.trim().takeIf {
+            it.isNotBlank() && !it.equals(event.place.address, ignoreCase = true)
+        }
     )
 
     RouteStopsEvent.CancelSearch -> state.copy(
@@ -171,10 +175,14 @@ internal fun reduceRouteStops(
     )
 }
 
-private fun RouteStopsState.selectPlace(stopId: String, place: DemoPlace): RouteStopsState {
+private fun RouteStopsState.selectPlace(
+    stopId: String,
+    place: DemoPlace,
+    placeName: String? = null
+): RouteStopsState {
     if (searchStopId != stopId || place.title.isBlank() || place.detail.isBlank()) return this
     val currentDraft = draft ?: return copy(searchStopId = null, searchIsNew = false, query = "")
-    val selectedStop = RouteStop(stopId, place.title, place.detail)
+    val selectedStop = RouteStop(stopId, place.title, place.detail, placeName)
     val updated = if (searchIsNew) {
         if (currentDraft.any { it.stopId == stopId }) currentDraft else currentDraft + selectedStop
     } else {
@@ -203,7 +211,7 @@ private fun RouteStopsState.move(stopId: String, offset: Int): RouteStopsState {
 }
 
 internal fun routeStopsPreviewBlockMessage(stops: List<RouteStop>): String? =
-    "Багатоточковий перегляд ще не підключено.".takeIf { stops.isNotEmpty() }
+    "Багатоточковий перегляд ще не підключено".takeIf { stops.isNotEmpty() }
 
 internal fun routeStopsChanged(applied: List<RouteStop>, candidate: List<RouteStop>): Boolean =
     applied != candidate
@@ -226,22 +234,25 @@ internal interface RouteStopsStore {
 internal const val routeStopsPreferenceKey = "route.stops.v1"
 
 internal fun encodeRouteStops(stops: List<RouteStop>): String = buildString {
+    append("v2:")
     append(stops.size)
     append(':')
     stops.forEach { stop ->
         appendLengthPrefixed(stop.stopId)
         appendLengthPrefixed(stop.address)
         appendLengthPrefixed(stop.detail)
+        appendLengthPrefixed(stop.placeName.orEmpty())
     }
 }
 
 internal fun decodeRouteStops(value: String?): RouteStopsDecodeResult {
     if (value == null) return RouteStopsDecodeResult.Success(emptyList())
     return runCatching {
-        var cursor = 0
-        val countTokenEnd = value.indexOf(':')
-        require(countTokenEnd >= 0)
-        val count = value.substring(0, countTokenEnd).toInt()
+        val hasPlaceNames = value.startsWith("v2:")
+        var cursor = if (hasPlaceNames) 3 else 0
+        val countTokenEnd = value.indexOf(':', cursor)
+        require(countTokenEnd >= cursor)
+        val count = value.substring(cursor, countTokenEnd).toInt()
         require(count >= 0 && count <= value.length / 6)
         cursor = countTokenEnd + 1
         val stops = List(count) {
@@ -251,9 +262,16 @@ internal fun decodeRouteStops(value: String?): RouteStopsDecodeResult {
             cursor = address.second
             val detail = value.readLengthPrefixed(cursor)
             cursor = detail.second
+            val placeName = if (hasPlaceNames) value.readLengthPrefixed(cursor) else null
+            if (placeName != null) cursor = placeName.second
             require(id.first.matches(Regex("stop-[1-9][0-9]*")))
             require(address.first.isNotBlank() && detail.first.isNotBlank())
-            RouteStop(id.first, address.first, detail.first)
+            RouteStop(
+                id.first,
+                address.first,
+                detail.first,
+                placeName?.first?.ifBlank { null }
+            )
         }
         require(cursor == value.length)
         require(stops.map { it.stopId }.distinct().size == stops.size)

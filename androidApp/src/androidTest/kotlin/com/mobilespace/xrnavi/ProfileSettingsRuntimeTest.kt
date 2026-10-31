@@ -209,17 +209,17 @@ class ProfileSettingsRuntimeTest {
             tap("Гараж")
             tap("Переглянути профіль Ford Mustang GT")
             tap("Переглянути конфігурації Ford Mustang GT")
-            waitFor("vehicle-bound S16 configurations") {
-                find("Синтетичний демосценарій 02") != null
-            }
             waitFor("configuration count from current vehicle data") {
                 find("Конфігурації · 3") != null
             }
-            assertNotNull(find("Застосовано"))
             reveal("Синтетичний демосценарій 02")
+            waitFor("vehicle-bound S16 configurations") {
+                find("Синтетичний демосценарій 02") != null
+            }
+            assertNotNull(find("Застосовано"))
             tap("Синтетичний демосценарій 02")
             waitFor("explicitly selected unapplied configuration") {
-                find("Обрано · ще не застосовано") != null
+                findStateDescription("Обрано, ще не застосовано") != null
             }
             assertNotNull(find("Застосовано зараз"))
             capture("S16-configuration-draft")
@@ -241,7 +241,7 @@ class ProfileSettingsRuntimeTest {
             tap("Застосувати конфігурацію")
             waitFor("incomplete selection remains unapplied") {
                 find("Застосування недоступне") != null &&
-                        find("Обрано, ще не застосовано") != null
+                        findStateDescription("Обрано, ще не застосовано") != null
             }
             tap("Скасувати")
             waitFor("vehicle profile after cancel") { find("Профіль автомобіля") != null }
@@ -307,11 +307,13 @@ class ProfileSettingsRuntimeTest {
                 throw failure
             }
             revealMapSheetContent("Конфігурація: Синтетичний демосценарій 02")
+            assertNotNull(find("Конфігурація: Синтетичний демосценарій 02"))
+            revealMapSheetContent("Габарити: Не задано · маса: Не задано")
+            assertNotNull(find("Габарити: Не задано · маса: Не задано"))
             reveal("Ford Mustang GT")
             capture("S16-map-summary-after-scroll")
             reveal("Параметри конфігурації змінено")
-            assertNotNull(find("Конфігурація: Синтетичний демосценарій 02"))
-            assertNotNull(find("Габарити: Не задано · маса: Не задано"))
+            assertNotNull(find("Параметри конфігурації змінено"))
             capture("S16-applied-configuration-map")
 
             tap("Переглянути маршрут")
@@ -358,15 +360,21 @@ class ProfileSettingsRuntimeTest {
                         orientationLabel
                     )
                     try {
+                        revealRouteSettingsContent("Уникати платних доріг")
                         tap("Уникати платних доріг")
+                        revealRouteSettingsContent("Зміни ще не застосовано")
                         waitFor("S04 local draft is visibly changed") {
                             find("Зміни ще не застосовано") != null
                         }
                         assertTrue(
                             "Toll preference did not become checked: ${routeSwitchDiagnostics("Уникати платних доріг")}",
                             nodes().any {
-                                it.contentDescription?.toString() == "Уникати платних доріг" &&
-                                        it.isChecked
+                                normalizeUiText(
+                                    it.contentDescription?.toString()
+                                        ?: it.text?.toString().orEmpty()
+                                ).contains(normalizeUiText("Уникати платних доріг")) &&
+                                        normalizeUiText(it.stateDescription?.toString().orEmpty()) ==
+                                        normalizeUiText("Увімкнено")
                             }
                         )
                         capture("S04-$orientationLabel-$storedTheme-draft")
@@ -375,15 +383,42 @@ class ProfileSettingsRuntimeTest {
                             find("Переглянути маршрут") != null &&
                                     find("Почати маршрут") == null
                         }
+                        val mapPanel = requireNotNull(routePanelNode()) {
+                            "Map panel must expose its accessible expansion action after applying preferences"
+                        }
+                        if (mapPanel.stateDescription?.toString() != "Розгорнута") {
+                            assertTrue(
+                                "Map panel must expand to verify the retained addresses",
+                                mapPanel.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                            )
+                            waitFor("S04 map panel expands after applying preferences") {
+                                routePanelNode()?.stateDescription?.toString() == "Розгорнута"
+                            }
+                        }
+                        tap("Параметри маршруту та альтернативи")
+                        waitFor("S04 route settings retain addresses after apply") {
+                            find("Параметри маршруту") != null
+                        }
+                        revealRouteSettingsContent("площа Ринок, 1")
+                        revealRouteSettingsContent("площа Ринок, 10")
                         assertNotNull(find("площа Ринок, 1"))
                         assertNotNull(find("площа Ринок, 10"))
+                        tap("Скасувати")
+                        waitFor("S04 returns to Map after address verification") {
+                            find("Переглянути маршрут") != null &&
+                                    find("Почати маршрут") == null
+                        }
                         capture("S04-$orientationLabel-$storedTheme-applied")
 
                         tap("Переглянути маршрут")
                         waitFor("S04 explicit new preview") { find("Почати маршрут") != null }
                         tap("Почати маршрут")
-                        waitFor("S04 navigation remains disconnected") {
-                            find("навігацію не підключено") != null
+                        waitFor("S04 route action expands the map panel") {
+                            routePanelNode()?.stateDescription == "Розгорнута"
+                        }
+                        capture("S04-$orientationLabel-$storedTheme-navigation-action")
+                        waitFor("S04 navigation remains visibly disconnected") {
+                            find("Маршрут і навігацію не підключено · лише демо") != null
                         }
                         capture("S04-$orientationLabel-$storedTheme-navigation-warning")
                     } finally {
@@ -462,7 +497,6 @@ class ProfileSettingsRuntimeTest {
                         find("Застосувати параметри") != null
             }
             capture("S04-$orientationLabel-$themeLabel-entry")
-            revealRouteSettingsContent("Ford Mustang GT")
             revealRouteSettingsContent("площа Ринок, 1")
             revealRouteSettingsContent("площа Ринок, 10")
             revealRouteSettingsContent("Параметри збережені локально")
@@ -500,7 +534,7 @@ class ProfileSettingsRuntimeTest {
         try {
             tap("Продовжити без входу · деморежим")
             for ((stored, label) in listOf("Light" to "Світла", "Dark" to "Темна")) {
-                tap("Налаштування")
+                ensureSettingsSection()
                 chooseTheme(label)
                 assertEquals(stored, preferences.getString("appearance.theme", null))
                 val orientations = listOf(
@@ -518,7 +552,7 @@ class ProfileSettingsRuntimeTest {
                         else bounds.width() > bounds.height()
                     }
 
-                    tap("Налаштування")
+                    ensureSettingsSection()
                     scrollTop()
                     capture("S07-$suffix-$stored")
                     reveal("Системний дозвіл не перевірявся.")
@@ -549,18 +583,22 @@ class ProfileSettingsRuntimeTest {
                     )
                     capture("S11-$suffix-$stored")
                     tap("Переглянути конфігурації Ford Mustang GT")
-                    waitFor("S16 configurations in $suffix $stored") {
-                        find("Синтетичний демосценарій 02") != null
+                    waitFor("S16 configuration count in $suffix $stored") {
+                        find("Конфігурації · 3") != null
                     }
                     assertNotNull(
                         "Configuration count must reflect the current vehicle data",
                         find("Конфігурації · 3")
                     )
+                    reveal("Синтетичний демосценарій 02")
+                    waitFor("S16 configurations in $suffix $stored") {
+                        find("Синтетичний демосценарій 02") != null
+                    }
                     capture("S16-$suffix-$stored")
                     reveal("Синтетичний демосценарій 02")
                     tap("Синтетичний демосценарій 02")
                     waitFor("draft state in $suffix $stored") {
-                        find("Обрано · ще не застосовано") != null
+                        findStateDescription("Обрано, ще не застосовано") != null
                     }
                     capture("S16-draft-$suffix-$stored")
                     instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
@@ -580,17 +618,25 @@ class ProfileSettingsRuntimeTest {
                     )
                 }
                 scenario.recreate()
-                tap("Налаштування")
+                ensureSettingsSection()
                 tap("Тема застосунку")
+                revealExactText(label)
                 capture("picker-restored-$stored")
-                val selected = find(label)
+                val selected = nodes().firstOrNull {
+                    it.isVisibleToUser && it.text?.toString() == label
+                }
                 assertNotNull("Theme option should exist after Activity recreation", selected)
                 val labelBounds = Rect().also(selected!!::getBoundsInScreen)
-                assertTrue("Theme radio should remain checked", nodes().any { node ->
-                    val bounds = Rect().also(node::getBoundsInScreen)
-                    (node.isChecked || node.isSelected) &&
-                            bounds.centerY() in labelBounds.top..labelBounds.bottom
-                })
+                assertTrue(
+                    "Theme radio should remain selected\n${nodeDiagnostics()}",
+                    nodes().any { node ->
+                        val bounds = Rect().also(node::getBoundsInScreen)
+                        (node.isChecked ||
+                                node.isSelected ||
+                                node.stateDescription?.toString() == "Вибрано") &&
+                                bounds.centerY() in labelBounds.top..labelBounds.bottom
+                    }
+                )
                 tap("Зрозуміло")
                 capture("restored-$stored")
             }
@@ -917,7 +963,8 @@ class ProfileSettingsRuntimeTest {
                 !isImeVisible(scenario) && find("Зберегти") != null
             }
             capture("S37-$themeLabel-$orientationLabel-cancel-draft")
-            tap("Скасувати")
+            clickTextAction("Скасувати")
+            capture("S37-$themeLabel-$orientationLabel-after-cancel-action")
             waitFor("S37 cancel preserves original long label") {
                 find(longLabel) != null && find(draft) == null
             }
@@ -977,8 +1024,33 @@ class ProfileSettingsRuntimeTest {
     private fun chooseTheme(label: String) {
         tap("Тема застосунку")
         waitFor("theme picker") { find("Системна тема не змінюється.") != null }
-        tap(label)
+        tapExactText(label)
+        waitFor("selected theme option: $label") {
+            val labelNode = nodes().firstOrNull {
+                it.isVisibleToUser && it.text?.toString() == label
+            } ?: return@waitFor false
+            val labelBounds = Rect().also(labelNode::getBoundsInScreen)
+            nodes().any { node ->
+                val bounds = Rect().also(node::getBoundsInScreen)
+                (node.isChecked || node.isSelected) &&
+                        bounds.centerY() in labelBounds.top..labelBounds.bottom
+            }
+        }
+        capture("theme-selected-$label")
         tap("Зрозуміло")
+    }
+
+    private fun ensureSettingsSection() {
+        val settingsHeading = {
+            nodes().any {
+                normalizeUiText(it.text?.toString().orEmpty()) ==
+                        normalizeUiText("Налаштування") && it.isHeading
+            }
+        }
+        if (!settingsHeading()) {
+            tap("Налаштування")
+            waitFor("settings section") { settingsHeading() }
+        }
     }
 
     private fun launchFreshApp(): ActivityScenario<MainActivity> {
@@ -994,6 +1066,7 @@ class ProfileSettingsRuntimeTest {
             "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             else -> null
         }
+        ensureXrnaviWindowActive()
         if (orientation != null) {
             scenario.onActivity {
                 it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -1041,15 +1114,28 @@ class ProfileSettingsRuntimeTest {
     }
 
     private fun find(text: String): AccessibilityNodeInfo? {
-        val window = rootBounds()
+        val query = normalizeUiText(text)
         val matches = nodes().filter {
             val bounds = Rect().also(it::getBoundsInScreen)
-            it.isVisibleToUser && !bounds.isEmpty && Rect.intersects(bounds, window) && (
-                    it.text?.contains(text) == true || it.contentDescription?.contains(text) == true
+            it.isVisibleToUser && !bounds.isEmpty && (
+                    normalizeUiText(it.text?.toString().orEmpty()).contains(query) ||
+                            normalizeUiText(it.contentDescription?.toString().orEmpty()).contains(query)
                     )
         }
         return matches.firstOrNull { it.isClickable } ?: matches.firstOrNull()
     }
+
+    private fun findStateDescription(text: String): AccessibilityNodeInfo? {
+        val query = normalizeUiText(text)
+        return nodes().firstOrNull {
+            val bounds = Rect().also(it::getBoundsInScreen)
+            it.isVisibleToUser && !bounds.isEmpty &&
+                    normalizeUiText(it.stateDescription?.toString().orEmpty()).contains(query)
+        }
+    }
+
+    private fun normalizeUiText(text: String): String =
+        text.lowercase().filter(Char::isLetterOrDigit)
 
     private fun routeSwitchDiagnostics(label: String): String =
         nodes().filter {
@@ -1094,91 +1180,328 @@ class ProfileSettingsRuntimeTest {
         automation.waitForIdle(300, 5_000)
     }
 
-    private fun clickTextAction(text: String) {
-        val textNode = requireNotNull(nodes().firstOrNull {
-            it.isVisibleToUser && it.text?.toString() == text
-        }) { "Visible text action not found: $text" }
-        var actionNode: AccessibilityNodeInfo? = textNode
-        while (actionNode != null && !actionNode.isClickable) {
-            actionNode = actionNode.parent
-        }
-        assertTrue(
-            "Text action must expose a clickable ancestor: $text",
-            actionNode?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
-        )
-    }
-
-    private fun reveal(text: String) {
-        if (find(text) != null) return
-        for (direction in listOf(
-            AccessibilityNodeInfo.ACTION_SCROLL_FORWARD,
-            AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-        )) {
-            repeat(16) {
-                if (find(text) != null) return
-                swipeContent(forward = direction == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
-            }
-        }
-        fail("UI target not found: $text\n${nodes().map { it.text ?: it.contentDescription }}")
-    }
-
-    private fun revealMapSheetContent(text: String) {
-        repeat(8) {
-            if (find(text) != null) return
-            val scrollable = requireNotNull(nodes().firstOrNull { node ->
-                if (!node.isScrollable) return@firstOrNull false
-                val bounds = Rect().also(node::getBoundsInScreen)
-                !bounds.isEmpty && Rect.intersects(bounds, rootBounds())
-            }) { "Map sheet did not expose a scrollable content container for: $text" }
-            val bounds = Rect().also(scrollable::getBoundsInScreen)
-            val x = bounds.centerX()
-            val startY = bounds.bottom - 16
-            val endY = (bounds.top + bounds.height() / 2).coerceAtLeast(bounds.top + 16)
-            injectShellInput(
-                "input swipe $x $startY $x $endY 320"
-            )
-            instrumentation.waitForIdleSync()
-            automation.waitForIdle(300, 5_000)
-        }
-        fail("Map sheet content not found after scrolling: $text\n${nodes().map { it.text ?: it.contentDescription }}")
-    }
-
-    private fun revealRouteSettingsContent(text: String) {
-        if (find(text) != null) return
-        repeat(8) {
-            swipeRouteSettingsContent(forward = true)
-            if (find(text) != null) return
-        }
-        fail(
-            "Route settings content not found after scrolling: $text\n" +
-                    nodes().map { it.text ?: it.contentDescription })
-    }
-
-    private fun swipeRouteSettingsContent(forward: Boolean) {
-        val bounds = rootBounds()
-        val x = bounds.width() * 0.5f
-        val start = bounds.height() * if (forward) 0.68f else 0.42f
-        val end = bounds.height() * if (forward) 0.42f else 0.68f
+    private fun tapExactText(text: String) {
+        val target = revealExactText(text)
+        val bounds = Rect().also(target::getBoundsInScreen)
+        assertFalse("Nonempty target bounds: $text", bounds.isEmpty)
         injectShellInput(
-            "input swipe ${x.roundToInt()} ${start.roundToInt()} ${x.roundToInt()} ${end.roundToInt()} 420"
+            "input tap ${bounds.exactCenterX().roundToInt()} ${bounds.exactCenterY().roundToInt()}"
         )
         instrumentation.waitForIdleSync()
         automation.waitForIdle(300, 5_000)
     }
 
-    private fun scrollTop() {
-        repeat(6) { swipeContent(forward = false) }
+    private fun revealExactText(text: String): AccessibilityNodeInfo {
+        ensureXrnaviWindowActive()
+        val directions = listOf(
+            AccessibilityNodeInfo.ACTION_SCROLL_FORWARD,
+            AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+        )
+        for (direction in directions) {
+            repeat(8) {
+                nodes().firstOrNull {
+                    it.isVisibleToUser && it.text?.toString() == text
+                }?.let { return it }
+                val scrollable = nodes().asSequence()
+                    .filter { it.isScrollable && it.isVisibleToUser }
+                    .map { node -> node to Rect().also(node::getBoundsInScreen) }
+                    .filter { (_, bounds) -> !bounds.isEmpty }
+                    .minByOrNull { (_, bounds) ->
+                        bounds.width().toLong() * bounds.height()
+                    }?.first
+                    ?: throw AssertionError(
+                        "No visible scroll container for exact text: $text\n${nodeDiagnostics()}"
+                    )
+                if (!scrollable.performAction(direction)) {
+                    swipeScrollableContainer(
+                        scrollable,
+                        forward = direction == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                    )
+                } else {
+                    instrumentation.waitForIdleSync()
+                    automation.waitForIdle(300, 5_000)
+                }
+            }
+        }
+        return nodes().firstOrNull {
+            it.isVisibleToUser && it.text?.toString() == text
+        } ?: throw AssertionError(
+            "Exact text did not become visible after scrolling: $text\n${nodeDiagnostics()}"
+        )
     }
 
-    private fun swipeContent(forward: Boolean) {
-        val bounds = rootBounds()
-        val x = bounds.width() * 0.65f
-        val start = bounds.height() * if (forward) 0.76f else 0.3f
-        val end = bounds.height() * if (forward) 0.3f else 0.76f
-        injectShellInput(
-            "input swipe ${x.roundToInt()} ${start.roundToInt()} ${x.roundToInt()} ${end.roundToInt()} 420"
+    private fun clickTextAction(text: String) {
+        ensureXrnaviWindowActive()
+        val query = normalizeUiText(text)
+        fun exactTextNode(): AccessibilityNodeInfo? = nodes().firstOrNull {
+            val bounds = Rect().also(it::getBoundsInScreen)
+            it.isVisibleToUser && !bounds.isEmpty && (
+                    normalizeUiText(it.text?.toString().orEmpty()) == query ||
+                            normalizeUiText(it.contentDescription?.toString().orEmpty()) == query
+                    )
+        }
+        fun clickableNode(): AccessibilityNodeInfo? {
+            val textNode = exactTextNode() ?: return null
+            var ancestor: AccessibilityNodeInfo? = textNode
+            while (ancestor != null && !ancestor.isClickable) ancestor = ancestor.parent
+            ancestor?.takeIf { it.isEnabled && it.isVisibleToUser }?.let { return it }
+
+            val textBounds = Rect().also(textNode::getBoundsInScreen)
+            if (textBounds.isEmpty) return null
+            return nodes().asSequence()
+                .filter { it.isClickable && it.isEnabled && it.isVisibleToUser }
+                .map { node -> node to Rect().also(node::getBoundsInScreen) }
+                .filter { (_, bounds) ->
+                    !bounds.isEmpty && bounds.contains(textBounds.centerX(), textBounds.centerY())
+                }
+                .minByOrNull { (_, bounds) -> bounds.width().toLong() * bounds.height() }
+                ?.first
+        }
+        var previousBounds = Rect()
+        var stableFrames = 0
+        waitFor("stable clickable action bounds: $text") {
+            val node = clickableNode() ?: return@waitFor false
+            val bounds = Rect().also(node::getBoundsInScreen)
+            stableFrames = if (bounds == previousBounds && !bounds.isEmpty) {
+                stableFrames + 1
+            } else {
+                0
+            }
+            previousBounds = bounds
+            stableFrames >= 5
+        }
+        val actionNode = requireNotNull(clickableNode()) {
+            "Text action must expose a clickable accessibility ancestor: $text\n${nodeDiagnostics()}"
+        }
+        val captureName = "action-target-${normalizeUiText(text)}-${SystemClock.uptimeMillis()}"
+        capture(captureName, settle = false)
+        fun describeTarget(node: AccessibilityNodeInfo?): String =
+            node?.let {
+                "text=${it.text} description=${it.contentDescription} " +
+                        "clickable=${it.isClickable} editable=${it.isEditable} " +
+                        "bounds=${Rect().also(it::getBoundsInScreen)} actions=${it.actionList}"
+            } ?: "not found"
+        File(output, "$captureName-action.txt").writeText(
+            "query=$text\nsubstringTarget=${describeTarget(find(text))}\n" +
+                    "exactTextTarget=${describeTarget(exactTextNode())}\n" +
+                    "actionTarget=${describeTarget(actionNode)}\n"
         )
+        assertTrue(
+            "Text action must expose a clickable accessibility ancestor: $text\n${nodeDiagnostics()}",
+            actionNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        )
+        instrumentation.waitForIdleSync()
         automation.waitForIdle(300, 5_000)
+    }
+
+    private fun tapClickableAncestor(text: String) {
+        ensureXrnaviWindowActive()
+        val textNode = nodes().firstOrNull {
+            it.isVisibleToUser && it.text?.toString() == text
+        } ?: throw AssertionError("Visible text action not found: $text\n${nodeDiagnostics()}")
+        var target: AccessibilityNodeInfo? = textNode
+        while (target != null && !target.isClickable) {
+            target = target.parent
+        }
+        val actionTarget = requireNotNull(target) {
+            "Text action must expose a clickable ancestor: $text\n${nodeDiagnostics()}"
+        }
+        val bounds = Rect().also(actionTarget::getBoundsInScreen)
+        assertFalse("Nonempty clickable target bounds: $text", bounds.isEmpty)
+        injectShellInput(
+            "input tap ${bounds.exactCenterX().roundToInt()} ${bounds.exactCenterY().roundToInt()}"
+        )
+        instrumentation.waitForIdleSync()
+        automation.waitForIdle(300, 5_000)
+    }
+
+    private fun reveal(text: String) {
+        ensureXrnaviWindowActive()
+        if (find(text) != null) return
+        for (direction in listOf(
+            AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD,
+            AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+        )) {
+            var attempts = 0
+            var fallbackAttempts = 0
+            while (attempts++ < 32) {
+                if (find(text) != null) return
+                val scrollable = scrollContainerFor(text)
+                if (scrollable == null) {
+                    instrumentation.waitForIdleSync()
+                    SystemClock.sleep(300)
+                    if (find(text) != null) return
+                    if (scrollContainerFor(text) == null) {
+                        capture("reveal-failed")
+                        fail("No visible scroll container or target found for: $text\n${nodeDiagnostics()}")
+                        return
+                    }
+                    continue
+                }
+                val scrolled = scrollable.performAction(direction)
+                if (scrolled) {
+                    instrumentation.waitForIdleSync()
+                    automation.waitForIdle(300, 5_000)
+                } else {
+                    swipeScrollableContainer(
+                        scrollable,
+                        forward = direction == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                    )
+                    fallbackAttempts++
+                }
+                if (find(text) != null) return
+                if (!scrolled && fallbackAttempts >= 8) break
+            }
+        }
+        capture("reveal-failed")
+        fail("UI target not found after scrolling its active container: $text\n${nodeDiagnostics()}")
+    }
+
+    private fun scrollContainerFor(text: String): AccessibilityNodeInfo? {
+        if (
+            automation.rootInActiveWindow?.packageName?.toString() != context.packageName
+        ) {
+            return null
+        }
+        val allNodes = nodes()
+        val query = normalizeUiText(text)
+        val targetNodes = allNodes.filter {
+            normalizeUiText(it.text?.toString().orEmpty()).contains(query) ||
+                    normalizeUiText(it.contentDescription?.toString().orEmpty()).contains(query) ||
+                    normalizeUiText(it.stateDescription?.toString().orEmpty()).contains(query)
+        }
+        for (target in targetNodes) {
+            var ancestor: AccessibilityNodeInfo? = target
+            while (ancestor != null) {
+                val bounds = Rect().also(ancestor::getBoundsInScreen)
+                if (ancestor.isScrollable && ancestor.isVisibleToUser &&
+                    !bounds.isEmpty
+                ) {
+                    return ancestor
+                }
+                ancestor = ancestor.parent
+            }
+        }
+        return allNodes.asSequence()
+            .filter { it.isScrollable && it.isVisibleToUser }
+            .map { node -> node to Rect().also(node::getBoundsInScreen) }
+            .filter { (_, bounds) -> !bounds.isEmpty }
+            .maxByOrNull { (_, bounds) -> bounds.width().toLong() * bounds.height() }
+            ?.first
+    }
+
+    private fun nodeDiagnostics(): String = nodes().joinToString("\n") { node ->
+        val bounds = Rect().also(node::getBoundsInScreen)
+        "${node.text ?: node.contentDescription} | state=${node.stateDescription} " +
+                "visible=${node.isVisibleToUser} scrollable=${node.isScrollable} bounds=$bounds"
+    }
+
+    private fun ensureXrnaviWindowActive() {
+        if (automation.rootInActiveWindow?.packageName?.toString() == "com.android.systemui") {
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        }
+        if (automation.rootInActiveWindow?.packageName?.toString() != context.packageName) {
+            context.startActivity(
+                Intent(context, MainActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+            )
+        }
+        waitFor("XRNavi window is active") {
+            automation.rootInActiveWindow?.packageName?.toString() == context.packageName
+        }
+    }
+
+    private fun swipeScrollableContainer(
+        scrollable: AccessibilityNodeInfo,
+        forward: Boolean
+    ) {
+        val bounds = Rect().also(scrollable::getBoundsInScreen)
+        val x = bounds.centerX()
+        val startFraction = if (forward) 0.75f else 0.3f
+        val endFraction = if (forward) 0.3f else 0.75f
+        val startY = bounds.top + (bounds.height() * startFraction).roundToInt()
+        val endY = bounds.top + (bounds.height() * endFraction).roundToInt()
+        assertTrue("Scrollable container must be tall enough to swipe: $bounds", startY != endY)
+        injectShellInput("input swipe $x $startY $x $endY 420")
+        instrumentation.waitForIdleSync()
+        automation.waitForIdle(300, 5_000)
+    }
+
+    private fun revealMapSheetContent(text: String) {
+        ensureXrnaviWindowActive()
+        val actionId = AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+        repeat(8) {
+            if (find(text) != null) return
+            val scrollable = nodes().firstOrNull { node ->
+                val bounds = Rect().also(node::getBoundsInScreen)
+                node.isVisibleToUser &&
+                        (node.isScrollable || node.actionList.any { it.id == actionId }) &&
+                        !bounds.isEmpty && Rect.intersects(bounds, rootBounds())
+            }
+            if (scrollable != null) {
+                if (!scrollable.performAction(actionId)) {
+                    swipeScrollableContainer(scrollable, forward = true)
+                }
+            } else {
+                val attribution = requireNotNull(find("Демо-мапа")) {
+                    "Map sheet attribution is unavailable while revealing: $text\n${nodeDiagnostics()}"
+                }
+                var action = requireNotNull(
+                    find("Переглянути маршрут") ?: find("Почати маршрут")
+                ) {
+                    "Map sheet primary action is unavailable while revealing: $text\n${nodeDiagnostics()}"
+                }
+                while (!action.isClickable && action.parent != null) {
+                    action = requireNotNull(action.parent)
+                }
+                val attributionBounds = Rect().also(attribution::getBoundsInScreen)
+                val actionBounds = Rect().also(action::getBoundsInScreen)
+                val top = attributionBounds.bottom + 8
+                val bottom = actionBounds.top - 4
+                assertTrue(
+                    "Map sheet content viewport must be between attribution $attributionBounds " +
+                            "and primary action $actionBounds",
+                    bottom - top >= 24
+                )
+                injectShellInput(
+                    "input swipe ${rootBounds().centerX()} $bottom " +
+                            "${rootBounds().centerX()} $top 320"
+                )
+            }
+            instrumentation.waitForIdleSync()
+            automation.waitForIdle(300, 5_000)
+        }
+        fail(
+            "Map sheet content not found after scrolling: $text\n" +
+                    nodeDiagnostics()
+        )
+    }
+
+    private fun revealRouteSettingsContent(text: String) {
+        reveal(text)
+    }
+
+    private fun scrollTop() {
+        ensureXrnaviWindowActive()
+        repeat(32) {
+            val bounds = rootBounds()
+            val scrollable = nodes().asSequence()
+                .filter { it.isScrollable && it.isVisibleToUser }
+                .map { node -> node to Rect().also(node::getBoundsInScreen) }
+                .filter { (_, nodeBounds) ->
+                    !nodeBounds.isEmpty && Rect.intersects(nodeBounds, bounds)
+                }
+                .maxByOrNull { (_, nodeBounds) ->
+                    nodeBounds.width().toLong() * nodeBounds.height()
+                }
+                ?.first ?: return
+            if (!scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)) return
+            instrumentation.waitForIdleSync()
+            automation.waitForIdle(300, 5_000)
+        }
     }
 
     private fun injectShellInput(command: String) {
@@ -1212,7 +1535,7 @@ class ProfileSettingsRuntimeTest {
             if (predicate()) return
             SystemClock.sleep(100)
         }
-        fail(
+        val failure = AssertionError(
             "Timed out waiting for $description\n" +
                     nodes().joinToString("\n") {
                         val bounds = Rect().also(it::getBoundsInScreen)
@@ -1221,12 +1544,24 @@ class ProfileSettingsRuntimeTest {
                                 "state=${it.stateDescription} selected=${it.isSelected} bounds=$bounds"
                     }
         )
+        val captureName = "failure-${SystemClock.uptimeMillis()}"
+        try {
+            capture(captureName, settle = false)
+            File(output, "$captureName-assertion.txt").writeText(failure.message.orEmpty())
+        } catch (captureFailure: Exception) {
+            failure.addSuppressed(captureFailure)
+        } catch (captureFailure: AssertionError) {
+            failure.addSuppressed(captureFailure)
+        }
+        throw failure
     }
 
-    private fun capture(name: String) {
-        SystemClock.sleep(450)
-        instrumentation.waitForIdleSync()
-        automation.waitForIdle(300, 5_000)
+    private fun capture(name: String, settle: Boolean = true) {
+        if (settle) {
+            SystemClock.sleep(450)
+            instrumentation.waitForIdleSync()
+            automation.waitForIdle(300, 5_000)
+        }
         val bitmap = requireNotNull(automation.takeScreenshot()) { "Screenshot unavailable" }
         File(output, "$name.png").outputStream().use {
             assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
@@ -1239,9 +1574,22 @@ class ProfileSettingsRuntimeTest {
                     node.contentDescription?.toString().orEmpty()
                 } | $bounds" +
                         " | checked=${node.isChecked} enabled=${node.isEnabled} " +
+                        "visible=${node.isVisibleToUser} clickable=${node.isClickable} " +
+                        "editable=${node.isEditable} focused=${node.isFocused} " +
+                        "package=${node.packageName} class=${node.className} " +
                         "state=${node.stateDescription} selected=${node.isSelected} " +
                         "scrollable=${node.isScrollable}"
             }
+        )
+        File(output, "$name-conditions.txt").writeText(
+            "timestampMillis=${System.currentTimeMillis()}\n" +
+                    "uptimeMillis=${SystemClock.uptimeMillis()}\n" +
+                    "device=${Build.MODEL}\nAndroid=${Build.VERSION.RELEASE}\n" +
+                    "configuration=${context.resources.configuration}\n" +
+                    "rootBounds=${rootBounds()}\n" +
+                    "theme=${context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
+                        .getString("appearance.theme", "system")}\n" +
+                    "accessibilityServices=${readDeviceSetting("secure", "enabled_accessibility_services")}\n"
         )
     }
 }

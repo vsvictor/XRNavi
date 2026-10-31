@@ -1602,6 +1602,8 @@ private fun RouteBottomSheet(
     modifier: Modifier
 ) {
     val dark = isDarkXrnaviTheme()
+    val navigationUnavailable =
+        preview && notice.startsWith("Маршрут і навігацію не підключено")
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -1694,6 +1696,17 @@ private fun RouteBottomSheet(
                     }
                 }
             }
+            if (level == SheetLevel.Expanded && !showInlineAttribution) {
+                Text(
+                    "Параметри маршруту та альтернативи ›",
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .clickable(role = Role.Button, onClick = onOpenRouteSettings)
+                        .padding(vertical = 4.dp),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -1704,8 +1717,9 @@ private fun RouteBottomSheet(
                 when {
                     routeStops.isNotEmpty() -> {
                         StatusCard(
-                            title = "Багатоточковий перегляд ще не підключено",
-                            message = "Збережено проміжних зупинок: ${routeStops.size}. " +
+                            title = "План збережено локально",
+                            message = "Багатоточковий перегляд ще не підключено. " +
+                                "Збережено проміжних зупинок: ${routeStops.size}. " +
                                 "Лінія маршруту, відстань і час для цього плану не розраховуються."
                         )
                     }
@@ -1842,22 +1856,12 @@ private fun RouteBottomSheet(
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (level == SheetLevel.Expanded && !showInlineAttribution) {
-                            Text(
-                                "Параметри маршруту та альтернативи ›",
-                                modifier = Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .clickable(role = Role.Button, onClick = onOpenRouteSettings)
-                                    .padding(vertical = 2.dp),
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                 }
             }
             XrnaviActionButton(
                 text = when {
+                    navigationUnavailable -> "Маршрут і навігацію не підключено · лише демо"
                     preview -> "Почати маршрут"
                     routeStops.isNotEmpty() -> "Редагувати зупинки"
                     origin.isBlank() -> "Вибрати початкову точку"
@@ -1865,8 +1869,13 @@ private fun RouteBottomSheet(
                     vehicleClassUnavailableMessage(vehicleClass) != null -> "Профіль недоступний"
                     else -> "Переглянути маршрут"
                 },
-                icon = if (preview) Res.drawable.route_navigation_dark else null,
+                icon = if (preview && !navigationUnavailable) {
+                    Res.drawable.route_navigation_dark
+                } else {
+                    null
+                },
                 onClick = when {
+                    navigationUnavailable -> ({})
                     preview -> onStartRoute
                     routeStops.isNotEmpty() -> onOpenRouteStops
                     origin.isBlank() -> ({ onOpenSearch(SearchTarget.Origin) })
@@ -1876,7 +1885,8 @@ private fun RouteBottomSheet(
                 height = if (level == SheetLevel.Collapsed) 44.dp else 52.dp,
                 cornerRadius = if (level == SheetLevel.Collapsed) 10.dp else 14.dp,
                 modifier = Modifier.padding(top = 7.dp, bottom = 12.dp),
-                compact = true
+                compact = true,
+                enabled = !navigationUnavailable
             )
         }
     }
@@ -3050,7 +3060,11 @@ internal fun RouteStopsScreen(
                 modifier = Modifier.clickable(role = Role.Button, onClick = onCancel).padding(8.dp),
                 color = MaterialTheme.colorScheme.primary
             )
-            Text("Зупинки маршруту", fontWeight = FontWeight.SemiBold)
+            Text(
+                "Зупинки маршруту",
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.SemiBold
+            )
             Text(
                 "Тема",
                 modifier = Modifier.clickable(role = Role.Button, onClick = onToggleTheme).padding(8.dp),
@@ -3078,7 +3092,7 @@ internal fun RouteStopsScreen(
             )
             if (stops.isEmpty()) {
                 StatusCard(
-                    "Поки немає проміжних зупинок",
+                    "Проміжних зупинок немає",
                     "Додайте підтверджену адресу з локального демопошуку або «Обраного»."
                 )
             } else {
@@ -3094,7 +3108,8 @@ internal fun RouteStopsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                "Зупинка ${index + 1}",
+                                "Зупинка ${index + 1}" +
+                                    stop.placeName?.let { " · $it" }.orEmpty(),
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )

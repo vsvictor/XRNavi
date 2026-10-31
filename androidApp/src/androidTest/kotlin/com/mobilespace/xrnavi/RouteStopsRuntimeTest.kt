@@ -37,9 +37,21 @@ class RouteStopsRuntimeTest {
 
         val stopsPreferences = context.getSharedPreferences("xrnavi_route_stops", Context.MODE_PRIVATE)
         val originalStops = stopsPreferences.getString("route.stops.v1", null)
+        val savedPlacesPreferences =
+            context.getSharedPreferences("xrnavi_saved_places", Context.MODE_PRIVATE)
+        val originalSavedPlaces = savedPlacesPreferences.getString("saved.places.v1", null)
         assertTrue(
             "Temporary empty route plan must be applied",
             stopsPreferences.edit().putString("route.stops.v1", "1:0:").commit()
+        )
+        val savedPlace = encodeSavedPlace(
+            address = "площа Ринок, 1",
+            detail = "Львів · Львівська область · Ратуша",
+            label = "Мій офіс"
+        )
+        assertTrue(
+            "Temporary saved place must be applied",
+            savedPlacesPreferences.edit().putString("saved.places.v1", savedPlace).commit()
         )
         val themePreferences = context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
         val originalTheme = themePreferences.getString("appearance.theme", null)
@@ -57,14 +69,21 @@ class RouteStopsRuntimeTest {
                     Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 )
             )
+            scrollUntilVisible("Продовжити без входу · деморежим")
             tap("Продовжити без входу · деморежим")
             tap("Зупинки маршруту · 0")
-            waitFor("S18 empty editor") { find("Поки немає проміжних зупинок") != null }
-            capture("s18-light-empty")
+            waitFor("S18 empty editor") { find("Проміжних зупинок немає") != null }
+            assertNotNull(find("Додати зупинку"))
+            waitForRenderedTheme(dark = false)
+            capture("s18-light-empty", expectedDark = false)
 
             tap("Додати зупинку")
-            tap("площа Ринок, 1")
-            waitFor("first confirmed stop") { find("площа Ринок, 1") != null && find("Замінити адресу") != null }
+            tap("Мій офіс")
+            waitFor("saved-place label and confirmed address") {
+                find("Мій офіс") != null &&
+                    find("площа Ринок, 1") != null &&
+                    find("Замінити адресу") != null
+            }
             capture("s18-light-first-stop")
 
             tap("Додати зупинку")
@@ -91,16 +110,22 @@ class RouteStopsRuntimeTest {
 
             tap("Тема")
             waitFor("Dark editor theme") { isDarkTheme() }
-            capture("s18-dark-draft")
+            waitForRenderedTheme(dark = true)
+            capture("s18-dark-draft", expectedDark = true)
             rotateTo(scenario, ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
             assertNotNull(find("Зберегти зупинки"))
-            capture("s18-dark-landscape")
+            capture("s18-dark-landscape", expectedDark = true)
+            reveal("вулиця Хрещатик, 22")
+            assertNotNull(findExact("вулиця Хрещатик, 22"))
+            assertNotNull(find("Скасувати"))
+            assertNotNull(find("Зберегти зупинки"))
             tap("Тема")
             waitFor("Light editor theme in landscape") {
                 context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
                     .getString("appearance.theme", null) == "Light"
             }
-            capture("s18-light-landscape")
+            waitForRenderedTheme(dark = false)
+            capture("s18-light-landscape", expectedDark = false)
             rotateTo(scenario, ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
             reveal("вулиця Хрещатик, 22")
             assertNotNull(find("вулиця Хрещатик, 22"))
@@ -110,8 +135,10 @@ class RouteStopsRuntimeTest {
             tap("Панель маршруту")
             waitFor("map after saving stops") {
                 find("Зупинки маршруту · 1") != null &&
+                    find("План збережено локально") != null &&
                     find("Багатоточковий перегляд ще не підключено") != null
             }
+            assertNotNull(find("Редагувати зупинки"))
             assertNullText("540 км")
             assertNullText("Почати маршрут")
             capture("s18-saved-multipoint-blocked")
@@ -134,6 +161,10 @@ class RouteStopsRuntimeTest {
             if (originalStops == null) stopEditor.remove("route.stops.v1")
             else stopEditor.putString("route.stops.v1", originalStops)
             assertTrue("Original local route stops must be restored", stopEditor.commit())
+            val savedPlacesEditor = savedPlacesPreferences.edit()
+            if (originalSavedPlaces == null) savedPlacesEditor.remove("saved.places.v1")
+            else savedPlacesEditor.putString("saved.places.v1", originalSavedPlaces)
+            assertTrue("Original saved places must be restored", savedPlacesEditor.commit())
             val restoreTheme = themePreferences.edit()
             if (originalTheme == null) restoreTheme.remove("appearance.theme")
             else restoreTheme.putString("appearance.theme", originalTheme)
@@ -177,25 +208,40 @@ class RouteStopsRuntimeTest {
     }
 
     private fun tapInRow(rowText: String, actionText: String) {
-        reveal(rowText)
-        val row = requireNotNull(findExact(rowText))
-        val rowBounds = Rect().also(row::getBoundsInScreen)
-        val scrollContainer = nodes().firstOrNull { it.isScrollable && it.isVisibleToUser }
-        val scrollBounds = scrollContainer?.let { Rect().also(it::getBoundsInScreen) } ?: rootBounds()
-        val action = nodes().filter {
-            val bounds = Rect().also(it::getBoundsInScreen)
-            it.isVisibleToUser && it.isClickable && Rect.intersects(bounds, scrollBounds) &&
-                bounds.centerY() >= rowBounds.centerY() &&
-                bounds.centerY() - rowBounds.centerY() <= 250 &&
-                it.text?.toString() == actionText
-        }.minByOrNull {
-            kotlin.math.abs(
-                Rect().also(it::getBoundsInScreen).centerY() - rowBounds.centerY()
-            )
-        } ?: throw AssertionError("No visible $actionText action for $rowText")
-        val actionBounds = Rect().also(action::getBoundsInScreen)
-        interactionTrace += "$rowText at $rowBounds -> $actionText at $actionBounds"
-        tapNode(action)
+        repeat(8) {
+            reveal(rowText)
+            val row = requireNotNull(findExact(rowText))
+            val rowBounds = Rect().also(row::getBoundsInScreen)
+            val scrollContainer = nodes().firstOrNull { it.isScrollable && it.isVisibleToUser }
+            val scrollBounds = scrollContainer?.let { Rect().also(it::getBoundsInScreen) } ?: rootBounds()
+            val maxActionDistancePx = (250 * context.resources.displayMetrics.density).toInt()
+            val action = nodes().filter {
+                val bounds = Rect().also(it::getBoundsInScreen)
+                it.isVisibleToUser && it.isClickable && Rect.intersects(bounds, scrollBounds) &&
+                    bounds.centerY() >= rowBounds.centerY() &&
+                    bounds.centerY() - rowBounds.centerY() <= maxActionDistancePx &&
+                    it.text?.toString() == actionText
+            }.minByOrNull {
+                kotlin.math.abs(
+                    Rect().also(it::getBoundsInScreen).centerY() - rowBounds.centerY()
+                )
+            }
+            if (action != null) {
+                val actionBounds = Rect().also(action::getBoundsInScreen)
+                interactionTrace += "$rowText at $rowBounds -> $actionText at $actionBounds"
+                tapNode(action)
+                return
+            }
+            if (!scrollBounds.isEmpty) {
+                val x = scrollBounds.centerX()
+                injectShellInput(
+                    "input swipe $x ${scrollBounds.bottom - 40} $x ${scrollBounds.top + scrollBounds.height() / 2} 350"
+                )
+                instrumentation.waitForIdleSync()
+                automation.waitForIdle(300, 5_000)
+            }
+        }
+        throw AssertionError("No visible $actionText action for $rowText")
     }
 
     private fun tapNode(node: AccessibilityNodeInfo) {
@@ -300,6 +346,23 @@ class RouteStopsRuntimeTest {
         )
     }
 
+    private fun scrollUntilVisible(text: String) {
+        waitFor("active app window") { !rootBounds().isEmpty }
+        repeat(16) {
+            if (find(text) != null) return
+            val bounds = rootBounds()
+            if (!bounds.isEmpty) {
+                val x = bounds.centerX()
+                injectShellInput(
+                    "input swipe $x ${bounds.bottom - 250} $x ${bounds.top + bounds.height() / 2} 350"
+                )
+                instrumentation.waitForIdleSync()
+                automation.waitForIdle(300, 5_000)
+            }
+        }
+        waitFor("visible control: $text") { find(text) != null }
+    }
+
     private fun assertNullText(text: String) {
         assertFalse("Unexpected stale route result: $text", nodes().any {
             it.isVisibleToUser && it.text?.toString()?.contains(text) == true
@@ -310,10 +373,37 @@ class RouteStopsRuntimeTest {
         context.getSharedPreferences("xrnavi_appearance", Context.MODE_PRIVATE)
             .getString("appearance.theme", null) == "Dark"
 
-    private fun capture(name: String) {
+    private fun waitForRenderedTheme(dark: Boolean) {
+        val expected = if (dark) android.graphics.Color.rgb(11, 18, 32)
+        else android.graphics.Color.rgb(246, 248, 252)
+        val deadline = SystemClock.uptimeMillis() + 5_000
+        var consecutiveMatches = 0
+        while (SystemClock.uptimeMillis() < deadline) {
+            val screenshot = automation.takeScreenshot()
+            val actual = screenshot?.let { it.getPixel(10, it.height / 2) }
+            screenshot?.recycle()
+            consecutiveMatches = if (actual == expected) consecutiveMatches + 1 else 0
+            if (consecutiveMatches == 3) return
+            SystemClock.sleep(100)
+        }
+        throw AssertionError(
+            "Expected rendered ${if (dark) "Dark" else "Light"} theme background " +
+                "0x${expected.toUInt().toString(16)}"
+        )
+    }
+
+    private fun capture(name: String, expectedDark: Boolean? = null) {
         instrumentation.waitForIdleSync()
         automation.waitForIdle(300, 5_000)
         val bitmap = requireNotNull(automation.takeScreenshot()) { "Screenshot unavailable" }
+        expectedDark?.let { dark ->
+            val expected = if (dark) android.graphics.Color.rgb(11, 18, 32)
+            else android.graphics.Color.rgb(246, 248, 252)
+            assertTrue(
+                "Captured ${if (dark) "Dark" else "Light"} theme background differs",
+                bitmap.getPixel(10, bitmap.height / 2) == expected
+            )
+        }
         File(output, "$name.png").outputStream().use {
             assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
         }
@@ -327,5 +417,10 @@ class RouteStopsRuntimeTest {
     private fun injectShellInput(command: String) {
         val descriptor = automation.executeShellCommand(command)
         java.io.FileInputStream(descriptor.fileDescriptor).bufferedReader().use { it.readText() }
+    }
+
+    private fun encodeSavedPlace(address: String, detail: String, label: String): String {
+        fun encode(value: String) = "${value.length}:$value"
+        return "1:${encode(address)}${encode(detail)}${encode(label)}"
     }
 }

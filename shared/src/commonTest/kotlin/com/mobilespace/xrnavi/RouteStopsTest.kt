@@ -79,7 +79,7 @@ class RouteStopsTest {
 
     @Test
     fun stopAddressIsCopiedAndDoesNotDependOnSavedPlaceChanges() {
-        val savedPlace = demoPlaces[0].toSavedPlace()
+        val savedPlace = demoPlaces[0].toSavedPlace().copy(label = "Мій офіс")
         var state = reduceRouteStops(RouteStopsState(), RouteStopsEvent.BeginEditing)
         state = reduceRouteStops(state, RouteStopsEvent.AddStop)
         val targetId = state.searchStopId!!
@@ -91,6 +91,7 @@ class RouteStopsTest {
 
         assertEquals(demoPlaces[0].title, confirmedStop.address)
         assertEquals(demoPlaces[0].detail, confirmedStop.detail)
+        assertEquals("Мій офіс", confirmedStop.placeName)
         assertTrue(deleted.isEmpty())
         assertEquals(confirmedStop, state.draft.orEmpty().single())
     }
@@ -102,7 +103,7 @@ class RouteStopsTest {
         assertTrue(routeStopsChanged(listOf(oneStop), emptyList()))
         assertNull(routeStopsPreviewBlockMessage(emptyList()))
         assertEquals(
-            "Багатоточковий перегляд ще не підключено.",
+            "Багатоточковий перегляд ще не підключено",
             routeStopsPreviewBlockMessage(listOf(oneStop))
         )
     }
@@ -110,12 +111,16 @@ class RouteStopsTest {
     @Test
     fun appliedStopPersistenceRoundTripsIdsAddressesAndOrdinal() {
         val stops = listOf(
-            RouteStop("stop-1", demoPlaces[0].title, demoPlaces[0].detail),
+            RouteStop("stop-1", demoPlaces[0].title, demoPlaces[0].detail, "Офіс"),
             RouteStop("stop-3", demoPlaces[0].title, demoPlaces[0].detail)
         )
         val snapshot = RouteStopsSnapshot(stops, nextStopOrdinal = 4)
 
         assertEquals(snapshot, decodeRouteStopsSnapshot(encodeRouteStopsSnapshot(snapshot)))
+        assertEquals(
+            listOf(RouteStop("stop-1", "A", "B")),
+            (decodeRouteStops("1:6:stop-11:A1:B") as RouteStopsDecodeResult.Success).stops
+        )
         assertNull(decodeRouteStopsSnapshot("broken"))
         assertTrue(reduceRouteStops(RouteStopsState(nextStopOrdinal = 4), RouteStopsEvent.BeginEditing)
             .let { reduceRouteStops(it, RouteStopsEvent.AddStop) }
