@@ -13,9 +13,9 @@ class RouteStopsTest {
         var state = RouteStopsState()
         state = reduceRouteStops(state, RouteStopsEvent.BeginEditing)
 
-        state = addDemoStop(state, demoPlaces[0])
+        state = addSavedPlaceToDraft(state, testPlaces[0])
         val firstStopId = state.draft!!.single().stopId
-        state = addDemoStop(state, demoPlaces[1])
+        state = addSavedPlaceToDraft(state, testPlaces[1])
         val secondStopId = state.draft!!.last().stopId
 
         assertNotEquals(firstStopId, secondStopId)
@@ -24,47 +24,53 @@ class RouteStopsTest {
         assertEquals("stop-1", state.draft.last().stopId)
 
         state = reduceRouteStops(state, RouteStopsEvent.ReplaceAddress(firstStopId))
-        state = reduceRouteStops(state, RouteStopsEvent.SelectDemoPlace(firstStopId, demoPlaces[3]))
-        assertEquals(demoPlaces[3].title, state.draft!!.last().address)
+        state = reduceRouteStops(
+            state,
+            RouteStopsEvent.SelectSavedPlace(firstStopId, testPlaces[3].toSavedPlace())
+        )
+        assertEquals(testPlaces[3].title, state.draft!!.last().address)
 
         val cancelled = reduceRouteStops(state, RouteStopsEvent.CancelEditing)
         assertTrue(cancelled.applied.isEmpty())
         assertNull(cancelled.draft)
 
         var saved = reduceRouteStops(RouteStopsState(), RouteStopsEvent.BeginEditing)
-        saved = addDemoStop(saved, demoPlaces[0])
+        saved = addSavedPlaceToDraft(saved, testPlaces[0])
         saved = reduceRouteStops(saved, RouteStopsEvent.Save)
-        assertEquals(demoPlaces[0].title, saved.applied.single().address)
+        assertEquals(testPlaces[0].title, saved.applied.single().address)
         assertNull(saved.draft)
     }
 
     @Test
     fun searchRemainsBoundToStableStopIdAfterReordering() {
         var state = reduceRouteStops(RouteStopsState(), RouteStopsEvent.BeginEditing)
-        state = addDemoStop(state, demoPlaces[0])
+        state = addSavedPlaceToDraft(state, testPlaces[0])
         val firstId = state.draft!!.single().stopId
-        state = addDemoStop(state, demoPlaces[1])
+        state = addSavedPlaceToDraft(state, testPlaces[1])
         val secondId = state.draft!!.last().stopId
 
         state = reduceRouteStops(state, RouteStopsEvent.ReplaceAddress(firstId))
         state = reduceRouteStops(state, RouteStopsEvent.MoveDown(firstId))
-        state = reduceRouteStops(state, RouteStopsEvent.SelectDemoPlace(firstId, demoPlaces[3]))
+        state = reduceRouteStops(
+            state,
+            RouteStopsEvent.SelectSavedPlace(firstId, testPlaces[3].toSavedPlace())
+        )
 
         assertEquals(listOf(secondId, firstId), state.draft.orEmpty().map { it.stopId })
-        assertEquals(demoPlaces[3].title, state.draft.orEmpty().last().address)
-        assertEquals(demoPlaces[1].title, state.draft.orEmpty().first().address)
+        assertEquals(testPlaces[3].title, state.draft.orEmpty().last().address)
+        assertEquals(testPlaces[1].title, state.draft.orEmpty().first().address)
     }
 
     @Test
     fun deletingSearchTargetDiscardsStaleResultAndCancelDoesNotAddEmptyStop() {
         var state = reduceRouteStops(RouteStopsState(), RouteStopsEvent.BeginEditing)
-        state = addDemoStop(state, demoPlaces[0])
+        state = addSavedPlaceToDraft(state, testPlaces[0])
         val targetId = state.draft!!.single().stopId
         state = reduceRouteStops(state, RouteStopsEvent.ReplaceAddress(targetId))
         state = reduceRouteStops(state, RouteStopsEvent.RemoveStop(targetId))
         val afterDeletion = reduceRouteStops(
             state,
-            RouteStopsEvent.SelectDemoPlace(targetId, demoPlaces[1])
+            RouteStopsEvent.SelectSavedPlace(targetId, testPlaces[1].toSavedPlace())
         )
         assertTrue(afterDeletion.draft!!.isEmpty())
         assertNull(afterDeletion.searchStopId)
@@ -79,7 +85,7 @@ class RouteStopsTest {
 
     @Test
     fun stopAddressIsCopiedAndDoesNotDependOnSavedPlaceChanges() {
-        val savedPlace = demoPlaces[0].toSavedPlace().copy(label = "Мій офіс")
+        val savedPlace = testPlaces[0].toSavedPlace().copy(label = "Мій офіс")
         var state = reduceRouteStops(RouteStopsState(), RouteStopsEvent.BeginEditing)
         state = reduceRouteStops(state, RouteStopsEvent.AddStop)
         val targetId = state.searchStopId!!
@@ -89,8 +95,8 @@ class RouteStopsTest {
         val renamed = renameSavedPlace(listOf(savedPlace), savedPlace.key, "Нове ім’я")!!.single()
         val deleted = removeSavedPlace(listOf(renamed), renamed.key)
 
-        assertEquals(demoPlaces[0].title, confirmedStop.address)
-        assertEquals(demoPlaces[0].detail, confirmedStop.detail)
+        assertEquals(testPlaces[0].title, confirmedStop.address)
+        assertEquals(testPlaces[0].detail, confirmedStop.detail)
         assertEquals("Мій офіс", confirmedStop.placeName)
         assertTrue(deleted.isEmpty())
         assertEquals(confirmedStop, state.draft.orEmpty().single())
@@ -98,7 +104,7 @@ class RouteStopsTest {
 
     @Test
     fun previewInvalidatesOnlyForChangedAppliedStopsAndIsBlockedForAnyStop() {
-        val oneStop = RouteStop("stop-1", demoPlaces[0].title, demoPlaces[0].detail)
+        val oneStop = RouteStop("stop-1", testPlaces[0].title, testPlaces[0].detail)
         assertFalse(routeStopsChanged(listOf(oneStop), listOf(oneStop)))
         assertTrue(routeStopsChanged(listOf(oneStop), emptyList()))
         assertNull(routeStopsPreviewBlockMessage(emptyList()))
@@ -111,8 +117,8 @@ class RouteStopsTest {
     @Test
     fun appliedStopPersistenceRoundTripsIdsAddressesAndOrdinal() {
         val stops = listOf(
-            RouteStop("stop-1", demoPlaces[0].title, demoPlaces[0].detail, "Офіс"),
-            RouteStop("stop-3", demoPlaces[0].title, demoPlaces[0].detail)
+            RouteStop("stop-1", testPlaces[0].title, testPlaces[0].detail, "Офіс"),
+            RouteStop("stop-3", testPlaces[0].title, testPlaces[0].detail)
         )
         val snapshot = RouteStopsSnapshot(stops, nextStopOrdinal = 4)
 
@@ -130,24 +136,27 @@ class RouteStopsTest {
     @Test
     fun stopPlanningEventsDoNotMutateConfirmedGlobalAddresses() {
         val addresses = AddressSearchState(
-            origin = demoPlaces[0].title,
-            destination = demoPlaces[1].title,
+            origin = testPlaces[0].title,
+            destination = testPlaces[1].title,
             target = SearchTarget.Destination,
             query = "global query"
         )
         var state = reduceRouteStops(RouteStopsState(), RouteStopsEvent.BeginEditing)
-        state = addDemoStop(state, demoPlaces[3])
+        state = addSavedPlaceToDraft(state, testPlaces[3])
         state = reduceRouteStops(state, RouteStopsEvent.Save)
 
-        assertEquals(demoPlaces[0].title, addresses.origin)
-        assertEquals(demoPlaces[1].title, addresses.destination)
+        assertEquals(testPlaces[0].title, addresses.origin)
+        assertEquals(testPlaces[1].title, addresses.destination)
         assertEquals("global query", addresses.query)
-        assertEquals(demoPlaces[3].title, state.applied.single().address)
+        assertEquals(testPlaces[3].title, state.applied.single().address)
     }
 
-    private fun addDemoStop(state: RouteStopsState, place: DemoPlace): RouteStopsState {
+    private fun addSavedPlaceToDraft(state: RouteStopsState, place: PlaceAddress): RouteStopsState {
         val adding = reduceRouteStops(state, RouteStopsEvent.AddStop)
         val stopId = adding.searchStopId ?: error("AddStop must create a search target")
-        return reduceRouteStops(adding, RouteStopsEvent.SelectDemoPlace(stopId, place))
+        return reduceRouteStops(
+            adding,
+            RouteStopsEvent.SelectSavedPlace(stopId, place.toSavedPlace())
+        )
     }
 }

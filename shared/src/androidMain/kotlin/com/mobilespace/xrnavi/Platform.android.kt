@@ -4,7 +4,6 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import android.content.pm.ApplicationInfo
 import android.content.Context
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -25,36 +24,16 @@ internal actual fun AuthBackHandler(onBack: () -> Unit) {
     BackHandler(onBack = onBack)
 }
 
-@Composable
-internal actual fun internalAuthPreviewEnabled(): Boolean =
-    LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
-
-internal class AndroidThemePreferenceStore(context: Context) : ThemePreferenceStore {
-    private val preferences = context.applicationContext.getSharedPreferences(
-        "xrnavi_appearance", Context.MODE_PRIVATE
-    )
-
-    override fun read(): String? = preferences.getString(themePreferenceKey, null)
-
-    override fun write(theme: ThemePreference): Boolean =
-        preferences.edit().putString(themePreferenceKey, theme.name).commit()
-}
-
-@Composable
-internal actual fun rememberThemePreferenceStore(): ThemePreferenceStore {
-    val context = LocalContext.current.applicationContext
-    return remember(context) { AndroidThemePreferenceStore(context) }
-}
-
 private class AndroidSavedPlacesStore(context: Context) : SavedPlacesStore {
     private val preferences = context.applicationContext.getSharedPreferences(
         "xrnavi_saved_places", Context.MODE_PRIVATE
     )
 
-    override fun read(): String? = preferences.getString(savedPlacesPreferenceKey, null)
+    override fun read(): String? =
+        preferences.getString(Constants.SAVED_PLACES_PREFERENCE_KEY, null)
 
     override fun write(value: String): Boolean =
-        preferences.edit().putString(savedPlacesPreferenceKey, value).commit()
+        preferences.edit().putString(Constants.SAVED_PLACES_PREFERENCE_KEY, value).commit()
 }
 
 @Composable
@@ -68,10 +47,11 @@ private class AndroidRouteStopsStore(context: Context) : RouteStopsStore {
         "xrnavi_route_stops", Context.MODE_PRIVATE
     )
 
-    override fun read(): String? = preferences.getString(routeStopsPreferenceKey, null)
+    override fun read(): String? =
+        preferences.getString(Constants.ROUTE_STOPS_PREFERENCE_KEY, null)
 
     override fun write(value: String): Boolean =
-        preferences.edit().putString(routeStopsPreferenceKey, value).commit()
+        preferences.edit().putString(Constants.ROUTE_STOPS_PREFERENCE_KEY, value).commit()
 }
 
 @Composable

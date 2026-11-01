@@ -2,16 +2,9 @@ package com.mobilespace.xrnavi
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SharedCommonTest {
-
-    @Test
-    fun startupUsesMapOnlyForConfiguredSession() {
-        assertEquals(AppScreen.Map, initialScreenForSession(hasConfiguredSession = true))
-        assertEquals(AppScreen.SignIn, initialScreenForSession(hasConfiguredSession = false))
-    }
 
     @Test
     fun changingSearchTargetClearsThePreviousTargetQuery() {
@@ -38,14 +31,14 @@ class SharedCommonTest {
         val initial = AddressSearchState()
         val originSearch = initial.open(SearchTarget.Origin)
         assertEquals(SearchTarget.Origin, originSearch.target)
-        val selected = originSearch.select(demoPlaces.first())
-        assertEquals(demoPlaces.first().title, selected.origin)
+        val selected = originSearch.select(testPlaces.first())
+        assertEquals(testPlaces.first().title, selected.origin)
         assertEquals("", selected.destination)
 
         val destinationSearch = selected.open(SearchTarget.Destination)
-        val complete = destinationSearch.select(demoPlaces.last())
+        val complete = destinationSearch.select(testPlaces.last())
         assertEquals(selected.origin, complete.origin)
-        assertEquals(demoPlaces.last().title, complete.destination)
+        assertEquals(testPlaces.last().title, complete.destination)
     }
 
     @Test
@@ -60,9 +53,9 @@ class SharedCommonTest {
         assertEquals("", cancelled.query)
         assertEquals(confirmed.origin, cancelled.origin)
         assertEquals(confirmed.destination, cancelled.destination)
-        val selected = switched.select(demoPlaces.last())
+        val selected = switched.select(testPlaces.last())
         assertEquals(confirmed.origin, selected.origin)
-        assertEquals(demoPlaces.last().title, selected.destination)
+        assertEquals(testPlaces.last().title, selected.destination)
     }
 
     @Test
@@ -72,46 +65,8 @@ class SharedCommonTest {
         )!!
         assertEquals(SearchTarget.Origin, restored.target)
         assertEquals("Ринок", restored.query)
-        assertEquals("Київ", restored.select(demoPlaces.first()).destination)
+        assertEquals("Київ", restored.select(testPlaces.first()).destination)
         assertEquals("Львів", restored.cancel().origin)
-    }
-
-    @Test
-    fun categoriesDoNotSilentlySelectAnotherVehicle() {
-        assertEquals(demoVehicle, demoVehicleForClass("Легкове"))
-        assertEquals("Вантажне", demoVehicleForClass("Вантажне")?.category)
-        assertEquals("Спецтехніка", demoVehicleForClass("Спецтехніка")?.category)
-        assertNull(demoVehicleForClass("Невідома категорія"))
-        assertEquals(demoVehicle, demoVehicleForClass("Легкове"))
-        assertEquals("Легковий · 1,4 м · 1,8 т", demoVehicle.specification)
-    }
-
-    @Test
-    fun routePreviewRequiresBothAddressesAndAnAvailableVehicleProfile() {
-        assertTrue(
-            routePreviewBlockMessage("", "площа Ринок, 1", "Легкове")
-                ?.contains("початкову та кінцеву точки") == true
-        )
-        assertTrue(
-            routePreviewBlockMessage("Хрещатик, 22", "", "Легкове")
-                ?.contains("початкову та кінцеву точки") == true
-        )
-        assertTrue(
-            routePreviewBlockMessage("Хрещатик, 22", "площа Ринок, 1", "Невідома категорія")
-                ?.contains("не налаштовано") == true
-        )
-        assertEquals(
-            null,
-            routePreviewBlockMessage("Хрещатик, 22", "площа Ринок, 1", "Легкове")
-        )
-    }
-
-    @Test
-    fun availableVehicleClassesHaveProfilesAndUnknownClassesRemainUnavailable() {
-        assertEquals(null, vehicleClassUnavailableMessage("Легкове"))
-        assertEquals(null, vehicleClassUnavailableMessage("Вантажне"))
-        assertEquals(null, vehicleClassUnavailableMessage("Спецтехніка"))
-        assertTrue(vehicleClassUnavailableMessage("Невідома категорія")!!.contains("не налаштовано"))
     }
 
     @Test
@@ -155,10 +110,10 @@ class SharedCommonTest {
 
     @Test
     fun locationStatesNeverTreatPermissionAsFreshPosition() {
-        assertTrue(geoStatusMessage(GeoStatus.PermissionDenied).contains("ввести початкову адресу вручну"))
-        assertTrue(geoStatusMessage(GeoStatus.ServiceDisabled).contains("ввести адресу вручну"))
-        assertTrue(geoStatusMessage(GeoStatus.Acquiring).contains("не вважається поточною"))
-        assertTrue(geoStatusMessage(GeoStatus.StaleFix).contains("підтвердьте початкову адресу вручну"))
-        assertTrue(geoStatusMessage(GeoStatus.FreshFix).contains("позицію отримано"))
+        assertTrue(!GeoStatus.PermissionDenied.isFreshPosition)
+        assertTrue(!GeoStatus.ServiceDisabled.isFreshPosition)
+        assertTrue(!GeoStatus.Acquiring.isFreshPosition)
+        assertTrue(GeoStatus.FreshFix.isFreshPosition)
+        assertTrue(!GeoStatus.StaleFix.isFreshPosition)
     }
 }

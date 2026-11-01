@@ -14,6 +14,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import xrnavi.shared.generated.resources.*
 
 @Composable
@@ -32,7 +33,16 @@ internal fun AuthFormInput(
     leadingIcon: @Composable (() -> Unit)? = null
 ) {
     var wasFocused by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val passwordVisibilityDescription = stringResource(
+        if (visible) Res.string.auth_password_hide_accessibility
+        else Res.string.auth_password_show_accessibility,
+        label
+    )
+    val passwordVisibilityState = stringResource(
+        if (visible) Res.string.auth_password_visible_state
+        else Res.string.auth_password_hidden_state
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(Constants.DP_4)) {
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             value = value,
@@ -51,7 +61,7 @@ internal fun AuthFormInput(
                 color = MaterialTheme.colorScheme.onSurface
             ),
             isError = error != null,
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(Constants.DP_4),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -66,10 +76,8 @@ internal fun AuthFormInput(
                     IconButton(
                         onClick = onToggleVisibility,
                         modifier = Modifier.semantics {
-                            contentDescription =
-                                "${if (visible) "Приховати" else "Показати"}: $label"
-                            stateDescription =
-                                if (visible) "Пароль показано" else "Пароль приховано"
+                            contentDescription = passwordVisibilityDescription
+                            stateDescription = passwordVisibilityState
                         }
                     ) {
                         Icon(
@@ -79,7 +87,7 @@ internal fun AuthFormInput(
                                 else Res.drawable.sign_in_eye_off_light
                             ),
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(Constants.DP_20)
                         )
                     }
                 }
@@ -99,7 +107,7 @@ internal fun AuthFormInput(
 @Composable
 internal fun AuthInfo(message: String) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(Constants.DP_12),
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
     ) {
@@ -114,6 +122,3 @@ internal fun AuthInfo(message: String) {
 
 @Composable
 internal expect fun AuthBackHandler(onBack: () -> Unit)
-
-@Composable
-internal expect fun internalAuthPreviewEnabled(): Boolean

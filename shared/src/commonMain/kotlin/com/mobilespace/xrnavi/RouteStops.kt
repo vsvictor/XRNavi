@@ -19,8 +19,6 @@ internal data class RouteStopsState(
     val query: String = ""
 ) {
     val visibleStops: List<RouteStop> get() = draft ?: applied
-    val isEditing: Boolean get() = draft != null
-
     companion object {
         val Saver: Saver<RouteStopsState, *> = listSaver(
             save = {
@@ -73,7 +71,6 @@ internal sealed interface RouteStopsEvent {
     data object AddStop : RouteStopsEvent
     data class ReplaceAddress(val stopId: String) : RouteStopsEvent
     data class UpdateQuery(val query: String) : RouteStopsEvent
-    data class SelectDemoPlace(val stopId: String, val place: DemoPlace) : RouteStopsEvent
     data class SelectSavedPlace(val stopId: String, val place: SavedPlace) : RouteStopsEvent
     data object CancelSearch : RouteStopsEvent
     data class RemoveStop(val stopId: String) : RouteStopsEvent
@@ -122,14 +119,9 @@ internal fun reduceRouteStops(
         state.copy(query = event.query)
     }
 
-    is RouteStopsEvent.SelectDemoPlace -> state.selectPlace(
-        stopId = event.stopId,
-        place = DemoPlace(event.place.title.trim(), event.place.detail.trim())
-    )
-
     is RouteStopsEvent.SelectSavedPlace -> state.selectPlace(
         stopId = event.stopId,
-        place = DemoPlace(event.place.address.trim(), event.place.detail.trim()),
+        place = PlaceAddress(event.place.address.trim(), event.place.detail.trim()),
         placeName = event.place.label.trim().takeIf {
             it.isNotBlank() && !it.equals(event.place.address, ignoreCase = true)
         }
@@ -150,7 +142,7 @@ internal fun reduceRouteStops(
                 state.copy(
                     draft = updated,
                     searchStopId = state.searchStopId.takeUnless { it == event.stopId },
-                    searchIsNew = if (state.searchStopId == event.stopId) false else state.searchIsNew
+                    searchIsNew = state.searchIsNew && state.searchStopId != event.stopId
                 )
             }
         } ?: state
@@ -173,11 +165,12 @@ internal fun reduceRouteStops(
         searchIsNew = false,
         query = ""
     )
+
 }
 
 private fun RouteStopsState.selectPlace(
     stopId: String,
-    place: DemoPlace,
+    place: PlaceAddress,
     placeName: String? = null
 ): RouteStopsState {
     if (searchStopId != stopId || place.title.isBlank() || place.detail.isBlank()) return this
@@ -230,8 +223,6 @@ internal interface RouteStopsStore {
     fun read(): String?
     fun write(value: String): Boolean
 }
-
-internal const val routeStopsPreferenceKey = "route.stops.v1"
 
 internal fun encodeRouteStops(stops: List<RouteStop>): String = buildString {
     append("v2:")

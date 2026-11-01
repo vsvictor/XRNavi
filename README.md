@@ -31,32 +31,37 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 [Map contracts and iOS launch verification, 2026-10-27 (Ukrainian)](docs/verification-2026-10-27.md)
 records the tested builds, local evidence, and remaining physical-device/accessibility blockers.
 
-### Local demo profile and settings
+### Authentication gate and removed demo flows / Авторизація й вилучені демосценарії
 
-The Map navigation opens a demo-only profile (S08) and settings (S07), not an authenticated account.
-System/Light/Dark appearance is shared by every screen and stored locally using Android
-SharedPreferences or iOS UserDefaults under `appearance.theme`. No credentials or session are
-stored with it. Unconnected services and organization policies are informational, not working switches.
-The theme row opens a System/Light/Dark picker. Profile and settings select one of four
-window-size-driven layouts, with compact navigation in phone landscape; demo disclosures
-remain visible instead of copying authenticated or connected-service states from the designs.
+The app starts at Sign In. No authentication provider is configured, so submitting the form reports
+that authentication is unavailable; it does not create a session or open the Map. Guest access,
+the demo profile, garage, and demo vehicle-selection flows have been removed. Registration and
+recovery screens do not establish an authenticated session either. Map-dependent features remain
+unavailable until a real authentication provider is configured.
+
+Застосунок запускається на екрані входу. Постачальник авторизації не налаштований, тому
+надсилання форми повідомляє про недоступність авторизації — сесію не створено, мапу не відкрито.
+Гостьовий доступ, демопрофіль, гараж і сценарії вибору демонстраційного автомобіля вилучено.
+Екрани реєстрації та відновлення також не створюють автентифікованої сесії. Функції, що залежать
+від мапи, залишаються недоступними до підключення справжнього постачальника авторизації.
+
+### Stop-place catalog / Каталог місць зупинки
+
+The S19/S20 catalog uses local synthetic data and retains category filters, search, place details,
+and draft-only S18 stop integration. It is not a live POI service and cannot calculate or start a
+route. The catalog is currently behind the authentication gate. External POI services, GPS,
+vehicle-suitability confirmation, multipoint routing, and live navigation are not connected.
+
+Каталог S19/S20 використовує локальні синтетичні дані та зберігає фільтри категорій, пошук,
+деталі місця й інтеграцію зупинок S18 лише в чернетці. Це не сервіс актуальних POI; він не
+обчислює маршрут і не запускає навігацію. Наразі каталог заблокований екраном авторизації.
+Зовнішні POI-сервіси, GPS, перевірка придатності для автомобіля, багатоточкова маршрутизація
+та навігація наживо не підключені.
 
 [Profile and settings verification, 2026-10-27 (Ukrainian)](docs/profile-settings-ui-2026-10-27.md)
-records the checks and remaining platform limitations.
-
-### Local stop-place catalog / Локальний каталог місць зупинки
-
-S19–S20 provide a local, explicitly synthetic catalog with category/query filtering and place
-details. Open it from Map's “Місця зупинки” action or S18's stop search. Adding a place changes
-only the S18 draft; apply it with “Зберегти зупинки”, or discard it with Cancel/Back.
-Unknown characteristics remain unspecified or unverified. There is no POI API, GPS,
-vehicle-suitability confirmation, multipoint routing, or working navigation.
-
-S19–S20 містять локальний, явно синтетичний каталог із категоріями, пошуком і деталями.
-Входи: дія «Місця зупинки» на Map та пошук зупинки S18. Додавання змінює лише чернетку S18;
-застосування — через «Зберегти зупинки», скасування — через Cancel/Back.
-Невідомі характеристики лишаються незаданими або неперевіреними. POI API, GPS,
-підтвердження придатності для авто, багатоточкова маршрутизація й справжня навігація відсутні.
+and [S19–S20 local verification / Локальна перевірка, 2026-10-31](docs/s19-s20-local-verification-2026-10-31.md)
+are historical evidence; they do not imply those flows are currently reachable from app startup.
+Ці звіти є історичними доказами й не означають, що відповідні сценарії зараз доступні зі стартового екрана.
 
 [S19–S20 local verification / Локальна перевірка, 2026-10-31](docs/s19-s20-local-verification-2026-10-31.md)
 identifies the checked artifacts and separates local Android evidence from unverified platforms.

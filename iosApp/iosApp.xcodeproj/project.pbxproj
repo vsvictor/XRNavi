@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 110;
 	objects = {
 
 /* Begin PBXContainerItemProxy section */
@@ -19,12 +19,10 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		5728B95C308D53350025D5B9 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -34,7 +32,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A83A1CEEFB4ABEDC4CCF4C32 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		A83A1CEEFB4ABEDC4CCF4C32 /* Exceptions for "iosApp" folder in "iosApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -46,30 +44,18 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		028B51868D203F6852DC2FBD /* Configuration */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = Configuration;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000003 /* iosAppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = iosAppUITests;
 			sourceTree = "<group>";
 		};
 		C229F27363B213F13BF1C2EC /* iosApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				A83A1CEEFB4ABEDC4CCF4C32 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				A83A1CEEFB4ABEDC4CCF4C32 /* Exceptions for "iosApp" folder in "iosApp" target */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -79,17 +65,13 @@
 /* Begin PBXFrameworksBuildPhase section */
 		A1000000000000000000000A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E5EA852EC53D2DC60C92F496 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -128,14 +110,10 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
 				C229F27363B213F13BF1C2EC /* iosApp */,
 			);
 			name = iosApp;
-			packageProductDependencies = (
-			);
 			productName = iosApp;
 			productReference = 3B3915FA1EC2DE3ED5BDF383 /* XRNavi.app */;
 			productType = "com.apple.product-type.application";
@@ -157,8 +135,6 @@
 				A10000000000000000000003 /* iosAppUITests */,
 			);
 			name = iosAppUITests;
-			packageProductDependencies = (
-			);
 			productName = iosAppUITests;
 			productReference = A10000000000000000000002 /* iosAppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -191,7 +167,7 @@
 			);
 			mainGroup = E01A90B0EC000FEFDD36EFB2;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
+			preferredProjectObjectVersion = 110;
 			productRefGroup = 9958231292365B7E768836DE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -205,17 +181,13 @@
 /* Begin PBXResourcesBuildPhase section */
 		A1000000000000000000000B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AF734F6402CE90C9CBAC4E53 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
@@ -223,38 +195,30 @@
 		66CDB5C2157BD0A8C5D46545 /* Compile Kotlin Framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
 			name = "Compile Kotlin Framework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = (
+				"if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then",
+				"  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"",
+				"  exit 0",
+				"fi",
+				"cd \"$SRCROOT/..\"",
+				"./gradlew :shared:embedAndSignAppleFrameworkForXcode",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		23888A48C6BDF718AEDE1911 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A10000000000000000000009 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -267,7 +231,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		2A16A3397397DEF35BB1021D /* Debug */ = {
+		2A16A3397397DEF35BB1021D /* Debug configuration for PBXProject "iosApp" */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReferenceAnchor = 028B51868D203F6852DC2FBD /* Configuration */;
 			baseConfigurationReferenceRelativePath = Config.xcconfig;
@@ -332,7 +296,7 @@
 			};
 			name = Debug;
 		};
-		2FD5D065B86419520A0842DA /* Release */ = {
+		2FD5D065B86419520A0842DA /* Release configuration for PBXNativeTarget "iosApp" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
@@ -345,12 +309,15 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = XRNavi;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -361,7 +328,7 @@
 			};
 			name = Release;
 		};
-		68DBCC3E646CF485C15B9547 /* Debug */ = {
+		68DBCC3E646CF485C15B9547 /* Debug configuration for PBXNativeTarget "iosApp" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
@@ -374,12 +341,15 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = XRNavi;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -390,7 +360,7 @@
 			};
 			name = Debug;
 		};
-		7E50F6EE2B3002551AB8E6CE /* Release */ = {
+		7E50F6EE2B3002551AB8E6CE /* Release configuration for PBXProject "iosApp" */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReferenceAnchor = 028B51868D203F6852DC2FBD /* Configuration */;
 			baseConfigurationReferenceRelativePath = Config.xcconfig;
@@ -448,7 +418,7 @@
 			};
 			name = Release;
 		};
-		A10000000000000000000007 /* Debug */ = {
+		A10000000000000000000007 /* Debug configuration for PBXNativeTarget "iosAppUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -464,9 +434,10 @@
 			};
 			name = Debug;
 		};
-		A10000000000000000000008 /* Release */ = {
+		A10000000000000000000008 /* Release configuration for PBXNativeTarget "iosAppUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YP6FLB38QN;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -486,28 +457,25 @@
 		A10000000000000000000006 /* Build configuration list for PBXNativeTarget "iosAppUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A10000000000000000000007 /* Debug */,
-				A10000000000000000000008 /* Release */,
+				A10000000000000000000007 /* Debug configuration for PBXNativeTarget "iosAppUITests" */,
+				A10000000000000000000008 /* Release configuration for PBXNativeTarget "iosAppUITests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		B26C697BBAF1EE3BFAF2C77C /* Build configuration list for PBXProject "iosApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2A16A3397397DEF35BB1021D /* Debug */,
-				7E50F6EE2B3002551AB8E6CE /* Release */,
+				2A16A3397397DEF35BB1021D /* Debug configuration for PBXProject "iosApp" */,
+				7E50F6EE2B3002551AB8E6CE /* Release configuration for PBXProject "iosApp" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		DE6B4D25DCC6C4F5CE0B3EAE /* Build configuration list for PBXNativeTarget "iosApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				68DBCC3E646CF485C15B9547 /* Debug */,
-				2FD5D065B86419520A0842DA /* Release */,
+				68DBCC3E646CF485C15B9547 /* Debug configuration for PBXNativeTarget "iosApp" */,
+				2FD5D065B86419520A0842DA /* Release configuration for PBXNativeTarget "iosApp" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

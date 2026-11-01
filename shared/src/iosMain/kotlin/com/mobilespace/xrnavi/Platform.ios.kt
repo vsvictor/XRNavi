@@ -23,30 +23,13 @@ internal actual fun AuthBackHandler(onBack: () -> Unit) {
     BackHandler(onBack = onBack)
 }
 
-@Composable
-@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
-internal actual fun internalAuthPreviewEnabled(): Boolean = kotlin.native.Platform.isDebugBinary
-
-private class IosThemePreferenceStore : ThemePreferenceStore {
-    private val preferences = NSUserDefaults.standardUserDefaults
-    override fun read(): String? = preferences.stringForKey(themePreferenceKey)
-    override fun write(theme: ThemePreference): Boolean {
-        preferences.setObject(theme.name, forKey = themePreferenceKey)
-        return true
-    }
-}
-
-@Composable
-internal actual fun rememberThemePreferenceStore(): ThemePreferenceStore =
-    remember { IosThemePreferenceStore() }
-
 private class IosSavedPlacesStore : SavedPlacesStore {
     private val preferences = NSUserDefaults.standardUserDefaults
 
-    override fun read(): String? = preferences.stringForKey(savedPlacesPreferenceKey)
+    override fun read(): String? = preferences.stringForKey(Constants.SAVED_PLACES_PREFERENCE_KEY)
 
     override fun write(value: String): Boolean {
-        preferences.setObject(value, forKey = savedPlacesPreferenceKey)
+        preferences.setObject(value, forKey = Constants.SAVED_PLACES_PREFERENCE_KEY)
         return true
     }
 }
@@ -58,10 +41,10 @@ internal actual fun rememberSavedPlacesStore(): SavedPlacesStore =
 private class IosRouteStopsStore : RouteStopsStore {
     private val preferences = NSUserDefaults.standardUserDefaults
 
-    override fun read(): String? = preferences.stringForKey(routeStopsPreferenceKey)
+    override fun read(): String? = preferences.stringForKey(Constants.ROUTE_STOPS_PREFERENCE_KEY)
 
     override fun write(value: String): Boolean {
-        preferences.setObject(value, forKey = routeStopsPreferenceKey)
+        preferences.setObject(value, forKey = Constants.ROUTE_STOPS_PREFERENCE_KEY)
         return true
     }
 }
