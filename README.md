@@ -47,6 +47,9 @@ as a Git submodule and Gradle project; its source is not copied into XRNavi. Ini
 `external/JSON-RPC-2-Client-KMP/scripts/build-ios.sh` and/or
 `external/JSON-RPC-2-Client-KMP/scripts/build-android.sh` before building the corresponding target.
 
+The client pins upstream JSON-RPC-2 commit `e90318f1052d5b7b253c7e4c824aa53404703d23`,
+which includes native lifecycle support; no separate lifecycle patch is required.
+
 The iOS integration test performs a QUIC transport ping to the current A record for
 `mobilespace.app:8443` (the simulator cannot resolve the hostname in this environment); TLS
 certificate verification still uses `mobilespace.app` as the server name. Run it with
@@ -78,6 +81,9 @@ Host, port, intervals, and the missed-pong threshold are defined in
 нативні артефакти клієнта командами
 `external/JSON-RPC-2-Client-KMP/scripts/build-ios.sh` та/або
 `external/JSON-RPC-2-Client-KMP/scripts/build-android.sh`.
+
+Клієнт використовує зафіксований коміт JSON-RPC-2 `e90318f1052d5b7b253c7e4c824aa53404703d23`
+з нативною підтримкою життєвого циклу; окремий патч життєвого циклу не потрібен.
 
 Інтеграційний тест iOS виконує QUIC transport ping до поточного A-запису
 `mobilespace.app:8443` (у цьому середовищі симулятор не розв’язує доменне ім’я); TLS-сертифікат
