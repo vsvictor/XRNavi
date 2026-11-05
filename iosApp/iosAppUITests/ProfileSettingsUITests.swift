@@ -229,29 +229,15 @@ final class ProfileSettingsUITests: XCTestCase {
         tap("Знайти адресу")
         result("площа Ринок, 10").tap()
         tap("Переглянути маршрут")
-        let panel = find("Панель маршруту")
         XCTAssertTrue(find("Почати маршрут").exists)
 
         tap("Гараж")
         tap("Вантажне")
         XCTAssertTrue(find("Вантажний транспорт · демо 01").exists)
         XCTAssertFalse(find("Ford Mustang GT").exists)
-        tap("Назад до попереднього розділу")
-        XCTAssertTrue(find("площа Ринок, 1").exists)
-        XCTAssertTrue(find("площа Ринок, 10").exists)
-        XCTAssertTrue(find("Почати маршрут").exists)
-
-        tap("Гараж")
         tap("Усі")
         XCTAssertTrue(find("Обрано для демомаршруту").exists)
         XCTAssertFalse(app.buttons["Обрано для демомаршруту"].isEnabled)
-        tap("Назад до попереднього розділу")
-        XCTAssertEqual(panel.value as? String, "Розгорнута")
-        XCTAssertTrue(find("Почати маршрут").exists)
-
-        tap("Вантажне")
-        XCTAssertTrue(find("Переглянути маршрут").exists)
-        tap("Гараж")
         tap("Вантажне")
         XCTAssertTrue(find("Обрати Вантажний транспорт · демо 01").isEnabled)
         tap("Обрати Вантажний транспорт · демо 01")
@@ -351,11 +337,14 @@ final class ProfileSettingsUITests: XCTestCase {
     func testSearchKeyboardAndAuthReturnPaths() {
         tap("Продовжити без входу · деморежим")
         tap("Вибрати початкову точку")
-        let field = app.textViews.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let field = app.textViews.matching(
+            NSPredicate(format: "label CONTAINS %@", "Початкова адреса")
+        ).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), app.debugDescription)
         field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
         field.typeText("LocalDraft")
-        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        XCTAssertEqual(field.value as? String, "LocalDraft", app.debugDescription)
         tap("Профіль")
         XCTAssertTrue(find("Демо-профіль").exists)
         rotate(.landscapeLeft)

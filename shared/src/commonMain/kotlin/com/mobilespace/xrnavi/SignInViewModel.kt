@@ -1,32 +1,21 @@
 package com.mobilespace.xrnavi
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 
-internal class SignInViewModel : ViewModel() {
-    var email by mutableStateOf("")
-        private set
+internal class SignInViewModel(auth: SignInAuthService) : ViewModel() {
+    val bloc = SignInBloc(auth, viewModelScope)
 
-    var password by mutableStateOf("")
-        private set
+    fun clearPassword() = bloc.dispatch(SignInEvent.Cancel)
 
-    fun updateEmail(value: String) {
-        email = value
-    }
-
-    fun updatePassword(value: String) {
-        password = value
-    }
-
-    fun clearPassword() {
-        password = ""
+    override fun onCleared() {
+        bloc.dispatch(SignInEvent.Cancel)
+        super.onCleared()
     }
 }
 
-internal val SignInViewModelFactory = viewModelFactory {
-    initializer { SignInViewModel() }
+internal fun signInViewModelFactory(auth: SignInAuthService) = viewModelFactory {
+    initializer { SignInViewModel(auth) }
 }

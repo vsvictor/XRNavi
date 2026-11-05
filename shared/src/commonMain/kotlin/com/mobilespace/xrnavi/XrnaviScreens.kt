@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -31,11 +32,14 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -61,8 +66,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
@@ -74,6 +81,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
@@ -81,6 +89,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -96,28 +105,51 @@ internal fun SignInScreen(
     onEmailChange: (String) -> Unit,
     password: String,
     onPasswordChange: (String) -> Unit,
+    passwordVisible: Boolean,
+    onTogglePasswordVisibility: () -> Unit,
+    onSelectAccount: () -> Unit,
+    submitting: Boolean,
     notice: String,
     onSignIn: () -> Unit,
     onDemo: () -> Unit,
     onRegister: () -> Unit,
-    onForgotPassword: () -> Unit,
-    onToggleTheme: () -> Unit
+    onForgotPassword: () -> Unit
 ) {
     val dark = isDarkXrnaviTheme()
     val surface = MaterialTheme.colorScheme.background
     val formScroll = rememberScrollState()
+    val windowSize = LocalWindowInfo.current.containerSize
+    val windowHeight = with(LocalDensity.current) { windowSize.height.toDp() }
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(surface)
     ) {
         val availableWidth = maxWidth
-        val availableHeight = maxHeight
-        val splitLayout = availableWidth > availableHeight
+        val splitLayout = windowSize.width > windowSize.height
+        val heroHeight = when {
+            windowHeight < 680.dp -> 210.dp
+            availableWidth >= 600.dp -> 330.dp
+            else -> 280.dp
+        }
+        val screenBackground = Modifier.drawBehind {
+            if (dark) {
+                drawRect(surface)
+            } else {
+                drawRect(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.White, surface),
+                        startY = if (splitLayout) 0f else heroHeight.toPx()
+                            .coerceAtMost((size.height - 1f).coerceAtLeast(0f)),
+                        endY = size.height.coerceAtLeast(1f),
+                    )
+                )
+            }
+        }
         if (splitLayout) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
+                    .then(screenBackground)
                     .imePadding()
             )
             {
@@ -126,8 +158,7 @@ internal fun SignInScreen(
                         .weight(0.9f)
                         .fillMaxHeight(),
                     dark = dark,
-                    horizontalLayout = true,
-                    onToggleTheme = onToggleTheme
+                    horizontalLayout = true
                 )
                 SignInForm(
                     modifier = Modifier
@@ -139,6 +170,10 @@ internal fun SignInScreen(
                     onEmailChange = onEmailChange,
                     password = password,
                     onPasswordChange = onPasswordChange,
+                    passwordVisible = passwordVisible,
+                    onTogglePasswordVisibility = onTogglePasswordVisibility,
+                    onSelectAccount = onSelectAccount,
+                    submitting = submitting,
                     notice = notice,
                     onSignIn = onSignIn,
                     onDemo = onDemo,
@@ -151,24 +186,16 @@ internal fun SignInScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .then(screenBackground)
                     .imePadding()
                     .verticalScroll(formScroll)
             ) {
                 SignInHero(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .height(
-                            when {
-                                availableHeight < 680.dp -> 250.dp
-                                availableWidth >= 600.dp -> 370.dp
-                                else -> 320.dp
-                            }
-                        )
-                        .clip(RoundedCornerShape(16.dp)),
+                        .height(heroHeight),
                     dark = dark,
-                    horizontalLayout = false,
-                    onToggleTheme = onToggleTheme
+                    horizontalLayout = false
                 )
                 SignInForm(
                     modifier = Modifier
@@ -179,6 +206,10 @@ internal fun SignInScreen(
                     onEmailChange = onEmailChange,
                     password = password,
                     onPasswordChange = onPasswordChange,
+                    passwordVisible = passwordVisible,
+                    onTogglePasswordVisibility = onTogglePasswordVisibility,
+                    onSelectAccount = onSelectAccount,
+                    submitting = submitting,
                     notice = notice,
                     onSignIn = onSignIn,
                     onDemo = onDemo,
@@ -195,8 +226,7 @@ internal fun SignInScreen(
 private fun SignInHero(
     modifier: Modifier,
     dark: Boolean,
-    horizontalLayout: Boolean,
-    onToggleTheme: () -> Unit
+    horizontalLayout: Boolean
 ) {
     Box(modifier = modifier) {
         Image(
@@ -255,22 +285,7 @@ private fun SignInHero(
                 .padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ProductWordmark()
-                Text(
-                    text = "Тема",
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable(role = Role.Button, onClick = onToggleTheme)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            ProductWordmark()
             Column {
                 Text(
                     text = if (horizontalLayout) {
@@ -286,18 +301,11 @@ private fun SignInHero(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Навігація для кожного, хто за кермом.",
+                    text = "Навігація для кожного",
                     modifier = Modifier.padding(top = 7.dp),
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Продукт Mobile space",
-                    modifier = Modifier.padding(top = 5.dp),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                 )
             }
         }
@@ -311,6 +319,10 @@ private fun SignInForm(
     onEmailChange: (String) -> Unit,
     password: String,
     onPasswordChange: (String) -> Unit,
+    passwordVisible: Boolean,
+    onTogglePasswordVisibility: () -> Unit,
+    onSelectAccount: () -> Unit,
+    submitting: Boolean,
     notice: String,
     onSignIn: () -> Unit,
     onDemo: () -> Unit,
@@ -339,7 +351,11 @@ private fun SignInForm(
                 keyboardType = KeyboardType.Email,
                 imeAction = ImeAction.Next
             ),
-            trailingIcon = if (dark) Res.drawable.sign_in_mail_dark else Res.drawable.sign_in_mail_light
+            trailingIcon = if (dark) Res.drawable.sign_in_mail_dark else Res.drawable.sign_in_mail_light,
+            onTrailingClick = onSelectAccount,
+            trailingDescription = "Обрати поштовий акаунт",
+            readOnly = submitting,
+            trailingEnabled = !submitting,
         )
         LabeledInput(
             label = "Пароль",
@@ -351,8 +367,12 @@ private fun SignInForm(
                 imeAction = ImeAction.Done
             ),
             keyboardActions = KeyboardActions(onDone = { onSignIn() }),
-            visualTransformation = PasswordVisualTransformation(),
-            trailingIcon = if (dark) Res.drawable.sign_in_eye_off_dark else Res.drawable.sign_in_eye_off_light
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = if (passwordVisible) Res.drawable.sign_in_eye
+                else if (dark) Res.drawable.sign_in_eye_off_dark else Res.drawable.sign_in_eye_off_light,
+            onTrailingClick = onTogglePasswordVisibility,
+            trailingDescription = if (passwordVisible) "Приховати пароль" else "Показати пароль",
+            readOnly = submitting,
         )
         Text(
             text = "Забули пароль?",
@@ -365,15 +385,16 @@ private fun SignInForm(
             color = MaterialTheme.colorScheme.primary
         )
         XrnaviActionButton(
-            text = "Увійти",
+            text = if (submitting) "Вхід…" else "Увійти",
             icon = if (dark) Res.drawable.sign_in_arrow_dark else Res.drawable.sign_in_arrow_light,
             onClick = onSignIn,
             height = 52.dp,
-            cornerRadius = 26.dp
+            cornerRadius = 26.dp,
+            enabled = !submitting,
         )
         if (notice.isNotBlank()) {
             StatusCard(
-                title = "Авторизація недоступна",
+                title = "Вхід",
                 message = notice
             )
         }
@@ -458,8 +479,13 @@ private fun LabeledInput(
     keyboardOptions: KeyboardOptions,
     trailingIcon: DrawableResource,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    onTrailingClick: (() -> Unit)? = null,
+    trailingDescription: String = "",
+    trailingEnabled: Boolean = true,
+    readOnly: Boolean = false,
 ) {
+    val inputHeight = with(LocalDensity.current) { 20.sp.toDp() + 24.dp }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = label,
@@ -474,17 +500,18 @@ private fun LabeledInput(
             modifier = Modifier
                 .semantics { contentDescription = label }
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(inputHeight)
                 .clip(RoundedCornerShape(4.dp))
                 .background(MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
                 .padding(horizontal = 14.dp),
-            minLines = 2,
-            maxLines = 5,
+            singleLine = true,
+            readOnly = readOnly,
             textStyle = TextStyle(
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
+                textAlign = TextAlign.Left,
                 letterSpacing = 0.25.sp,
                 fontFamily = rememberInterFontFamily()
             ),
@@ -497,7 +524,10 @@ private fun LabeledInput(
                     modifier = Modifier.fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
                         if (value.isEmpty() && placeholder.isNotEmpty()) {
                             Text(
                                 text = placeholder,
@@ -507,11 +537,37 @@ private fun LabeledInput(
                         }
                         innerTextField()
                     }
-                    FigmaIcon(
-                        light = trailingIcon,
-                        dark = trailingIcon,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (onTrailingClick != null) {
+                        IconButton(
+                            onClick = onTrailingClick,
+                            enabled = trailingEnabled,
+                            modifier = Modifier.size(inputHeight).clearAndSetSemantics {
+                                contentDescription = trailingDescription
+                                role = Role.Button
+                                if (trailingEnabled) {
+                                    onClick {
+                                        onTrailingClick()
+                                        true
+                                    }
+                                } else {
+                                    disabled()
+                                }
+                            },
+                        ) {
+                            FigmaIcon(
+                                light = trailingIcon,
+                                dark = trailingIcon,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        FigmaIcon(
+                            light = trailingIcon,
+                            dark = trailingIcon,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         )
@@ -584,38 +640,59 @@ private fun XrnaviActionButton(
     enabled: Boolean = true
 ) {
     val shape = RoundedCornerShape(cornerRadius)
-    Row(
+    Button(
+        onClick = onClick,
         modifier = modifier
+            .clearAndSetSemantics {
+                contentDescription = text
+                role = Role.Button
+                if (enabled) {
+                    onClick(label = null) {
+                        onClick()
+                        true
+                    }
+                } else {
+                    disabled()
+                }
+            }
             .fillMaxWidth()
-            .heightIn(min = height)
-            .clip(shape)
-            .background(
-                if (enabled) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant
-            )
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = if (compact) 10.dp else 16.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            FigmaIcon(
-                light = icon,
-                dark = icon,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onPrimary
-            )
-            Spacer(Modifier.width(10.dp))
-        }
-        Text(
-            text = text,
-            fontFamily = rememberInterFontFamily(),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 0.1.sp,
-            color = if (enabled) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurfaceVariant
+            .heightIn(min = height),
+        enabled = enabled,
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        contentPadding = PaddingValues(
+            horizontal = if (compact) 10.dp else 16.dp,
+            vertical = 0.dp
         )
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                FigmaIcon(
+                    light = icon,
+                    dark = icon,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+            Text(
+                text = text,
+                fontFamily = rememberInterFontFamily(),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.1.sp,
+                color = if (enabled) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

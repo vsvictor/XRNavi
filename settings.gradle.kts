@@ -29,3 +29,5 @@ dependencyResolutionManagement {
 
 include(":androidApp")
 include(":shared")
+include(":jsonRpcClient")
+project(":jsonRpcClient").projectDir = file("external/JSON-RPC-2-Client-KMP")

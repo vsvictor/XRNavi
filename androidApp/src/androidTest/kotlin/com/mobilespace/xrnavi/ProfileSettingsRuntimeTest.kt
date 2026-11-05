@@ -1,11 +1,13 @@
 package com.mobilespace.xrnavi
 
+import android.app.UiAutomation
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.os.SystemClock
 import android.provider.Settings
@@ -32,6 +34,206 @@ class ProfileSettingsRuntimeTest {
             context.getExternalFilesDir(null),
             "account-runtime"
         ).apply { mkdirs() }
+
+    @Test
+    fun signInActionExposesItsLabelOnTheClickableAccessibilityNode() {
+        val readers = Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        assumeTrue("Accessibility-tree assertion runs without a screen reader", readers.isEmpty())
+        val scenario = launchFreshApp()
+        try {
+            waitFor("labeled sign-in action") {
+                nodes().any { node ->
+                    node.isVisibleToUser && node.isClickable &&
+                            (node.text?.toString() == "Увійти" ||
+                                    node.contentDescription?.toString() == "Увійти")
+                }
+            }
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun talkBackCanFocusSignInActionsWithoutActivatingThem() {
+        val readers = Settings.Secure.getString(
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        assumeTrue(
+            "This accessibility-focus test requires TalkBack to be enabled",
+            readers.contains("com.google.android.marvin.talkback")
+        )
+        val talkBackAutomation = instrumentation.getUiAutomation(
+            UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES
+        )
+        val scenario = ActivityScenario.launch<MainActivity>(
+            Intent(context, MainActivity::class.java).addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            )
+        )
+        try {
+            fun accessibilityRoots(): List<AccessibilityNodeInfo> = buildList {
+                talkBackAutomation.rootInActiveWindow?.let(::add)
+                talkBackAutomation.windows.forEach { window ->
+                    window.root?.let { root ->
+                        if (none { it.windowId == root.windowId }) add(root)
+                    }
+                }
+            }
+
+            fun nodeHasLabel(node: AccessibilityNodeInfo, label: String): Boolean {
+                if (
+                    node.text?.toString() == label ||
+                    node.contentDescription?.toString() == label
+                ) return true
+                for (index in 0 until node.childCount) {
+                    node.getChild(index)?.let { child ->
+                        if (nodeHasLabel(child, label)) return true
+                    }
+                }
+                return false
+            }
+
+            fun findAction(label: String): AccessibilityNodeInfo? {
+                fun visit(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+                    if (
+                        node.packageName?.toString() == context.packageName &&
+                        node.isVisibleToUser &&
+                        (node.isClickable || node.isFocusable) &&
+                        (
+                            node.text?.toString() == label ||
+                                node.contentDescription?.toString() == label ||
+                                (node.className == "android.widget.EditText" &&
+                                    nodeHasLabel(node, label))
+                            )
+                    ) return node
+                    for (index in 0 until node.childCount) {
+                        val child = node.getChild(index) ?: continue
+                        visit(child)?.let { return it }
+                    }
+                    return null
+                }
+                return accessibilityRoots().firstNotNullOfOrNull(::visit)
+            }
+
+            fun describeAccessibilityRoots(): String {
+                val descriptions = mutableListOf<String>()
+                accessibilityRoots().forEach { root ->
+                    fun collect(node: AccessibilityNodeInfo, depth: Int) {
+                        if (descriptions.size >= 60 || depth > 30) return
+                        val text = node.text?.toString().orEmpty()
+                        val description = node.contentDescription?.toString().orEmpty()
+                        if (text.isNotBlank() || description.isNotBlank() || node.isClickable) {
+                            descriptions +=
+                                "package=${node.packageName}, class=${node.className}, " +
+                                    "text=$text, desc=$description, clickable=${node.isClickable}, " +
+                                    "visible=${node.isVisibleToUser}, accessibilityFocused=${node.isAccessibilityFocused}"
+                        }
+                        for (index in 0 until node.childCount) {
+                            node.getChild(index)?.let { collect(it, depth + 1) }
+                        }
+                    }
+                    collect(root, 0)
+                }
+                return descriptions.joinToString(separator = "\n")
+            }
+
+            fun requireActionNode(label: String): AccessibilityNodeInfo {
+                val deadline = SystemClock.uptimeMillis() + 10_000
+                while (SystemClock.uptimeMillis() < deadline) {
+                    findAction(label)?.let { return it }
+                    SystemClock.sleep(50)
+                }
+                throw AssertionError(
+                    "Visible clickable action not found: $label\n" +
+                        "Accessibility roots:\n${describeAccessibilityRoots()}"
+                )
+            }
+
+            fun focusAction(label: String) {
+                val target = requireActionNode(label)
+                Log.i(
+                    "XrnaviTalkBackTest",
+                    "target=$label windowId=${target.windowId} " +
+                        "activeRootPackage=${talkBackAutomation.rootInActiveWindow?.packageName} " +
+                        "windows=${talkBackAutomation.windows.joinToString { window ->
+                            val root = window.root
+                            "id=${window.id},type=${window.type},package=${root?.packageName}"
+                        }}"
+                )
+                assertTrue(
+                    "TalkBack must be able to focus the $label action",
+                    target.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS)
+                )
+                val deadline = SystemClock.uptimeMillis() + 5_000
+                var focused = false
+                while (SystemClock.uptimeMillis() < deadline) {
+                    focused = findAction(label)?.isAccessibilityFocused == true
+                    if (focused) break
+                    SystemClock.sleep(50)
+                }
+                assertTrue("TalkBack focus did not reach the $label action", focused)
+            }
+
+            listOf(
+                "Тема",
+                "Електронна пошта",
+                "Пароль",
+                "Забули пароль?",
+                "Увійти"
+            ).forEach(::focusAction)
+
+            var scrolls = 0
+            while (scrolls < 10) {
+                fun findScrollable(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+                    if (
+                        node.packageName?.toString() == context.packageName &&
+                        node.isScrollable
+                    ) return node
+                    for (index in 0 until node.childCount) {
+                        val child = node.getChild(index) ?: continue
+                        findScrollable(child)?.let { return it }
+                    }
+                    return null
+                }
+                val scrollable = accessibilityRoots().firstNotNullOfOrNull(::findScrollable)
+                if (scrollable == null) break
+                if (!scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break
+                scrolls++
+                SystemClock.sleep(250)
+            }
+
+            assertTrue("Sign-in content must expose the demo action after scrolling", scrolls > 0)
+            listOf(
+                "Продовжити без входу · деморежим",
+                "Не маєте акаунта? Зареєструватися"
+            ).forEach(::focusAction)
+
+            fun containsText(node: AccessibilityNodeInfo, text: String): Boolean {
+                if (
+                    node.text?.toString()?.contains(text) == true ||
+                    node.contentDescription?.toString()?.contains(text) == true
+                ) return true
+                for (index in 0 until node.childCount) {
+                    node.getChild(index)?.let { child ->
+                        if (containsText(child, text)) return true
+                    }
+                }
+                return false
+            }
+            assertTrue(
+                "Focus navigation must not leave the sign-in screen",
+                accessibilityRoots().any { containsText(it, "З поверненням") }
+            )
+            assertTrue(
+                "Sign-in action must remain available without being activated",
+                findAction("Увійти") != null
+            )
+        } finally {
+            scenario.close()
+        }
+    }
 
     @Test
     fun garageVehicleProfileIsReadOnlyAndBackReturnsToGarage() {

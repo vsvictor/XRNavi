@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,8 +17,14 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.AbsoluteAlignment
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 internal enum class AppScreen {
     SignIn,
@@ -208,27 +215,74 @@ internal val demoPlaces = listOf(
 )
 
 @Composable
-fun App(onThemeChanged: (Boolean) -> Unit = {}) {
+fun App(
+    dependencies: AppDependencies,
+    onThemeChanged: (Boolean) -> Unit = {},
+) {
     val themeStore = rememberThemePreferenceStore()
     val themeSettings: ThemeSettingsViewModel = viewModel(
         factory = remember(themeStore) { themeSettingsFactory(themeStore) }
     )
     val systemDarkTheme = isSystemInDarkTheme()
     val darkTheme = themeSettings.preference.isDark(systemDarkTheme)
+    val connectionStatus by dependencies.connectionBloc.state.collectAsStateWithLifecycle()
+    val connectionError by dependencies.connectionBloc.error.collectAsStateWithLifecycle()
+    val connectionSnackbar = remember { SnackbarHostState() }
+    LaunchedEffect(connectionError) {
+        connectionError?.let {
+            connectionSnackbar.showSnackbar(it, duration = SnackbarDuration.Indefinite)
+        }
+    }
+    LaunchedEffect(dependencies) {
+        dependencies.mobileSpaceRpcClient.start()
+    }
     LaunchedEffect(darkTheme) {
         onThemeChanged(darkTheme)
     }
     XrnaviTheme(darkTheme = darkTheme) {
-        XrnaviApplication(
-            themeSettings = themeSettings,
-            onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
-        )
+        Box(Modifier.fillMaxSize()) {
+            XrnaviApplication(
+                dependencies = dependencies,
+                themeSettings = themeSettings,
+                onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
+            )
+            Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                SnackbarHost(connectionSnackbar, Modifier.align(Alignment.BottomCenter))
+                ConnectionIndicator(
+                    status = connectionStatus,
+                    modifier = Modifier
+                        .align(AbsoluteAlignment.TopRight)
+                        .absolutePadding(
+                            top = ConnectionIndicatorEdgeOffset,
+                            right = ConnectionIndicatorEdgeOffset
+                        )
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleTheme: () -> Unit) {
-    val signInViewModel: SignInViewModel = viewModel(factory = SignInViewModelFactory)
+private fun XrnaviApplication(
+    dependencies: AppDependencies,
+    themeSettings: ThemeSettingsViewModel,
+    onToggleTheme: () -> Unit,
+) {
+    val signInViewModel: SignInViewModel = viewModel(
+        factory = remember(dependencies) { signInViewModelFactory(dependencies.signInAuthService) }
+    )
+    val signInBloc = signInViewModel.bloc
+    val signInState by signInBloc.state.collectAsStateWithLifecycle()
+    val selectEmailAccount = rememberEmailAccountPicker(
+        onSelected = { signInBloc.dispatch(SignInEvent.AccountSelected(it)) },
+        onFailure = { signInBloc.dispatch(SignInEvent.AccountSelectionFailed(it)) },
+    )
+    LaunchedEffect(signInState.accountPickerRequested) {
+        if (signInState.accountPickerRequested) {
+            signInBloc.dispatch(SignInEvent.AccountPickerLaunched)
+            selectEmailAccount()
+        }
+    }
     val registrationViewModel: RegistrationViewModel = viewModel(factory = RegistrationViewModelFactory)
     val previewEnabled = internalAuthPreviewEnabled()
     val recoveryViewModel: RecoveryViewModel = viewModel(
@@ -335,6 +389,16 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
     val sheetLevel = SheetLevel.valueOf(sheetName)
     val searchStatus = SearchStatus.valueOf(searchStatusName)
     val geoStatus = GeoStatus.valueOf(geoStatusName)
+
+    LaunchedEffect(signInState.openMap) {
+        if (signInState.openMap) {
+            demoMode = true
+            notice = "Вхід успішний. Мапа та профіль поки містять лише демонстраційні дані."
+            sectionNavigation = DemoSectionNavigation()
+            screenName = AppScreen.Map.name
+            signInBloc.dispatch(SignInEvent.MapOpened)
+        }
+    }
 
     LaunchedEffect(searchRequest) {
         if (searchRequest == 0) return@LaunchedEffect
@@ -515,15 +579,18 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
             )
         } else when (screen) {
             AppScreen.SignIn -> SignInScreen(
-                email = signInViewModel.email,
-                onEmailChange = signInViewModel::updateEmail,
-                password = signInViewModel.password,
-                onPasswordChange = signInViewModel::updatePassword,
-                notice = notice,
-                onSignIn = {
-                    notice =
-                        "Авторизацію не підключено. Дані входу не надсилалися й не зберігалися."
+                email = signInState.email,
+                onEmailChange = { signInBloc.dispatch(SignInEvent.EmailChanged(it)) },
+                password = signInState.password,
+                onPasswordChange = { signInBloc.dispatch(SignInEvent.PasswordChanged(it)) },
+                passwordVisible = signInState.passwordVisible,
+                onTogglePasswordVisibility = {
+                    signInBloc.dispatch(SignInEvent.TogglePasswordVisibility)
                 },
+                onSelectAccount = { signInBloc.dispatch(SignInEvent.SelectAccount) },
+                submitting = signInState.submitting,
+                notice = signInState.notice,
+                onSignIn = { signInBloc.dispatch(SignInEvent.Submit) },
                 onDemo = {
                     signInViewModel.clearPassword()
                     demoMode = true
@@ -541,8 +608,7 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                     recoveryViewModel.cancel()
                     notice = ""
                     screenName = AppScreen.Recovery.name
-                },
-                onToggleTheme = onToggleTheme
+                }
             )
 
             AppScreen.Registration -> RegistrationScreen(
@@ -639,6 +705,7 @@ private fun XrnaviApplication(themeSettings: ThemeSettingsViewModel, onToggleThe
                     screenName = if (screen == AppScreen.Preview) {
                         AppScreen.Map.name
                     } else {
+                        signInViewModel.clearPassword()
                         demoMode = false
                         notice = ""
                         AppScreen.SignIn.name

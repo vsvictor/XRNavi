@@ -32,8 +32,7 @@ final class MapScenarioUITests: XCTestCase {
         try requireVoiceOver()
         let demoEntry = element(containing: "Продовжити без входу")
         XCTAssertTrue(demoEntry.waitForExistence(timeout: 5), app.debugDescription)
-        demoEntry.tap()
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).doubleTap()
+        activateWithVoiceOver(demoEntry)
         XCTAssertTrue(
             element(containing: "Вибрати адресу призначення").waitForExistence(timeout: 5),
             app.debugDescription
@@ -66,7 +65,7 @@ final class MapScenarioUITests: XCTestCase {
             activateWithVoiceOver(sheet)
             waitForSheetState(sheet, state: state)
             XCTAssertTrue(element(containing: "Почати маршрут").isHittable, app.debugDescription)
-            XCTAssertTrue(element(containing: "Демонстраційна мапа").exists, app.debugDescription)
+            XCTAssertTrue(element(containing: "Mapbox").exists, app.debugDescription)
             attachScreenshot(named: "voiceover-map-sheet-\(state)")
         }
 
@@ -191,7 +190,7 @@ final class MapScenarioUITests: XCTestCase {
             element(containing: "Почати маршрут").waitForExistence(timeout: 5),
             app.debugDescription
         )
-        XCTAssertTrue(element(containing: "Демонстраційна мапа").exists)
+        XCTAssertTrue(element(containing: "Mapbox").exists)
         XCTAssertTrue(element(containing: "Хрещатик, 22").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists, app.debugDescription)
         attachScreenshot(named: "preview")
@@ -208,7 +207,7 @@ final class MapScenarioUITests: XCTestCase {
             let announcement = "\(sheet.label) \(sheet.value ?? "")"
             XCTAssertTrue(announcement.contains(expectedState), announcement)
             XCTAssertTrue(element(containing: "Почати маршрут").isHittable)
-            XCTAssertTrue(element(containing: "Демонстраційна мапа").exists)
+            XCTAssertTrue(element(containing: "Mapbox").exists)
             if expectedState == "Розгорнута" {
                 assertMapAttributionDoesNotOverlapDurationChip()
             }
@@ -221,7 +220,10 @@ final class MapScenarioUITests: XCTestCase {
             attachScreenshot(named: "sheet-\(expectedState)-landscape")
             let landscapeAction = element(containing: "Почати маршрут")
             XCTAssertTrue(landscapeAction.isHittable, "CTA frame \(landscapeAction.frame)\n\(app.debugDescription)")
-            XCTAssertTrue(element(containing: "Демонстраційна мапа").exists)
+            XCTAssertTrue(
+                element(containing: "Mapbox").waitForExistence(timeout: 5),
+                app.debugDescription
+            )
             if expectedState == "Розгорнута" {
                 assertMapAttributionDoesNotOverlapDurationChip()
             }
@@ -255,16 +257,29 @@ final class MapScenarioUITests: XCTestCase {
             "\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"),
             app.debugDescription
         )
-        XCTAssertTrue(element(containing: "Профіль недоступний").waitForExistence(timeout: 5))
-        XCTAssertFalse(element(containing: "Почати маршрут").exists, app.debugDescription)
+        XCTAssertTrue(
+            element(containing: "Вантажний транспорт · демо 01").waitForExistence(timeout: 5),
+            app.debugDescription
+        )
+        XCTAssertTrue(element(containing: "Переглянути маршрут").isHittable, app.debugDescription)
         XCTAssertFalse(element(containing: "Легковий · 1,4 м · 1,8 т").exists, app.debugDescription)
+        XCTAssertTrue(
+            element(containing: "Адреси збережено. Попередній перегляд не розраховувався.").exists,
+            app.debugDescription
+        )
         XCTAssertFalse(element(containing: "6 год 20 хв").exists, app.debugDescription)
-        attachScreenshot(named: "truck-profile-unavailable")
+        attachScreenshot(named: "truck-profile-available")
 
         rotate(to: .landscapeLeft)
-        XCTAssertTrue(element(containing: "Профіль недоступний").waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            element(containing: "Вантажний транспорт · демо 01").waitForExistence(timeout: 5),
+            app.debugDescription
+        )
         XCTAssertFalse(element(containing: "З поверненням").exists)
-        XCTAssertTrue(element(containing: "Демонстраційна мапа").exists)
+        XCTAssertTrue(
+            element(containing: "Mapbox").waitForExistence(timeout: 5),
+            app.debugDescription
+        )
         XCTAssertTrue(
             "\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"),
             app.debugDescription
@@ -277,7 +292,10 @@ final class MapScenarioUITests: XCTestCase {
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists, app.debugDescription)
         rotate(to: .portrait)
         XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Згорнута"))
-        XCTAssertTrue(element(containing: "Хрещатик, 22").exists)
+        XCTAssertTrue(
+            element(containing: "Хрещатик, 22").waitForExistence(timeout: 5),
+            app.debugDescription
+        )
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists)
         sheet.tap()
         XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Частково розгорнута"))
@@ -291,14 +309,15 @@ final class MapScenarioUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Вантажне"].isSelected, app.debugDescription)
         XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"))
         rotate(to: .landscapeLeft)
-        XCTAssertTrue(element(containing: "Профіль недоступний").isHittable)
-        XCTAssertTrue(element(containing: "Демонстраційна мапа").exists)
-        XCTAssertTrue(element(containing: "Хрещатик, 22").exists)
-        XCTAssertEqual(
-            app.buttons.matching(NSPredicate(format: "isSelected == true")).count,
-            1,
+        XCTAssertTrue(element(containing: "Переглянути маршрут").isHittable)
+        XCTAssertTrue(element(containing: "Mapbox").exists)
+        XCTAssertTrue(
+            element(containing: "Адреси збережено. Попередній перегляд не розраховувався.")
+                .waitForExistence(timeout: 5),
             app.debugDescription
         )
+        XCTAssertTrue(app.buttons["Вантажне"].isSelected, app.debugDescription)
+        XCTAssertTrue(app.buttons["Мапа"].isSelected, app.debugDescription)
         rotate(to: .portrait)
         XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"))
         XCTAssertTrue(app.buttons["Вантажне"].isSelected)
@@ -320,15 +339,11 @@ final class MapScenarioUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Вантажне"].isSelected, app.debugDescription)
         XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"))
         attachScreenshot(named: "map-after-background")
-        tapElement(containing: "Профіль недоступний")
+        tapElement(containing: "Переглянути маршрут")
         XCTAssertTrue(
-            element(containing: "Попередній перегляд недоступний").exists,
+            element(containing: "Вантажний транспорт · демо 01").waitForExistence(timeout: 5),
             app.debugDescription
         )
-        tapElement(containing: "Легкове")
-        XCTAssertFalse(element(containing: "Почати маршрут").exists, app.debugDescription)
-        tapElement(containing: "Переглянути маршрут")
-        XCTAssertTrue(element(containing: "Легковий · 1,4 м · 1,8 т").exists)
         tapElement(containing: "Почати маршрут")
         XCTAssertTrue(
             element(containing: "Маршрут і навігацію не підключено").waitForExistence(timeout: 5),
@@ -345,10 +360,17 @@ final class MapScenarioUITests: XCTestCase {
         rotate(to: .landscapeLeft)
         XCTAssertTrue(app.textViews.firstMatch.label.contains("Початкова адреса"))
         XCTAssertEqual(app.textViews.firstMatch.value as? String, "Хрещатик")
+        let dismissKeyboard = app.keyboards.buttons["Hide keyboard"]
+        if dismissKeyboard.waitForExistence(timeout: 1) {
+            dismissKeyboard.tap()
+        }
         scrollSearchResultIntoView(element(containing: "Хрещатик, 22"))
         tapElement(containing: "Хрещатик, 22")
         rotate(to: .portrait)
-        XCTAssertTrue(element(containing: "Вибрати адресу призначення").exists)
+        XCTAssertTrue(
+            element(containing: "Вибрати адресу призначення").waitForExistence(timeout: 5),
+            app.debugDescription
+        )
         XCTAssertTrue(element(containing: "Знайти адресу").exists)
         XCTAssertTrue(element(containing: "Хрещатик, 22").exists)
 
@@ -414,7 +436,10 @@ final class MapScenarioUITests: XCTestCase {
 
     private func activateWithVoiceOver(_ target: XCUIElement) {
         XCTAssertTrue(target.waitForExistence(timeout: 5), app.debugDescription)
-        scrollToHittable(target)
+        for _ in 0..<24 where !target.isHittable {
+            app.swipeRight()
+        }
+        XCTAssertTrue(target.isHittable, app.debugDescription)
         target.tap()
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).doubleTap()
     }
@@ -476,7 +501,7 @@ final class MapScenarioUITests: XCTestCase {
     }
 
     private func assertMapAttributionDoesNotOverlapDurationChip() {
-        let attribution = element(containing: "Демонстраційна мапа")
+        let attribution = element(containing: "Mapbox")
         let durationChip = app.staticTexts.matching(
             NSPredicate(format: "label == %@", "6 год 20 хв")
         ).firstMatch

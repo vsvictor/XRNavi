@@ -1,0 +1,3 @@
+[submodule "external/JSON-RPC-2-Client-KMP"]
+	path = external/JSON-RPC-2-Client-KMP
+	url = https://github.com/vsvictor/JSON-RPC-2-Client-KMP.git

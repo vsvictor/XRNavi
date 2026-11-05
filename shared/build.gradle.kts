@@ -18,6 +18,20 @@ kotlin {
             // PMCS avoids the Kotlin/Native CMS safepoint stall observed on the physical iPad.
             binaryOption("gc", "pmcs")
         }
+        iosTarget.binaries
+            .withType<org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable>()
+            .configureEach {
+                val sdk = if (iosTarget.name == "iosArm64") "iphoneos" else "iphonesimulator"
+                val developerDir = providers.exec { commandLine("xcode-select", "-p") }
+                    .standardOutput.asText.get().trim()
+                val sdkPath = providers.exec { commandLine("xcrun", "--sdk", sdk, "--show-sdk-path") }
+                    .standardOutput.asText.get().trim()
+                linkerOpts(
+                    "-L$developerDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$sdk",
+                    "-L$sdkPath/usr/lib/swift",
+                    "-rpath", "/usr/lib/swift",
+                )
+            }
     }
     
     android {
@@ -56,9 +70,13 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(project(":jsonRpcClient"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

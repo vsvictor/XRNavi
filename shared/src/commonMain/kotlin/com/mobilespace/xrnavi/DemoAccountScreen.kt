@@ -368,7 +368,7 @@ internal fun DemoAccountScreen(
                                             )
                                         )
                                         AccountBody("XRNavi $version · Mobile space")
-                                        AccountBody("Демонстраційний UI. Справжні авторизація та навігація не підключені.")
+                                        AccountBody("Демонстраційний UI. Дані акаунта та справжня навігація не підключені.")
                                     }
                                     val personal: @Composable ColumnScope.() -> Unit = {
                                         SettingsHeading("Особисті · локально", layout)
@@ -541,6 +541,11 @@ private fun GarageFilterBar(
                         if (active) MaterialTheme.colorScheme.primaryContainer
                         else Color.Transparent
                     )
+                    .semantics {
+                        contentDescription = filter.label
+                        this.selected = active
+                        stateDescription = if (active) "Вибрано" else "Не вибрано"
+                    }
                     .selectable(
                         selected = active,
                         role = Role.Tab,
@@ -551,10 +556,7 @@ private fun GarageFilterBar(
             ) {
                 Text(
                     filter.label,
-                    modifier = Modifier.padding(horizontal = 2.dp).semantics {
-                        this.selected = active
-                        stateDescription = if (active) "Вибрано" else "Не вибрано"
-                    },
+                    modifier = Modifier.padding(horizontal = 2.dp),
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     color = if (active) MaterialTheme.colorScheme.onSurface
@@ -1420,7 +1422,7 @@ private fun ProfileStatistics(layout: AccountLayout) {
 private fun ProfileAuthActions(onExit: () -> Unit, onRegister: () -> Unit, onRecovery: () -> Unit) {
     AccountCard {
         CardHeading("Вхід і реєстрація")
-        AccountBody("Ці сценарії завершують перегляд деморежиму. Серверна авторизація не підключена.")
+        AccountBody("Ці дії закривають демонстраційні дані та поточну сесію входу.")
         TextButton(onClick = onExit) { Text("Вийти з деморежиму") }
         TextButton(onClick = onRegister) { Text("Відкрити реєстрацію") }
         TextButton(onClick = onRecovery) { Text("Відновлення пароля") }
