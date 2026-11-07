@@ -177,7 +177,7 @@ internal fun StopPlacesScreen(
                 }
             }
             if (!layout.landscape && onSectionChange != null) BottomNavigation(
-                DemoSection.Map, onSectionChange, accountStyle = true
+                DemoSection.Map, onSectionChange
             )
         }
     }

@@ -35,6 +35,31 @@ final class MapScenarioUITests: XCTestCase {
         XCTAssertTrue(element(containing: "Вкажіть коректну електронну пошту").waitForExistence(timeout: 5))
     }
 
+    func testRealLoginShowsNativeMapWithoutLogout() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let email = env["XRNAVI_TEST_EMAIL"], let password = env["XRNAVI_TEST_PASSWORD"] else {
+            throw XCTSkip("Set XRNAVI_TEST_EMAIL and XRNAVI_TEST_PASSWORD to run the real-login test.")
+        }
+        let emailField = app.textViews.element(boundBy: 0)
+        XCTAssertTrue(emailField.waitForExistence(timeout: 5))
+        emailField.tap()
+        emailField.typeText(email)
+        let passwordField = app.textViews.element(boundBy: 1)
+        passwordField.tap()
+        passwordField.typeText(password)
+        app.buttons["Увійти"].firstMatch.tap()
+        XCTAssertTrue(element(containing: "Збільшити").waitForExistence(timeout: 20))
+        XCTAssertFalse(element(containing: "Вийти з акаунта").exists)
+        XCTAssertFalse(element(containing: "Мапа недоступна").exists)
+        sleep(5)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.lifetime = .keepAlways; add(shot)
+        tapElement(containing: "Збільшити")
+        sleep(2)
+        tapElement(containing: "Центр")
+        sleep(2)
+        let finalShot = XCTAttachment(screenshot: app.screenshot()); finalShot.lifetime = .keepAlways; add(finalShot)
+    }
+
     func testDemoEntryNavigatesToMap() {
         tapElement(containing: "Продовжити без входу")
         XCTAssertTrue(element(containing: "Вибрати адресу призначення").waitForExistence(timeout: 5))

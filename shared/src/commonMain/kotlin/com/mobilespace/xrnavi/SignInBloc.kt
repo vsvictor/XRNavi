@@ -42,11 +42,11 @@ internal sealed interface SignInEvent {
 internal class SignInBloc(
     private val auth: SignInAuthService,
     private val scope: CoroutineScope,
+    private val onAuthenticated: (AuthSession) -> Unit = {},
 ) {
     private val mutableState = MutableStateFlow(SignInState())
     val state = mutableState.asStateFlow()
     private var request: Job? = null
-    private var session: AuthSession? = null
 
     fun dispatch(event: SignInEvent) {
         val current = mutableState.value
@@ -85,7 +85,6 @@ internal class SignInBloc(
             SignInEvent.Cancel -> {
                 request?.cancel()
                 request = null
-                session = null
                 mutableState.value = SignInState(email = current.email)
             }
         }
@@ -107,7 +106,7 @@ internal class SignInBloc(
                     auth.login(current.email.trim(), current.password)
                 }
                 currentCoroutineContext().ensureActive()
-                session = authenticated
+                onAuthenticated(authenticated)
                 mutableState.value = mutableState.value.copy(
                     password = "",
                     passwordVisible = false,
@@ -132,7 +131,6 @@ internal class SignInBloc(
     }
 
     private fun fail(message: String) {
-        session = null
         mutableState.value = mutableState.value.copy(submitting = false, notice = message)
     }
 }

@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 
-internal class SignInViewModel(auth: SignInAuthService) : ViewModel() {
-    val bloc = SignInBloc(auth, viewModelScope)
+internal class SignInViewModel(
+    auth: SignInAuthService,
+    onAuthenticated: (AuthSession) -> Unit,
+) : ViewModel() {
+    val bloc = SignInBloc(auth, viewModelScope, onAuthenticated)
 
     fun clearPassword() = bloc.dispatch(SignInEvent.Cancel)
 
@@ -16,6 +19,9 @@ internal class SignInViewModel(auth: SignInAuthService) : ViewModel() {
     }
 }
 
-internal fun signInViewModelFactory(auth: SignInAuthService) = viewModelFactory {
-    initializer { SignInViewModel(auth) }
+internal fun signInViewModelFactory(
+    auth: SignInAuthService,
+    onAuthenticated: (AuthSession) -> Unit,
+) = viewModelFactory {
+    initializer { SignInViewModel(auth, onAuthenticated) }
 }

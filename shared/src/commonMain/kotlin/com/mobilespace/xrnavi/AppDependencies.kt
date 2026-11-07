@@ -1,6 +1,6 @@
 package com.mobilespace.xrnavi
 
-class AppDependencies {
+class AppDependencies(val mapFactory: PlatformMapFactory = PlatformMapFactory()) {
     internal val connectionBloc = ConnectionBloc()
     internal val mobileSpaceRpcClient = MobileSpaceRpcClient(connectionBloc)
     internal val signInAuthService: SignInAuthService = RpcSignInAuthService { method, params ->
@@ -8,4 +8,10 @@ class AppDependencies {
         client.setRequestTimeout(signInTimeoutMillis.toULong())
         client.call(method, params)
     }
+    internal val authenticatedProfileService: AuthenticatedProfileService =
+        RpcAuthenticatedProfileService { method, params ->
+            val client = mobileSpaceRpcClient.awaitClient()
+            client.setRequestTimeout(signInTimeoutMillis.toULong())
+            client.call(method, params)
+        }
 }

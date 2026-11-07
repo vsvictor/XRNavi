@@ -272,8 +272,19 @@ private fun XrnaviApplication(
     themeSettings: ThemeSettingsViewModel,
     onToggleTheme: () -> Unit,
 ) {
+    val accountViewModel: AuthenticatedAccountViewModel = viewModel(
+        factory = remember(dependencies) {
+            authenticatedAccountViewModelFactory(dependencies.authenticatedProfileService)
+        }
+    )
+    val accountBloc = accountViewModel.bloc
+    val accountState by accountBloc.state.collectAsStateWithLifecycle()
     val signInViewModel: SignInViewModel = viewModel(
-        factory = remember(dependencies) { signInViewModelFactory(dependencies.signInAuthService) }
+        factory = remember(dependencies, accountBloc) {
+            signInViewModelFactory(dependencies.signInAuthService) {
+                accountBloc.dispatch(AuthenticatedAccountEvent.LoginCompleted(it))
+            }
+        }
     )
     val signInBloc = signInViewModel.bloc
     val signInState by signInBloc.state.collectAsStateWithLifecycle()
@@ -356,7 +367,7 @@ private fun XrnaviApplication(
             }
         }
     }
-    var demoMode by rememberSaveable { mutableStateOf(false) }
+    val demoMode = accountState.mode == AccountMode.Demo
     var addresses by rememberSaveable(stateSaver = AddressSearchState.Saver) {
         mutableStateOf(AddressSearchState())
     }
@@ -398,15 +409,18 @@ private fun XrnaviApplication(
             additionalBloc.dispatch(AdditionalScreensEvent.SectionHandled)
         }
     }
-    val screen = AppScreen.valueOf(screenName)
+    val requestedScreen = AppScreen.valueOf(screenName)
+    val screen = if (
+        accountState.mode == AccountMode.SignedOut &&
+        requestedScreen !in listOf(AppScreen.SignIn, AppScreen.Registration, AppScreen.Recovery)
+    ) AppScreen.SignIn else requestedScreen
     val sheetLevel = SheetLevel.valueOf(sheetName)
     val searchStatus = SearchStatus.valueOf(searchStatusName)
     val geoStatus = GeoStatus.valueOf(geoStatusName)
 
     LaunchedEffect(signInState.openMap) {
         if (signInState.openMap) {
-            demoMode = true
-            notice = "Вхід успішний. Мапа та профіль поки містять лише демонстраційні дані."
+            notice = ""
             sectionNavigation = DemoSectionNavigation()
             screenName = AppScreen.Map.name
             signInBloc.dispatch(SignInEvent.MapOpened)
@@ -440,7 +454,7 @@ private fun XrnaviApplication(
             signInViewModel.clearPassword()
             registrationViewModel.cancel()
             recoveryViewModel.cancel()
-            demoMode = false
+            accountBloc.dispatch(AuthenticatedAccountEvent.Logout)
             sectionNavigation = DemoSectionNavigation()
             notice = ""
             screenName = AppScreen.SignIn.name
@@ -525,7 +539,16 @@ private fun XrnaviApplication(
                 }
             }
         }
-        if (additionalState.screen != null) {
+        if (accountState.mode == AccountMode.Authenticated) {
+            AuthenticatedAccountScreen(
+                state = accountState,
+                dispatch = accountBloc::dispatch,
+                themeSettings = themeSettings,
+                onLogout = exitDemo,
+                mapFactory = dependencies.mapFactory,
+                onToggleTheme = onToggleTheme,
+            )
+        } else if (additionalState.screen != null && demoMode) {
             AdditionalScreens(additionalState, additionalBloc::dispatch)
         } else if (
             sectionNavigation.section != DemoSection.Map &&
@@ -609,7 +632,7 @@ private fun XrnaviApplication(
                 onSignIn = { signInBloc.dispatch(SignInEvent.Submit) },
                 onDemo = {
                     signInViewModel.clearPassword()
-                    demoMode = true
+                    accountBloc.dispatch(AuthenticatedAccountEvent.ContinueWithoutLogin)
                     notice = ""
                     sectionNavigation = DemoSectionNavigation()
                     screenName = AppScreen.Map.name
@@ -721,7 +744,7 @@ private fun XrnaviApplication(
                         AppScreen.Map.name
                     } else {
                         signInViewModel.clearPassword()
-                        demoMode = false
+                        accountBloc.dispatch(AuthenticatedAccountEvent.Logout)
                         notice = ""
                         AppScreen.SignIn.name
                     }

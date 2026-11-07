@@ -57,6 +57,7 @@ kotlin {
     
     sourceSets {
         androidMain.dependencies {
+            implementation(libs.mapbox.maps)
             implementation(libs.androidx.activity.compose)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)

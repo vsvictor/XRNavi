@@ -281,7 +281,13 @@ QUIC, а за його невдачі TLS. Нове з'єднання замін
 [Map contracts and iOS launch verification, 2026-10-27 (Ukrainian)](docs/verification-2026-10-27.md)
 records the tested builds, local evidence, and remaining physical-device/accessibility blockers.
 
-### Local demo profile and settings
+### Authenticated account and explicit demo / Авторизований акаунт і явний деморежим
+
+All sections use the Map-style bottom navigation: equal-height tabs with icons above labels.
+Landscape side navigation keeps its existing adaptive layout.
+
+Усі розділи використовують нижнє меню як на мапі: вкладки однакової висоти з іконками над підписами.
+Бокова навігація в альбомній орієнтації зберігає наявне адаптивне компонування.
 
 Sign-in actions run through `SignInBloc`. The eye button reveals/hides the existing password
 field without replacing it. The envelope opens Android's user-controlled system account chooser
@@ -294,8 +300,12 @@ Login calls `auth.login` on the current verified RPC connection with `email`, `p
 Duplicate submissions are blocked, connection waits and RPC calls are bounded, and failures are shown
 on the form. Valid access/refresh tokens stay in memory only; passwords are cleared after success or
 leaving the form, and leaving the session discards the tokens. There is no persistent session,
-automatic token refresh, or automatic login replay. Success opens the map with an explicit demo-data
-disclosure; map/profile data are not fetched from the authenticated account.
+automatic token refresh, or automatic login replay. Success (including a test account) enters
+authenticated mode, never demo mode. `AuthenticatedAccountBloc` receives the in-memory session
+from `SignInBloc` and loads `auth.getProfile` through an injected service and ViewModel.
+Loading, safe errors, retry, section navigation, local logout and expiry are BLoC events/state.
+Logout cancels requests and discards profile and tokens; expiry requires a new login, not refresh.
+Only “continue without login” enables the existing demo screens.
 Login also uses unencrypted TCP when that is the active fallback, as explicitly requested:
 **TCP exposes credentials and tokens to network observers; QUIC/TLS should be used on untrusted networks.**
 
@@ -310,7 +320,12 @@ Login also uses unencrypted TCP when that is the active fallback, as explicitly 
 помилки відображаються у формі. Перевірені access/refresh tokens залишаються лише в пам'яті;
 пароль очищається після успіху або виходу з форми, вихід із сесії видаляє токени.
 Постійного збереження сесії, автоматичного refresh чи повторного надсилання входу немає.
-Успіх відкриває мапу з явним позначенням демоданих; мапа/профіль не завантажуються з акаунта.
+Успішний вхід (також тестового акаунта) відкриває авторизований режим, ніколи не деморежим.
+`AuthenticatedAccountBloc` отримує сесію в пам’яті від `SignInBloc` і завантажує `auth.getProfile`
+через DI-сервіс і ViewModel. Завантаження, безпечні помилки, повторний запит, навігація,
+локальний вихід і завершення сесії обробляються BLoC. Вихід скасовує запити й видаляє профіль
+та токени; після завершення сесії потрібен новий вхід, без refresh.
+Лише «продовжити без входу» вмикає наявні демоекрани.
 За прямою вказівкою вхід також дозволений через незашифрований TCP, якщо це активний транспорт:
 **TCP розкриває пароль і токени спостерігачам мережі; у недовірених мережах слід використовувати QUIC/TLS.**
 
@@ -336,7 +351,48 @@ background transitions from white at its top. Dark mode is unchanged.
 кольору фону теми біля нижнього краю видимої області. В альбомній орієнтації фон форми
 починається білим зверху. Темну тему не змінено.
 
-The Map navigation opens a demo-only profile (S08) and settings (S07), not an authenticated account.
+The authenticated Map/Garage/Settings/Profile sections share the same bottom navigation and
+adaptive landscape rail as demo. Profile shows the backend identity, roles, creation time and
+available profile fields; absent optional fields say “not specified”, never use fixtures.
+Map/routing/search and account garage APIs are not integrated: their sections explicitly say
+unavailable, with no synthetic map, routes or vehicles. A garage that was not loaded is not
+claimed to be empty. Settings exposes the existing local theme picker, not fake server settings.
+Profile editing is not implemented; the profile is explicitly read-only.
+In explicit demo mode, Map still opens the local demo profile (S08) and settings (S07).
+
+Exact backend contract verified against read-only BRNavi `src/auth.rs` and its pinned
+`json-rpc-2-oauth2` dependency at `8b9d6372a80708389c6d4a314879e69bf966a67c`
+(`src/rpc.rs`, `src/models.rs`, `src/mongo.rs`, `src/profile.rs`):
+
+- `auth.getProfile` params: `{"access_token":"<in-memory access token>"}`. Identity comes
+  from verified token claims, not client-supplied email, user ID or roles.
+- RPC result (the native client already unwraps JSON-RPC): `id: string`, `email: string`,
+  `created_at: RFC3339 string`, `roles: string[]`, `profile: object`. Missing required
+  fields/wrong types are rejected. Empty roles/profile are valid.
+- BRNavi profile schema: `first_name`, `last_name`, `middle_name` are text;
+  `birth_date` is an optional RFC3339 datetime; `notifications_enabled` is an optional boolean.
+- `auth.updateProfile` params: `access_token` plus `profile: map<string,string>`, **not**
+  the whole UserResponse. Boolean updates use `"true"`/`"false"` strings; datetime updates
+  use RFC3339 strings. It patches supplied fields and returns the same UserResponse.
+  This contract is documented, not called by the current read-only UI.
+
+Авторизовані розділи Мапа/Гараж/Налаштування/Профіль використовують те саме нижнє меню
+й адаптивну бокову панель в альбомній орієнтації. Профіль показує ID, пошту, ролі, дату
+створення та наявні поля з бекенда; відсутні необов’язкові поля — «Не вказано», без фікстур.
+Реальні API мапи/маршрутів/пошуку й гаража не інтегровані: показується недоступність без
+синтетичних мап, маршрутів чи автомобілів. Незавантажений гараж не оголошується порожнім.
+Налаштування містять наявний локальний вибір теми, без імітації серверних перемикачів.
+Профіль лише для перегляду; редагування не реалізоване.
+У явному деморежимі залишаються локальні демопрофіль S08 і налаштування S07.
+
+Контракт перевірено у BRNavi `src/auth.rs` та зафіксованій залежності OAuth2 (ревізія вище).
+`auth.getProfile` приймає лише `access_token`, повертає `id`, `email`, `created_at` (RFC3339),
+`roles` (масив рядків), `profile` (об’єкт). ID/ролі не беруться з вводу користувача.
+`first_name`, `last_name`, `middle_name` — текст; `birth_date` — необов’язкова дата RFC3339;
+`notifications_enabled` — необов’язковий boolean. `auth.updateProfile` приймає `access_token`
+і `profile` як мапу **рядкових** значень (boolean — `"true"`/`"false"`, дата — RFC3339),
+оновлює лише передані поля й повертає той самий UserResponse. UI його поки не викликає.
+
 System/Light/Dark appearance is shared by every screen and stored locally using Android
 SharedPreferences or iOS UserDefaults under `appearance.theme`. No credentials or session are
 stored with it. Unconnected services and organization policies are informational, not working switches.
@@ -346,6 +402,12 @@ remain visible instead of copying authenticated or connected-service states from
 
 [Profile and settings verification, 2026-10-27 (Ukrainian)](docs/profile-settings-ui-2026-10-27.md)
 records the checks and remaining platform limitations.
+
+### Mapbox map / Мапа Mapbox
+
+**EN.** The Map tab uses the native Mapbox Maps SDK 11.34.2 on Android (`MapView`) and iOS (Swift Package `MapboxMaps` via `MapboxViewFactory.swift`). The public `pk.` token is read from the git-ignored `tokens.dat` at build time (Android `resValue`; iOS via git-ignored `iosApp/Mapbox.local.xcconfig`, generated by `python3 tools/configure-mapbox.py`). Never commit tokens or embed secret/download tokens. Supported: light/dark styles, zoom, recenter on Kyiv. Not implemented yet: geolocation, search, routing.
+
+**UK.** Вкладка «Мапа» використовує нативний Mapbox Maps SDK 11.34.2 на Android (`MapView`) та iOS (Swift Package `MapboxMaps` через `MapboxViewFactory.swift`). Публічний токен `pk.` читається з ігнорованого git файлу `tokens.dat` під час збірки (Android `resValue`; iOS — через ігнорований `iosApp/Mapbox.local.xcconfig`, що генерує `python3 tools/configure-mapbox.py`). Не комітьте токени й не вбудовуйте секретні токени. Є: світлий/темний стилі, масштаб, центрування на Києві. Ще немає: геолокації, пошуку, маршрутів.
 
 ### Local stop-place catalog / Локальний каталог місць зупинки
 

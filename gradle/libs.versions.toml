@@ -17,8 +17,10 @@ kotlin = "2.4.20"
 material3 = "1.12.0-alpha03"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.9.0"
+mapbox = "11.34.2"
 
 [libraries]
+mapbox-maps = { module = "com.mapbox.maps:android-ndk27", version.ref = "mapbox" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }

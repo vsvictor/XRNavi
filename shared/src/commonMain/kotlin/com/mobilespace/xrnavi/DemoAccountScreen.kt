@@ -99,7 +99,10 @@ internal fun DemoAccountScreen(
                     properties = DialogProperties(usePlatformDefaultWidth = false),
                     title = { Text(if (showThemePicker) "Тема застосунку" else "Можливість не підключено") },
                     text = {
-                        if (showThemePicker) ThemePreferenceOptions(themeSettings)
+                        if (showThemePicker) ThemePreferenceOptions(
+                            themeSettings,
+                            Modifier.verticalScroll(rememberScrollState())
+                        )
                         else Text(
                             unavailableAction.orEmpty(),
                             Modifier.verticalScroll(rememberScrollState())
@@ -490,8 +493,7 @@ internal fun DemoAccountScreen(
                     }
                 }
                 if (!layout.landscape) BottomNavigation(
-                    navigationSection, onSectionChange, accountStyle = true,
-                    horizontalLabels = layout.tablet
+                    navigationSection, onSectionChange
                 )
             }
         }
@@ -1480,9 +1482,12 @@ private fun ProfileAuthActions(onExit: () -> Unit, onRegister: () -> Unit, onRec
 }
 
 @Composable
-private fun ThemePreferenceOptions(model: ThemeSettingsViewModel) {
+internal fun ThemePreferenceOptions(
+    model: ThemeSettingsViewModel,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        Modifier.verticalScroll(rememberScrollState()),
+        modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         AccountBody("Застосовується до всіх екранів і зберігається лише на цьому пристрої. Системна тема не змінюється.")

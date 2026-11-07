@@ -4,7 +4,7 @@ import Shared
 
 struct ComposeView: UIViewControllerRepresentable {
     func makeUIViewController(context: Self.Context) -> UIViewController {
-        let viewController = MainViewControllerKt.MainViewController()
+        let viewController = MainViewControllerKt.MainViewController(mapFactory: MapboxViewFactory())
         viewController.view.backgroundColor = UIColor(named: "LaunchBackgroundColor")
         return viewController
     }

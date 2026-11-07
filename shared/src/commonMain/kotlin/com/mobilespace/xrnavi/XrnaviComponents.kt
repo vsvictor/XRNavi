@@ -1637,9 +1637,9 @@ internal fun BottomNavigation(
     onSectionChange: (DemoSection) -> Unit,
     rail: Boolean = false,
     compactRail: Boolean = false,
-    accountStyle: Boolean = false,
-    horizontalLabels: Boolean = false
+    accountStyle: Boolean = false
 ) {
+    val styledRail = rail && accountStyle
     val tabs = listOf(
         Triple("Мапа", Res.drawable.nav_map_light, Res.drawable.nav_map_dark),
         Triple("Гараж", Res.drawable.nav_garage_light, Res.drawable.nav_garage_dark),
@@ -1663,7 +1663,7 @@ internal fun BottomNavigation(
                     }
                     .clickable(role = Role.Tab) { onSectionChange(section) }
                     .then(
-                        if (accountStyle && (rail && !compactRail || horizontalLabels) && !active)
+                        if (styledRail && !compactRail && !active)
                             Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
                         else Modifier
                     )
@@ -1673,10 +1673,10 @@ internal fun BottomNavigation(
                     light = tab.second,
                     dark = tab.third,
                     modifier = Modifier.size(
-                        if (accountStyle && rail && !compactRail) 24.dp
-                        else if (accountStyle) 21.dp else 19.dp
+                        if (styledRail && !compactRail) 24.dp
+                        else if (styledRail) 21.dp else 19.dp
                     ),
-                    tint = if (active && accountStyle && !compactRail) MaterialTheme.colorScheme.onSurface
+                    tint = if (active && styledRail && !compactRail) MaterialTheme.colorScheme.onSurface
                     else if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1684,24 +1684,19 @@ internal fun BottomNavigation(
                 if (!rail || !compactRail) Text(
                     tab.first,
                     modifier = Modifier.padding(
-                        top = if (horizontalLabels) 0.dp else 4.dp,
-                        start = if (horizontalLabels) 8.dp else 0.dp
+                        top = 4.dp
                     ),
-                    fontSize = if (rail && accountStyle && index == 2) 7.sp
-                    else if (accountStyle) 12.sp else if (rail) 9.sp else 11.sp,
-                    lineHeight = if (rail && accountStyle && index == 2) 11.sp
-                    else if (accountStyle) 16.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
-                    letterSpacing = if (accountStyle) 0.4.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
-                    color = if (active && accountStyle) MaterialTheme.colorScheme.onSurface
+                    fontSize = if (styledRail && index == 2) 7.sp
+                    else if (styledRail) 12.sp else if (rail) 9.sp else 11.sp,
+                    lineHeight = if (styledRail && index == 2) 11.sp
+                    else if (styledRail) 16.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
+                    letterSpacing = if (styledRail) 0.4.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
+                    color = if (active && styledRail) MaterialTheme.colorScheme.onSurface
                     else if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (rail && accountStyle) 1 else 2
+                    maxLines = if (styledRail) 1 else 2
                 )
             }
-            if (horizontalLabels) Row(
-                tabModifier, verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) { icon(); label() }
-            else Column(
+            Column(
                 tabModifier, horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) { icon(); label() }
@@ -1718,16 +1713,16 @@ internal fun BottomNavigation(
     } else Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (accountStyle) 61.dp else 68.dp)
+            .height(68.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
                 width = 0.5.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(0.dp)
             )
-            .padding(horizontal = 8.dp, vertical = if (horizontalLabels) 6.dp else 0.dp),
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(if (horizontalLabels) 8.dp else 0.dp)
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         items(Modifier.weight(1f).fillMaxHeight())
     }

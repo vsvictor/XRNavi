@@ -6,6 +6,10 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B20000000000000000000001 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000003 /* MapboxMaps */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A1000000000000000000000C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -83,6 +87,7 @@
 		E5EA852EC53D2DC60C92F496 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				B20000000000000000000001 /* MapboxMaps in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -126,6 +131,9 @@
 				C229F27363B213F13BF1C2EC /* iosApp */,
 			);
 			name = iosApp;
+			packageProductDependencies = (
+				B20000000000000000000003 /* MapboxMaps */,
+			);
 			productName = iosApp;
 			productReference = 3B3915FA1EC2DE3ED5BDF383 /* XRNavi.app */;
 			productType = "com.apple.product-type.application";
@@ -182,6 +190,9 @@
 			preferredProjectObjectVersion = 110;
 			productRefGroup = 9958231292365B7E768836DE /* Products */;
 			projectDirPath = "";
+			packageReferences = (
+				B20000000000000000000002 /* mapbox-maps-ios-binary */,
+			);
 			projectRoot = "";
 			targets = (
 				1FD1ADAC64F33705B11648FD /* iosApp */,
@@ -491,6 +502,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+/* Begin XCRemoteSwiftPackageReference section */
+		B20000000000000000000002 /* mapbox-maps-ios-binary */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mapbox/mapbox-maps-ios-binary.git";
+			requirement = { kind = exactVersion; version = 11.34.2; };
+		};
+/* End XCRemoteSwiftPackageReference section */
+/* Begin XCSwiftPackageProductDependency section */
+		B20000000000000000000003 /* MapboxMaps */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B20000000000000000000002 /* mapbox-maps-ios-binary */;
+			productName = MapboxMaps;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 22DFDF89121B295EA6C5BD59 /* Project object */;
 }

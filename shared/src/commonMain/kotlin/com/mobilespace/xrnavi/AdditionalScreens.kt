@@ -101,8 +101,7 @@ internal fun AdditionalScreens(
                 )
             ) BottomNavigation(
                 additionalNavigationSection(screen),
-                { onEvent(AdditionalScreensEvent.Section(it)) },
-                accountStyle = true
+                { onEvent(AdditionalScreensEvent.Section(it)) }
             )
         }
         AdditionalScreenNotice(state, onEvent)
