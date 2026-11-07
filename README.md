@@ -430,3 +430,17 @@ identifies the checked artifacts and separates local Android evidence from unver
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+
+**EN.** Garage (authenticated Garage tab): `GarageBloc` (list/select active/details) and `AddVehicleBloc` (class → make → model → year+trim wizard, S10/S14/S15/S17) with separate ViewModels; `GarageService` is injected via `AppDependencies` (`RpcGarageService`). The JSON-RPC method names (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) and payloads are PROVISIONAL: the backend contract is not confirmed, so on failure the UI shows an error with retry (never an empty garage). Selection changes only after server confirmation. Not yet: S11 dimensions screen, S16 configurations, S03 integration.
+
+**UK.** Гараж (вкладка «Гараж» в автентифікованому режимі): `GarageBloc` (список/вибір активного/деталі) та `AddVehicleBloc` (майстер клас → марка → модель → рік+комплектація, S10/S14/S15/S17) з окремими ViewModel; `GarageService` інжектується через `AppDependencies` (`RpcGarageService`). Назви JSON-RPC методів (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) і формати ПОПЕРЕДНІ: контракт бекенду не підтверджено, тому при збої UI показує помилку з повтором (ніколи не порожній гараж). Вибір змінюється лише після підтвердження сервером. Ще немає: екрана габаритів S11, конфігурацій S16, інтеграції з S03.
+
+### File structure rule / Правило структури файлів
+
+**EN.** Every screen, its ViewModel and its BLoC (state, events, transitions) live in separate files (`XScreen.kt`, `XViewModel.kt`, `XBloc.kt`, with state/events in `XState.kt`). `DemoAccountScreen` is a thin host; settings/profile/garage/vehicle screens, `RecoveryBloc`, `RegistrationBloc` and `ThemeSettingsBloc` have own files (Recovery, Registration and Theme ViewModels are facades over their BLoCs). `StopPlacesBloc` is a stateless class (no singleton) in `StopPlacesBloc.kt`; app models moved from `App.kt` to `AppModels.kt`. Tests live in separate files.
+
+**UK.** Кожен екран, його ViewModel і BLoC (стан, події, переходи) лежать в окремих файлах (`XScreen.kt`, `XViewModel.kt`, `XBloc.kt`, стан/події в `XState.kt`). `DemoAccountScreen` — тонкий хост; екрани налаштувань/профілю/гаража/авто, `RecoveryBloc`, `RegistrationBloc` і `ThemeSettingsBloc` мають власні файли (ViewModel Recovery, Registration і Theme — фасади над BLoC). `StopPlacesBloc` — клас без стану (не singleton) у `StopPlacesBloc.kt`; моделі застосунку винесено з `App.kt` до `AppModels.kt`. Тести — в окремих файлах.
+
+**EN.** Demo navigation lives in `DemoAppBloc` (`DemoAppState.kt` state/events, `DemoAppBloc.kt` transitions) held by `DemoAppViewModel` (persistence of saved places and route stops); `XrnaviApplication.kt` only renders and dispatches events. Navigation state survives rotation but is no longer restored after process death.
+
+**UK.** Демо-навігація живе в `DemoAppBloc` (`DemoAppState.kt` — стан/події, `DemoAppBloc.kt` — переходи) у `DemoAppViewModel` (збереження адрес і зупинок); `XrnaviApplication.kt` лише малює й надсилає події. Стан навігації переживає поворот екрана, але більше не відновлюється після завершення процесу.

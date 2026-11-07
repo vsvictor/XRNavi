@@ -47,7 +47,7 @@ class AdditionalScreensRenderingTest {
         captureDesigns(
             AdditionalScreen.entries.map { screen ->
                 DesignCase("${screen.designId}-${screen.name}") {
-                    AdditionalScreens(AdditionalScreensState(screen = screen), {})
+                    AdditionalScreens(AdditionalNavigationState(screen = screen), {})
                 }
             },
             "design-captures"

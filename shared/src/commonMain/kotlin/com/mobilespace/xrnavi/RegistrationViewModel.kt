@@ -7,118 +7,47 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 
-internal enum class RegistrationField { Name, Email, Password, Confirmation }
-
-internal enum class RegistrationMembership(val label: String) {
-    Personal("Особистий"),
-    Corporate("Корпоративний")
-}
-
-internal const val registrationUnavailableMessage =
-    "Реєстрацію ще не підключено. Дані не надіслано"
-internal const val invitationUnavailableMessage =
-    "Для корпоративного акаунта потрібне запрошення від адміністратора організації. Сценарій запрошення ще не підключено."
-internal const val registrationDocumentsMessage =
-    "Умови користування та Політика конфіденційності ще недоступні. Юридичну частину реєстрації не завершено."
-
+/** Compose-facing host of [RegistrationBloc]: mirrors its state and forwards intents as events. */
 internal class RegistrationViewModel : ViewModel() {
-    var name by mutableStateOf("")
-        private set
-    var email by mutableStateOf("")
-        private set
-    var password by mutableStateOf("")
-        private set
-    var confirmation by mutableStateOf("")
-        private set
-    var passwordVisible by mutableStateOf(false)
-        private set
-    var confirmationVisible by mutableStateOf(false)
-        private set
-    var consent by mutableStateOf(false)
-        private set
-    var membership by mutableStateOf(RegistrationMembership.Personal)
-        private set
-    var notice by mutableStateOf("")
-        private set
-    private var touched by mutableStateOf(emptySet<RegistrationField>())
+    private val bloc = RegistrationBloc()
+    private var current by mutableStateOf(bloc.state.value)
 
-    fun validationError(field: RegistrationField): String? = when (field) {
-        RegistrationField.Name -> if (name.trim().isEmpty()) "Вкажіть ім’я та прізвище" else null
-        RegistrationField.Email -> emailValidationError(email)
-        RegistrationField.Password -> passwordValidationError(password)
-        RegistrationField.Confirmation -> passwordConfirmationError(password, confirmation)
+    private fun dispatch(event: RegistrationEvent) {
+        bloc.dispatch(event)
+        current = bloc.state.value
     }
 
-    fun visibleError(field: RegistrationField): String? =
-        validationError(field).takeIf { field in touched }
+    val name get() = current.name
+    val email get() = current.email
+    val password get() = current.password
+    val confirmation get() = current.confirmation
+    val passwordVisible get() = current.passwordVisible
+    val confirmationVisible get() = current.confirmationVisible
+    val consent get() = current.consent
+    val membership get() = current.membership
+    val notice get() = current.notice
+    val canSubmit get() = current.canSubmit
 
-    val canSubmit: Boolean
-        get() = consent && RegistrationField.entries.all { validationError(it) == null }
+    fun validationError(field: RegistrationField): String? = current.validationError(field)
+    fun visibleError(field: RegistrationField): String? = current.visibleError(field)
 
-    fun update(field: RegistrationField, value: String) {
-        when (field) {
-            RegistrationField.Name -> name = value
-            RegistrationField.Email -> email = value
-            RegistrationField.Password -> password = value
-            RegistrationField.Confirmation -> confirmation = value
-        }
-        touch(field)
-        notice = ""
-    }
+    fun update(field: RegistrationField, value: String) =
+        dispatch(RegistrationEvent.FieldChanged(field, value))
 
-    fun touch(field: RegistrationField) {
-        touched = touched + field
-    }
+    fun touch(field: RegistrationField) = dispatch(RegistrationEvent.FieldTouched(field))
+    fun togglePasswordVisibility() = dispatch(RegistrationEvent.PasswordVisibilityToggled)
+    fun toggleConfirmationVisibility() = dispatch(RegistrationEvent.ConfirmationVisibilityToggled)
+    fun updateConsent(value: Boolean) = dispatch(RegistrationEvent.ConsentChanged(value))
+    fun selectMembership(value: RegistrationMembership) =
+        dispatch(RegistrationEvent.MembershipSelected(value))
 
-    fun togglePasswordVisibility() {
-        passwordVisible = !passwordVisible
-    }
-
-    fun toggleConfirmationVisibility() {
-        confirmationVisible = !confirmationVisible
-    }
-
-    fun updateConsent(value: Boolean) {
-        consent = value
-    }
-
-    fun selectMembership(value: RegistrationMembership) {
-        membership = value
-        notice = ""
-    }
-
-    fun submit() {
-        if (!canSubmit) {
-            touched = RegistrationField.entries.toSet()
-            return
-        }
-        clearSecrets()
-        notice = registrationUnavailableMessage
-    }
-
-    fun cancel() {
-        clearSecrets()
-        name = ""
-        email = ""
-        consent = false
-        membership = RegistrationMembership.Personal
-        touched = emptySet()
-        notice = ""
-    }
-
-    private fun clearSecrets() {
-        password = ""
-        confirmation = ""
-        passwordVisible = false
-        confirmationVisible = false
-        touched = touched - RegistrationField.Password - RegistrationField.Confirmation
-    }
+    fun submit() = dispatch(RegistrationEvent.Submitted)
+    fun cancel() = dispatch(RegistrationEvent.Cancelled)
 
     override fun onCleared() {
-        clearSecrets()
+        dispatch(RegistrationEvent.Cleared)
         super.onCleared()
     }
-
 }
 
 internal val RegistrationViewModelFactory = viewModelFactory {

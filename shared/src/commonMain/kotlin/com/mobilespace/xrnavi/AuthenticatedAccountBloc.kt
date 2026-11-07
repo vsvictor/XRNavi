@@ -40,6 +40,7 @@ internal class AuthenticatedAccountBloc(
     private val mutableState = MutableStateFlow(AuthenticatedAccountState())
     val state = mutableState.asStateFlow()
     private var session: AuthSession? = null
+    fun currentSession(): AuthSession? = session
     private var request: Job? = null
     private var expiry: Job? = null
 

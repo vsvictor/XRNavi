@@ -22,6 +22,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import androidx.lifecycle.viewmodel.compose.viewModel
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
@@ -35,7 +36,9 @@ class AdditionalScreensInteractionTest {
                 flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             }
         val context = instrumentation.context
-        val bloc = AdditionalScreensBloc()
+        val bloc = AdditionalNavigationBloc()
+        lateinit var deletion: DeleteAccountBloc
+        lateinit var invitation: InvitationBloc
         val scenario = ActivityScenario.launch<DesignCaptureActivity>(
             Intent(
                 context,
@@ -46,11 +49,13 @@ class AdditionalScreensInteractionTest {
             scenario.onActivity { activity ->
                 activity.setContent {
                     val state by bloc.state.collectAsState()
+                    deletion = viewModel { DeleteAccountViewModel() }.bloc
+                    invitation = viewModel { InvitationViewModel() }.bloc
                     XrnaviTheme(darkTheme = false) { AdditionalScreens(state, bloc::dispatch) }
                 }
             }
             fun open(screen: AdditionalScreen) {
-                scenario.onActivity { bloc.dispatch(AdditionalScreensEvent.Open(screen)) }
+                scenario.onActivity { bloc.dispatch(AdditionalNavigationEvent.Open(screen)) }
                 settleFrames()
             }
             open(AdditionalScreen.VehicleCatalog)
@@ -69,13 +74,13 @@ class AdditionalScreensInteractionTest {
                 findNode { it.text?.toString() == "Підтвердити запит на видалення" }
             assertTrue(generateSequence(deletionButton) { it.parent }.any { !it.isEnabled })
             click("Розумію наслідки та окреме зберігання робочих даних.")
-            assertTrue(bloc.state.value.deletionConsent)
+            assertTrue(deletion.state.value.consent)
             click("Підтвердити запит на видалення")
-            assertTrue(bloc.state.value.notice.orEmpty().contains("не видалено"))
+            assertTrue(deletion.state.value.notice.orEmpty().contains("не видалено"))
             click("Зрозуміло")
             click("Скасувати · залишити акаунт")
             assertEquals(AdditionalScreen.Privacy, bloc.state.value.screen)
-            assertFalse(bloc.state.value.deletionConsent)
+            assertFalse(deletion.state.value.consent)
 
             open(AdditionalScreen.Invitation)
             val code = findNode { it.isEditable }
@@ -90,12 +95,12 @@ class AdditionalScreensInteractionTest {
                 }
             ))
             settleFrames()
-            assertEquals("EXAMPLE", bloc.state.value.invitationCode)
+            assertEquals("EXAMPLE", invitation.state.value.code)
             click("Ознайомився з правилами організації та умовами передачі даних")
-            assertTrue(bloc.state.value.invitationConsent)
+            assertTrue(invitation.state.value.consent)
             click("Прийняти запрошення")
             assertTrue(
-                bloc.state.value.notice.orEmpty().contains("Членство в організації не змінено")
+                invitation.state.value.notice.orEmpty().contains("Членство в організації не змінено")
             )
         } finally {
             scenario.close()

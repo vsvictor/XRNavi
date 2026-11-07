@@ -19,4 +19,9 @@ class AppDependencies(
             client.setRequestTimeout(signInTimeoutMillis.toULong())
             client.call(method, params)
         }
+    internal val garageService: GarageService = RpcGarageService { method, params ->
+        val client = mobileSpaceRpcClient.awaitClient()
+        client.setRequestTimeout(signInTimeoutMillis.toULong())
+        client.call(method, params)
+    }
 }
