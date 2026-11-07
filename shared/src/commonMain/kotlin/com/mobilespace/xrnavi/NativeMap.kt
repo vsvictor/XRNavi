@@ -9,6 +9,7 @@ expect class PlatformMapFactory()
 internal expect fun NativeMap(
     factory: PlatformMapFactory,
     state: MapState,
+    overlay: MapOverlay,
     dark: Boolean,
     dispatch: (MapEvent) -> Unit,
     modifier: Modifier,

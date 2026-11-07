@@ -1569,12 +1569,13 @@ internal fun VehicleSummaryCard(vehicle: DemoVehicleProfile) {
 @Composable
 internal fun VehicleClassSelector(
     selected: String,
-    onSelected: (String) -> Unit
+    onSelected: (String) -> Unit,
+    title: String = "Категорія демо-профілю"
 ) {
     val types = listOf("Легкове", "Вантажне", "Спецтехніка")
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            "Категорія демо-профілю",
+            title,
             fontSize = 10.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

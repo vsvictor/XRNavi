@@ -29,10 +29,13 @@ internal fun AuthenticatedAccountScreen(
     themeSettings: ThemeSettingsViewModel,
     onLogout: () -> Unit,
     mapFactory: PlatformMapFactory,
+    routeService: RoutePlanningService,
     onToggleTheme: () -> Unit,
 ) {
     val mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
     val mapState by mapViewModel.bloc.state.collectAsStateWithLifecycle()
+    val routeViewModel: RouteViewModel = viewModel(factory = routeViewModelFactory(routeService))
+    val routeState by routeViewModel.bloc.state.collectAsStateWithLifecycle()
     AuthBackHandler {
         dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
     }
@@ -66,6 +69,8 @@ internal fun AuthenticatedAccountScreen(
                         factory = mapFactory,
                         state = mapState,
                         dispatch = mapViewModel.bloc::dispatch,
+                        routeState = routeState,
+                        routeDispatch = routeViewModel.bloc::dispatch,
                         expired = state.expired,
                         onProfile = { navigate(DemoSection.Profile) },
                         modifier = Modifier.weight(1f).fillMaxSize(),

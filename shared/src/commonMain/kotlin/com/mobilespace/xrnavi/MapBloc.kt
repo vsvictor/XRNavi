@@ -14,7 +14,16 @@ data class MapCamera(
     val pitch: Double = 0.0,
 )
 
+data class MapOverlay(
+    val route: List<GeoPoint> = emptyList(),
+    val origin: GeoPoint? = null,
+    val destination: GeoPoint? = null,
+) {
+    val routeCoordinates: List<Double> get() = route.flatMap { listOf(it.latitude, it.longitude) }
+}
+
 internal data class MapState(
+    val satellite: Boolean = false,
     val status: MapLoadStatus = MapLoadStatus.Loading,
     val revision: Int = 0,
     val command: MapCommand = MapCommand.None,
@@ -26,6 +35,7 @@ internal data class MapState(
 internal sealed interface MapEvent {
     data object Retry : MapEvent
     data object StyleChanged : MapEvent
+    data object ToggleLayer : MapEvent
     data class NativeStatus(val revision: Int, val status: MapLoadStatus) : MapEvent
     data class CameraChanged(val camera: MapCamera) : MapEvent
     data class Control(val command: MapCommand) : MapEvent
@@ -43,6 +53,9 @@ internal class MapBloc {
         mutableState.value = when (event) {
             MapEvent.Retry, MapEvent.StyleChanged -> current.copy(
                 status = MapLoadStatus.Loading, revision = current.revision + 1,
+            )
+            MapEvent.ToggleLayer -> current.copy(
+                satellite = !current.satellite, status = MapLoadStatus.Loading, revision = current.revision + 1,
             )
             is MapEvent.NativeStatus -> if (event.revision == current.revision) {
                 current.copy(status = event.status)

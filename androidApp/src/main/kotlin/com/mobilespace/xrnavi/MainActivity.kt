@@ -13,7 +13,9 @@ import android.app.Application
 import com.mobilespace.xrnavi.AppDependencies
 
 class XrnaviAndroidApplication : Application() {
-    val dependencies by lazy { AppDependencies() }
+    val dependencies by lazy {
+        AppDependencies(mapboxToken = { getString(R.string.mapbox_access_token) })
+    }
 }
 
 class MainActivity : ComponentActivity() {

@@ -9,7 +9,7 @@ import platform.UIKit.UIView
 
 interface IosMapView {
     val view: UIView
-    fun update(dark: Boolean, revision: Int, command: MapCommand, commandId: Int)
+    fun update(dark: Boolean, satellite: Boolean, revision: Int, command: MapCommand, commandId: Int, overlay: MapOverlay)
     fun dispose()
 }
 
@@ -32,6 +32,7 @@ actual class PlatformMapFactory actual constructor() {
 internal actual fun NativeMap(
     factory: PlatformMapFactory,
     state: MapState,
+    overlay: MapOverlay,
     dark: Boolean,
     dispatch: (MapEvent) -> Unit,
     modifier: Modifier,
@@ -48,7 +49,7 @@ internal actual fun NativeMap(
             ).also { views[it.view] = it }.view
         },
         modifier = modifier,
-        update = { views[it]?.update(dark, state.revision, state.command, state.commandId) },
+        update = { views[it]?.update(dark, state.satellite, state.revision, state.command, state.commandId, overlay) },
         onRelease = { views.remove(it)?.dispose() },
     )
 }
