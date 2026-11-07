@@ -91,6 +91,7 @@ internal sealed interface StopPlacesEvent {
     data class Category(val category: StopPlaceCategory) : StopPlacesEvent
     data class Query(val value: String) : StopPlacesEvent
     data class Details(val id: String) : StopPlacesEvent
+    data class Unavailable(val action: String) : StopPlacesEvent
     data object BackToList : StopPlacesEvent
     data object Back : StopPlacesEvent
     data object AddSelected : StopPlacesEvent
@@ -106,6 +107,9 @@ internal object StopPlacesBloc {
         )
 
         is StopPlacesEvent.Query -> state.copy(query = event.value, notice = "")
+        is StopPlacesEvent.Unavailable -> state.copy(
+            notice = "${event.action}: сервіс не підключено. Дію не виконано."
+        )
         is StopPlacesEvent.Details -> if (stopPlaces.any { it.id == event.id }) {
             state.copy(selectedId = event.id, notice = "")
         } else {

@@ -3,16 +3,33 @@ import UIKit
 
 final class ProfileSettingsUITests: XCTestCase {
     private var app: XCUIApplication!
+    private var originalOrientation: UIDeviceOrientation = .unknown
+    private var originalTheme: String?
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         guard !UIAccessibility.isVoiceOverRunning else {
             throw XCTSkip("This is an ordinary touch check, not a VoiceOver check.")
         }
+        let currentOrientation = XCUIDevice.shared.orientation
+        originalOrientation = currentOrientation == .unknown ? .landscapeRight : currentOrientation
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launch()
         XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 10), app.debugDescription)
+        tap("Продовжити без входу · деморежим")
+        tap("Налаштування")
+        tap("Тема застосунку")
+        XCTAssertTrue(find("Зрозуміло").waitForExistence(timeout: 5), app.debugDescription)
+        originalTheme = ["Як у системі", "Світла", "Темна"].first {
+            let option = find($0)
+            return option.isSelected || option.value as? String == "1"
+        }
+        XCTAssertNotNil(originalTheme, app.debugDescription)
+        tap("Зрозуміло")
+        tap("Профіль")
+        tap("Вийти з деморежиму")
+        XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5), app.debugDescription)
         rotate(.portrait)
         attachText(
             "VoiceOver: \(UIAccessibility.isVoiceOverRunning)\n" +
@@ -20,6 +37,33 @@ final class ProfileSettingsUITests: XCTestCase {
             "Device: \(UIDevice.current.model), \(UIDevice.current.systemVersion)",
             name: "runtime-conditions"
         )
+    }
+
+    override func tearDownWithError() throws {
+        guard app != nil else { return }
+        app.terminate()
+        if let originalTheme {
+            app.launch()
+            guard find("З поверненням").waitForExistence(timeout: 15) else {
+                XCTFail("Could not relaunch the app to restore its original theme.")
+                app.terminate()
+                XCUIDevice.shared.orientation = originalOrientation
+                XCUIDevice.shared.press(.home)
+                return
+            }
+            tap("Продовжити без входу · деморежим")
+            tap("Налаштування")
+            tap("Тема застосунку")
+            XCTAssertTrue(find("Зрозуміло").waitForExistence(timeout: 5), app.debugDescription)
+            find(originalTheme).tap()
+            tap("Зрозуміло")
+            tap("Профіль")
+            tap("Вийти з деморежиму")
+            XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5), app.debugDescription)
+        }
+        app.terminate()
+        XCUIDevice.shared.orientation = originalOrientation
+        XCUIDevice.shared.press(.home)
     }
 
     func testProfileSettingsThemesRotationAndPersistence() {

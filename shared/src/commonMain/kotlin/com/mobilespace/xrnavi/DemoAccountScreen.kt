@@ -47,7 +47,8 @@ internal fun DemoAccountScreen(
     onApplyVehicleConfiguration: (DemoVehicleConfiguration) -> Unit,
     onExitDemo: () -> Unit,
     onRegister: () -> Unit,
-    onRecovery: () -> Unit
+    onRecovery: () -> Unit,
+    onOpenAdditional: ((AdditionalScreen) -> Unit)? = null
 ) {
     var viewedVehicleId by rememberSaveable { mutableStateOf(profile.vehicleId) }
     val viewedVehicle = demoVehicleById(viewedVehicleId) ?: profile.selectedVehicle ?: demoVehicle
@@ -157,7 +158,8 @@ internal fun DemoAccountScreen(
                     }
                     if (section == DemoSection.Garage) IconButton(
                         onClick = {
-                            unavailableAction = garageAddUnavailableExplanation
+                            if (onOpenAdditional != null) onOpenAdditional(AdditionalScreen.VehicleCatalog)
+                            else unavailableAction = garageAddUnavailableExplanation
                         },
                         modifier = Modifier.semantics {
                             contentDescription = "Додати транспорт · не підключено"
@@ -226,7 +228,11 @@ internal fun DemoAccountScreen(
                                                 viewedVehicleId = vehicle.id
                                                 onSectionChange(DemoSection.VehicleDetails)
                                             },
-                                            unavailable = { unavailableAction = it }
+                                            unavailable = {
+                                                if (it == garageAddUnavailableExplanation && onOpenAdditional != null)
+                                                    onOpenAdditional(AdditionalScreen.VehicleCatalog)
+                                                else unavailableAction = it
+                                            }
                                         )
                                     } else if (section == DemoSection.VehicleDetails) {
                                         VehicleProfileDetails(
@@ -269,8 +275,16 @@ internal fun DemoAccountScreen(
                                         )
                                         ProfileSecondaryActions(
                                             horizontal = layout == AccountLayout.PhonePortrait ||
-                                                    layout == AccountLayout.PhoneLandscape
+                                                    layout == AccountLayout.PhoneLandscape,
+                                            onOpenPrivacy = onOpenAdditional?.let { open ->
+                                                { open(AdditionalScreen.Privacy) }
+                                            },
+                                            onOpenSavedPlaces = onOpenSavedPlaces
                                         ) { unavailableAction = it }
+                                        AdditionalAccountActions(
+                                            listOf(AdditionalScreen.DriverTasks, AdditionalScreen.TripHistory,
+                                                AdditionalScreen.Invitation), onOpenAdditional
+                                        )
                                         TextButton(onClick = { onSectionChange(DemoSection.Settings) }) {
                                             Text("Відкрити налаштування")
                                         }
@@ -321,9 +335,18 @@ internal fun DemoAccountScreen(
                                                     columns = true,
                                                     first = { ProfileOrganization(profile, layout) },
                                                     second = {
-                                                        ProfileSecondaryActions {
+                                                        ProfileSecondaryActions(
+                                                            onOpenPrivacy = onOpenAdditional?.let { open ->
+                                                                { open(AdditionalScreen.Privacy) }
+                                                            },
+                                                            onOpenSavedPlaces = onOpenSavedPlaces
+                                                        ) {
                                                             unavailableAction = it
                                                         }
+                                                        AdditionalAccountActions(
+                                                            listOf(AdditionalScreen.DriverTasks, AdditionalScreen.TripHistory,
+                                                                AdditionalScreen.Invitation), onOpenAdditional
+                                                        )
                                                     }
                                                 )
                                                 TextButton(onClick = { onSectionChange(DemoSection.Settings) }) {
@@ -361,11 +384,17 @@ internal fun DemoAccountScreen(
                                         }
                                     }
                                     val offlineAndVersion: @Composable ColumnScope.() -> Unit = {
-                                        UnavailableSettingCard(
+                                        if (onOpenAdditional != null) AccountAction(
+                                            "Офлайн-мапи", "Відкрити · завантаження не підключено"
+                                        ) { onOpenAdditional(AdditionalScreen.OfflineMaps) }
+                                        else UnavailableSettingCard(
                                             UnavailableSetting(
                                                 "Офлайн-мапи",
                                                 "Завантажених мап немає. Map SDK і завантаження не підключено."
                                             )
+                                        )
+                                        AdditionalAccountActions(
+                                            listOf(AdditionalScreen.Company, AdditionalScreen.Diagnostics), onOpenAdditional
                                         )
                                         AccountBody("XRNavi $version · Mobile space")
                                         AccountBody("Демонстраційний UI. Дані акаунта та справжня навігація не підключені.")
@@ -465,6 +494,19 @@ internal fun DemoAccountScreen(
                     horizontalLabels = layout.tablet
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun AdditionalAccountActions(
+    destinations: List<AdditionalScreen>,
+    onOpenAdditional: ((AdditionalScreen) -> Unit)?
+) {
+    if (onOpenAdditional == null) return
+    destinations.forEach { destination ->
+        AccountAction(destination.title, "Відкрити · локальний приклад") {
+            onOpenAdditional(destination)
         }
     }
 }
@@ -1349,15 +1391,23 @@ private fun ProfileOrganization(profile: DemoProfileState, layout: AccountLayout
 }
 
 @Composable
-private fun ProfileSecondaryActions(horizontal: Boolean = false, unavailable: (String) -> Unit) {
+private fun ProfileSecondaryActions(
+    horizontal: Boolean = false,
+    onOpenPrivacy: (() -> Unit)? = null,
+    onOpenSavedPlaces: (() -> Unit)? = null,
+    unavailable: (String) -> Unit
+) {
     val security: @Composable () -> Unit = {
-        AccountAction("Безпека та особисті дані", "Не підключено") {
-            unavailable("Керування даними акаунта й видалення профілю не підключено. Демо-профіль не є акаунтом.")
+        AccountAction("Безпека та особисті дані",
+            if (onOpenPrivacy != null) "Відкрити центр приватності" else "Не підключено") {
+            if (onOpenPrivacy != null) onOpenPrivacy()
+            else unavailable("Керування даними акаунта й видалення профілю не підключено. Демо-профіль не є акаунтом.")
         }
     }
     val favorites: @Composable () -> Unit = {
-        AccountAction("Обране", "Немає даних") {
-            unavailable("Сервіс обраного не підключено. Збережених даних немає.")
+        AccountAction("Обране", if (onOpenSavedPlaces != null) "Локальні місця" else "Немає даних") {
+            if (onOpenSavedPlaces != null) onOpenSavedPlaces()
+            else unavailable("Сервіс обраного не підключено. Збережених даних немає.")
         }
     }
     if (horizontal) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

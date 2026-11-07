@@ -18,6 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -51,7 +52,10 @@ internal fun RecoveryScreen(
             onDismissRequest = { previewMenu = false },
             title = { Text("Внутрішній preview S41–S45") },
             text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+                Column(
+                    Modifier.testTag("recovery_preview_menu")
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Text(recoveryPreviewMessage, fontSize = 12.sp)
                     RecoveryStage.entries.forEach { stage ->
                         TextButton(onClick = {

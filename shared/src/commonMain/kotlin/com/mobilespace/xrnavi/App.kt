@@ -19,6 +19,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -246,7 +247,10 @@ fun App(
                 themeSettings = themeSettings,
                 onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
             )
-            Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+            Box(
+                Modifier.fillMaxSize().safeDrawingPadding()
+                    .testTag("connection_indicator_safe_area")
+            ) {
                 SnackbarHost(connectionSnackbar, Modifier.align(Alignment.BottomCenter))
                 ConnectionIndicator(
                     status = connectionStatus,
@@ -385,6 +389,15 @@ private fun XrnaviApplication(
     var sectionNavigation by rememberSaveable(stateSaver = DemoSectionNavigation.Saver) {
         mutableStateOf(DemoSectionNavigation())
     }
+    val additionalModel: AdditionalScreensViewModel = viewModel { AdditionalScreensViewModel() }
+    val additionalBloc = additionalModel.bloc
+    val additionalState by additionalBloc.state.collectAsStateWithLifecycle()
+    LaunchedEffect(additionalState.sectionTarget) {
+        additionalState.sectionTarget?.let {
+            sectionNavigation = sectionNavigation.open(it)
+            additionalBloc.dispatch(AdditionalScreensEvent.SectionHandled)
+        }
+    }
     val screen = AppScreen.valueOf(screenName)
     val sheetLevel = SheetLevel.valueOf(sheetName)
     val searchStatus = SearchStatus.valueOf(searchStatusName)
@@ -512,7 +525,9 @@ private fun XrnaviApplication(
                 }
             }
         }
-        if (
+        if (additionalState.screen != null) {
+            AdditionalScreens(additionalState, additionalBloc::dispatch)
+        } else if (
             sectionNavigation.section != DemoSection.Map &&
             demoMode &&
             screen != AppScreen.SavedPlaces
@@ -525,6 +540,7 @@ private fun XrnaviApplication(
                 onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
                 savedPlacesCount = savedPlaces.size,
                 onOpenSavedPlaces = { openSavedPlaces(SavedPlacesOrigin.Profile, null) },
+                onOpenAdditional = { additionalBloc.dispatch(AdditionalScreensEvent.Open(it)) },
                 onBack = { sectionNavigation = sectionNavigation.back() },
                 onSelectVehicle = { vehicle ->
                     val selection = selectGarageVehicle(selectedVehicleId, vehicle)
@@ -671,8 +687,7 @@ private fun XrnaviApplication(
                     dispatchStopPlaces(StopPlacesEvent.Open(StopPlacesSource.Map))
                 },
                 onUseLocation = {
-                    geoStatusName = GeoStatus.NotConfigured.name
-                    notice = geoStatusMessage(GeoStatus.NotConfigured)
+                    additionalBloc.dispatch(AdditionalScreensEvent.Open(AdditionalScreen.LocationEducation))
                 },
                 onSheetLevelChange = { sheetName = it.name },
                 onPreview = {
@@ -712,7 +727,9 @@ private fun XrnaviApplication(
                     }
                 },
                 onSectionChange = { sectionNavigation = sectionNavigation.open(it) },
-                onToggleTheme = onToggleTheme
+                onOpenAdditional = { additionalBloc.dispatch(AdditionalScreensEvent.Open(it)) },
+                onToggleTheme = onToggleTheme,
+                onMapLayers = { notice = "Шари мапи не підключено. Показано лише демонстраційний макет." }
             )
 
             AppScreen.RouteStops -> RouteStopsScreen(
@@ -782,7 +799,11 @@ private fun XrnaviApplication(
             AppScreen.StopPlaces -> StopPlacesScreen(
                 state = stopPlacesState,
                 onEvent = dispatchStopPlaces,
-                onToggleTheme = onToggleTheme
+                onToggleTheme = onToggleTheme,
+                onSectionChange = {
+                    screenName = AppScreen.Map.name
+                    sectionNavigation = sectionNavigation.open(it)
+                }
             )
 
             AppScreen.RouteSettings -> {

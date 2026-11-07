@@ -3,12 +3,15 @@ import UIKit
 
 final class MapScenarioUITests: XCTestCase {
     private var app: XCUIApplication!
+    private var originalOrientation: UIDeviceOrientation = .unknown
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         if !name.contains("VoiceOver") && UIAccessibility.isVoiceOverRunning {
             throw XCTSkip("Ordinary touch tests must run separately with VoiceOver disabled by consent.")
         }
+        let currentOrientation = XCUIDevice.shared.orientation
+        originalOrientation = currentOrientation == .unknown ? .landscapeRight : currentOrientation
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launch()
@@ -18,9 +21,18 @@ final class MapScenarioUITests: XCTestCase {
         waitForOrientation(.portrait)
     }
 
+    override func tearDownWithError() throws {
+        guard app != nil else { return }
+        if app.state != .notRunning {
+            app.terminate()
+        }
+        XCUIDevice.shared.orientation = originalOrientation
+        XCUIDevice.shared.press(.home)
+    }
+
     func testSignInButtonRespondsToTap() {
         app.buttons["Увійти"].tap()
-        XCTAssertTrue(element(containing: "Авторизацію не підключено").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(containing: "Вкажіть коректну електронну пошту").waitForExistence(timeout: 5))
     }
 
     func testDemoEntryNavigatesToMap() {
