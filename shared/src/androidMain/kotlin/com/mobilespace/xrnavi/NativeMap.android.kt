@@ -126,7 +126,10 @@ private class AndroidMapBridge(private val view: MapView) {
                 MapCommand.ZoomOut -> view.mapboxMap.setCamera(
                     CameraOptions.Builder().zoom((camera.zoom - 1).coerceAtLeast(0.0)).build(),
                 )
-                MapCommand.Recenter -> view.mapboxMap.setCamera(MapCamera().options())
+                MapCommand.Recenter -> view.mapboxMap.setCamera(
+                    overlay.user?.let { MapCamera(it.latitude, it.longitude, 14.0).options() }
+                        ?: MapCamera().options(),
+                )
                 MapCommand.None -> Unit
             }
         }
@@ -149,6 +152,7 @@ private class AndroidMapBridge(private val view: MapView) {
         val pins = listOfNotNull(
             overlay.origin?.let { it to "#FFFFFF" },
             overlay.destination?.let { it to "#E5484D" },
+            overlay.user?.let { it to "#2F7BFF" },
         )
         if (pins.isNotEmpty()) {
             val features = FeatureCollection.fromFeatures(pins.map { (point, color) ->

@@ -62,6 +62,8 @@ internal fun AuthenticatedMapScreen(
     dispatch: (MapEvent) -> Unit,
     routeState: RouteState,
     routeDispatch: (RouteEvent) -> Unit,
+    geoState: GeoState,
+    geoDispatch: (GeoEvent) -> Unit,
     expired: Boolean,
     onProfile: () -> Unit,
     modifier: Modifier = Modifier,
@@ -69,9 +71,11 @@ internal fun AuthenticatedMapScreen(
     val dark = isDarkXrnaviTheme()
     LaunchedEffect(dark) { dispatch(MapEvent.StyleChanged) }
     val ready = routeState.status as? RouteStatus.Ready
-    val overlay = remember(routeState.origin, routeState.destination, ready) {
+    val userPoint = geoState.reliableFix?.point
+    val overlay = remember(routeState.origin, routeState.destination, ready, userPoint) {
         MapOverlay(
-            route = ready?.route?.points.orEmpty(),
+            user = userPoint,
+            route = (ready?.route ?: routeState.previousRoute)?.points.orEmpty(),
             origin = routeState.origin?.point,
             destination = routeState.destination?.point,
         )
@@ -86,8 +90,12 @@ internal fun AuthenticatedMapScreen(
             if (routeState.editing == null) {
                 RouteCard(routeState, routeDispatch)
             } else {
-                AddressSearchCard(routeState, near, routeDispatch)
+                AddressSearchCard(routeState, near, geoState, routeDispatch, geoDispatch)
             }
+            GeoStatusCard(
+                geoState, geoDispatch,
+                onManualOrigin = { routeDispatch(RouteEvent.OpenSearch(RouteField.Origin)) },
+            )
             MapMessages(state, routeState, expired, dispatch, routeDispatch, onProfile)
         }
         Column(
@@ -100,10 +108,13 @@ internal fun AuthenticatedMapScreen(
             ) { dispatch(MapEvent.ToggleLayer) }
             MapControlButton(
                 Res.drawable.map_locate_light, Res.drawable.map_locate_dark, "Центр мапи",
-            ) { dispatch(MapEvent.Control(MapCommand.Recenter)) }
+            ) {
+                geoDispatch(GeoEvent.Locate)
+                dispatch(MapEvent.Control(MapCommand.Recenter, reliableUser = userPoint != null))
+            }
         }
         RouteSheet(
-            routeState, routeDispatch,
+            routeState, routeDispatch, geoState.reliableFix != null,
             Modifier.align(Alignment.BottomCenter),
         )
     }
@@ -203,7 +214,13 @@ private fun PlaceText(name: String?, placeholder: String, modifier: Modifier) {
 }
 
 @Composable
-private fun AddressSearchCard(state: RouteState, near: GeoPoint, dispatch: (RouteEvent) -> Unit) {
+private fun AddressSearchCard(
+    state: RouteState,
+    near: GeoPoint,
+    geo: GeoState,
+    dispatch: (RouteEvent) -> Unit,
+    geoDispatch: (GeoEvent) -> Unit,
+) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     val title = if (state.editing == RouteField.Origin) "Звідки" else "Куди"
@@ -227,9 +244,49 @@ private fun AddressSearchCard(state: RouteState, near: GeoPoint, dispatch: (Rout
                     modifier = Modifier.testTag("route-search-close"),
                 ) { Text("Закрити") }
             }
-            if (state.searching) CircularProgressIndicator(Modifier.size(20.dp))
-            if (state.searchError.isNotEmpty()) {
-                Text(state.searchError, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+            if (state.editing == RouteField.Origin) {
+                val fix = geo.reliableFix
+                Column(
+                    Modifier.fillMaxWidth()
+                        .clickable {
+                            if (fix != null) {
+                                dispatch(RouteEvent.UseCurrentLocation(
+                                    RoutePlace("Моє місцезнаходження", "Надійна позиція пристрою", fix.point),
+                                ))
+                            } else {
+                                dispatch(RouteEvent.CloseSearch)
+                                geoDispatch(GeoEvent.Locate)
+                            }
+                        }
+                        .testTag("route-use-current"),
+                ) {
+                    Text("Моє місцезнаходження", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(
+                        if (fix != null) "Надійна позиція" else "Потрібне визначення позиції",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            when (state.searchPhase) {
+                SearchPhase.Idle -> Text(
+                    "Введіть адресу (від 2 символів). Запит ще не виконується.",
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("search-idle"),
+                )
+                SearchPhase.Loading -> CircularProgressIndicator(Modifier.size(20.dp).testTag("search-loading"))
+                SearchPhase.Empty -> Text(
+                    "Нічого не знайдено. Це не помилка мережі: уточніть адресу.",
+                    fontSize = 13.sp, modifier = Modifier.testTag("search-empty"),
+                )
+                SearchPhase.Error -> Column(Modifier.testTag("search-error")) {
+                    Text(state.searchError, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    Text(
+                        "Перевірте з’єднання. Введена адреса збережена.",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = { dispatch(RouteEvent.RetrySearch) }) { Text("Повторити") }
+                }
+                SearchPhase.Results -> Unit
             }
             Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
                 state.suggestions.forEach { place ->
@@ -256,7 +313,12 @@ private fun AddressSearchCard(state: RouteState, near: GeoPoint, dispatch: (Rout
 }
 
 @Composable
-private fun RouteSheet(state: RouteState, dispatch: (RouteEvent) -> Unit, modifier: Modifier) {
+private fun RouteSheet(
+    state: RouteState,
+    dispatch: (RouteEvent) -> Unit,
+    reliableOrigin: Boolean,
+    modifier: Modifier,
+) {
     var drag by remember { mutableStateOf(0f) }
     val dragState = rememberDraggableState { drag += it }
     Surface(
@@ -288,9 +350,32 @@ private fun RouteSheet(state: RouteState, dispatch: (RouteEvent) -> Unit, modifi
                         .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp)),
                 )
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (state.sheet != SheetLevel.Expanded) {
+                    TextButton(
+                        onClick = { dispatch(RouteEvent.SetSheet(nextSheetLevelUp(state.sheet))) },
+                        modifier = Modifier.testTag("route-sheet-expand"),
+                    ) { Text("Розгорнути") }
+                }
+                if (state.sheet != SheetLevel.Collapsed) {
+                    TextButton(
+                        onClick = { dispatch(RouteEvent.SetSheet(previousSheetLevel(state.sheet))) },
+                        modifier = Modifier.testTag("route-sheet-collapse"),
+                    ) { Text("Згорнути") }
+                }
+            }
+            if (state.routeStale) {
+                Text(
+                    "Маршрут неактуальний: точки змінено, новий маршрут ще не побудовано.",
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("route-stale"),
+                )
+            }
             when (val status = state.status) {
                 RouteStatus.Idle -> Text(
-                    "Оберіть початок і призначення, щоб побудувати маршрут.",
+                    if (state.origin == null && state.destination == null) "Оберіть початок і призначення, щоб побудувати маршрут. Це не помилка."
+                    else if (state.origin == null) "Оберіть початок маршруту."
+                    else "Оберіть призначення.",
                     fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("route-idle"),
                 )
@@ -305,7 +390,7 @@ private fun RouteSheet(state: RouteState, dispatch: (RouteEvent) -> Unit, modifi
                     Text(status.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("route-error"))
                     TextButton(onClick = { dispatch(RouteEvent.Retry) }) { Text("Повторити") }
                 }
-                is RouteStatus.Ready -> ReadyContent(state, status.route, dispatch)
+                is RouteStatus.Ready -> ReadyContent(state, status.route, reliableOrigin, dispatch)
             }
         }
     }
@@ -317,7 +402,12 @@ private fun nextSheetLevelUp(level: SheetLevel) = when (level) {
 }
 
 @Composable
-private fun ReadyContent(state: RouteState, route: PlannedRoute, dispatch: (RouteEvent) -> Unit) {
+private fun ReadyContent(
+    state: RouteState,
+    route: PlannedRoute,
+    reliableOrigin: Boolean,
+    dispatch: (RouteEvent) -> Unit,
+) {
     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             formatDuration(route.durationSeconds), fontSize = 24.sp, fontWeight = FontWeight.Bold,
@@ -347,7 +437,7 @@ private fun ReadyContent(state: RouteState, route: PlannedRoute, dispatch: (Rout
     }
     XrnaviActionButton(
         text = "Почати маршрут",
-        onClick = { dispatch(RouteEvent.StartRequested) },
+        onClick = { dispatch(RouteEvent.StartRequested(reliableOrigin)) },
         height = 48.dp,
         cornerRadius = 14.dp,
         modifier = Modifier.fillMaxWidth().testTag("route-start"),

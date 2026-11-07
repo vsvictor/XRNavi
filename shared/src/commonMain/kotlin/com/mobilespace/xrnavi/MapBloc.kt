@@ -18,6 +18,7 @@ data class MapOverlay(
     val route: List<GeoPoint> = emptyList(),
     val origin: GeoPoint? = null,
     val destination: GeoPoint? = null,
+    val user: GeoPoint? = null,
 ) {
     val routeCoordinates: List<Double> get() = route.flatMap { listOf(it.latitude, it.longitude) }
 }
@@ -38,7 +39,7 @@ internal sealed interface MapEvent {
     data object ToggleLayer : MapEvent
     data class NativeStatus(val revision: Int, val status: MapLoadStatus) : MapEvent
     data class CameraChanged(val camera: MapCamera) : MapEvent
-    data class Control(val command: MapCommand) : MapEvent
+    data class Control(val command: MapCommand, val reliableUser: Boolean = false) : MapEvent
     data object SearchRequested : MapEvent
     data object PlacesRequested : MapEvent
     data object DismissNotice : MapEvent
@@ -63,9 +64,9 @@ internal class MapBloc {
             is MapEvent.CameraChanged -> current.copy(camera = event.camera)
             is MapEvent.Control -> current.copy(
                 command = event.command, commandId = current.commandId + 1,
-                notice = if (event.command == MapCommand.Recenter) {
-                    "Центр: Київ. Геолокацію не підключено; це не ваша поточна позиція."
-                } else current.notice,
+                notice = if (event.command == MapCommand.Recenter && !event.reliableUser) {
+                    "Центр: Київ. Це не ваша поточна позиція: надійного визначення місцезнаходження немає."
+                } else if (event.command == MapCommand.Recenter) "" else current.notice,
             )
             MapEvent.SearchRequested -> current.copy(
                 notice = "Пошук адрес і побудова маршрутів ще не підключені. Мапа та її жести доступні.",

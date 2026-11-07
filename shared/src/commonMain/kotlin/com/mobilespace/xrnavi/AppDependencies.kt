@@ -3,6 +3,7 @@ package com.mobilespace.xrnavi
 class AppDependencies(
     val mapFactory: PlatformMapFactory = PlatformMapFactory(),
     mapboxToken: () -> String = { "" },
+    val locationProvider: LocationProvider = UnavailableLocationProvider(),
 ) {
     internal val routePlanningService: RoutePlanningService = MapboxRoutePlanningService(mapboxToken)
     internal val connectionBloc = ConnectionBloc()

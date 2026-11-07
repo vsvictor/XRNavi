@@ -30,14 +30,23 @@ internal fun AuthenticatedAccountScreen(
     onLogout: () -> Unit,
     mapFactory: PlatformMapFactory,
     routeService: RoutePlanningService,
+    locationProvider: LocationProvider,
     onToggleTheme: () -> Unit,
 ) {
     val mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
     val mapState by mapViewModel.bloc.state.collectAsStateWithLifecycle()
     val routeViewModel: RouteViewModel = viewModel(factory = routeViewModelFactory(routeService))
     val routeState by routeViewModel.bloc.state.collectAsStateWithLifecycle()
+    val geoViewModel: GeoViewModel = viewModel(factory = geoViewModelFactory(locationProvider))
+    val geoState by geoViewModel.bloc.state.collectAsStateWithLifecycle()
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        geoViewModel.bloc.dispatch(GeoEvent.Refresh)
+        onPauseOrDispose {}
+    }
     AuthBackHandler {
-        dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
+        if (state.section != DemoSection.Map || !routeViewModel.bloc.handleBack()) {
+            dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
+        }
     }
     BoxWithConstraints(Modifier.fillMaxSize().testTag("authenticated-account")) {
         val layout = AccountLayout.forWindow(maxWidth.value, maxHeight.value)
@@ -71,6 +80,8 @@ internal fun AuthenticatedAccountScreen(
                         dispatch = mapViewModel.bloc::dispatch,
                         routeState = routeState,
                         routeDispatch = routeViewModel.bloc::dispatch,
+                        geoState = geoState,
+                        geoDispatch = geoViewModel.bloc::dispatch,
                         expired = state.expired,
                         onProfile = { navigate(DemoSection.Profile) },
                         modifier = Modifier.weight(1f).fillMaxSize(),

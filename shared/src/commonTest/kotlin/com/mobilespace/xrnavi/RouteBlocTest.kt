@@ -67,7 +67,7 @@ class RouteBlocTest {
     @Test
     fun startNeverClaimsNavigationIsAvailable() = runTest {
         val bloc = RouteBloc(FakeRoutePlanningService(), this)
-        bloc.dispatch(RouteEvent.StartRequested)
-        assertTrue(bloc.state.value.notice.contains("не підключена"))
+        bloc.dispatch(RouteEvent.StartRequested())
+        assertTrue(bloc.state.value.notice.contains("Спершу"))
     }
 }

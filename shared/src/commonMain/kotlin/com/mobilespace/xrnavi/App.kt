@@ -547,6 +547,7 @@ private fun XrnaviApplication(
                 onLogout = exitDemo,
                 mapFactory = dependencies.mapFactory,
                 routeService = dependencies.routePlanningService,
+                locationProvider = dependencies.locationProvider,
                 onToggleTheme = onToggleTheme,
             )
         } else if (additionalState.screen != null && demoMode) {
