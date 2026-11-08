@@ -7,6 +7,7 @@ fun MainViewController(mapFactory: IosMapViewFactory, mapboxToken: String) = run
         mapFactory = PlatformMapFactory(mapFactory),
         mapboxToken = { mapboxToken },
         locationProvider = IosLocationProvider(),
+        sessionStorage = IosKeychainSessionStorage(),
     )
     ComposeUIViewController { App(dependencies) }
 }

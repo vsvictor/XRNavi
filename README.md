@@ -294,6 +294,11 @@ field without replacing it. The envelope opens Android's user-controlled system 
 (no broad account-reading permission); selecting an account only fills the email field.
 iOS does not expose a public email-account list, so it displays an explanation and keeps manual entry.
 
+Password recovery uses the public methods `auth.requestPasswordReset` (`email`) and
+`auth.confirmPasswordReset` (`reset_token`, `new_password`) through `RecoveryService`, driven by
+`RecoveryBloc`. A rejected or expired token (-32001) shows the invalid-link screen. The server does
+not e-mail the token itself; the app receives it via `RecoveryViewModel.receiveResetToken`.
+
 Login calls `auth.login` on the current verified RPC connection with `email`, `password`, and
 `grant_type: "password"`, following the contract in
 [JSON-RPC-2-OAuth2](https://github.com/vsvictor/JSON-RPC-2-OAuth2), without including that repository.
@@ -313,6 +318,11 @@ Login also uses unencrypted TCP when that is the active fallback, as explicitly 
 Конверт відкриває системний вибір акаунта Android за дією користувача (без широкого дозволу
 на читання акаунтів); вибір лише заповнює пошту. iOS не надає публічного списку поштових
 акаунтів, тому відображається пояснення й залишається ручне введення.
+
+Відновлення пароля використовує публічні методи `auth.requestPasswordReset` (`email`) та
+`auth.confirmPasswordReset` (`reset_token`, `new_password`) через `RecoveryService` під керуванням
+`RecoveryBloc`. Відхилений або прострочений токен (-32001) відкриває екран недійсного посилання.
+Сервер сам не надсилає токен поштою; застосунок отримує його через `RecoveryViewModel.receiveResetToken`.
 
 Вхід викликає `auth.login` через поточне перевірене RPC-з'єднання з `email`, `password` та
 `grant_type: "password"` за контрактом JSON-RPC-2-OAuth2, без включення цього репозиторію.
@@ -402,6 +412,34 @@ remain visible instead of copying authenticated or connected-service states from
 
 [Profile and settings verification, 2026-10-27 (Ukrainian)](docs/profile-settings-ui-2026-10-27.md)
 records the checks and remaining platform limitations.
+
+### OAuth 2 session lifecycle / Життєвий цикл OAuth 2-сесії
+
+**English.** `SessionManager` owns the session; tokens are stored only in platform secure storage
+(Android Keystore AES-GCM, iOS Keychain `AfterFirstUnlockThisDeviceOnly`) and are never logged.
+- At launch `Restore` runs: no token → sign-in page; valid token → automatic sign-in; expired
+  token → `auth.refresh`. A server rejection (`-32001`) clears the tokens and opens sign-in;
+  a network failure keeps them and asks to sign in again.
+- Every server call goes through `AuthorizedRpc`: the token is validated (30 s skew) and refreshed
+  first; if the server still answers `-32001`, one refresh and one retry follow. Refreshes are
+  serialized by a mutex.
+- Calls sent without a token (`publicRpcMethods`): `auth.login`, `auth.register`, `auth.refresh`,
+  password-recovery methods. Mapbox requests use their own key and are not backend calls.
+- A background job refreshes the token shortly before it expires; a rejected refresh ends the session.
+- Logout clears stored tokens; closing the app keeps them.
+
+**Українською.** `SessionManager` керує сесією; токени зберігаються лише в захищеному сховищі
+платформи (Android Keystore AES-GCM, iOS Keychain `AfterFirstUnlockThisDeviceOnly`) і не логуються.
+- Під час запуску виконується `Restore`: токена немає → сторінка входу; токен чинний → автоматичний
+  вхід; токен застарів → `auth.refresh`. Відмова сервера (`-32001`) очищає токени й відкриває вхід;
+  помилка мережі зберігає їх і просить увійти знову.
+- Кожен виклик сервера проходить через `AuthorizedRpc`: токен перевіряється (запас 30 с) і за потреби
+  оновлюється; якщо сервер усе ж відповів `-32001` — одне оновлення й один повтор. Оновлення
+  серіалізуються mutex-ом.
+- Виклики без токена (`publicRpcMethods`): `auth.login`, `auth.register`, `auth.refresh`, методи
+  відновлення пароля. Запити Mapbox мають власний ключ і не є викликами бекенду.
+- Фонове завдання оновлює токен перед завершенням строку; відхилене оновлення завершує сесію.
+- Вихід очищає збережені токени; закриття застосунку їх зберігає.
 
 ### Mapbox map / Мапа Mapbox
 

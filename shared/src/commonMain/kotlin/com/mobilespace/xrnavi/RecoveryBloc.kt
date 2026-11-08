@@ -1,20 +1,67 @@
 package com.mobilespace.xrnavi
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
-internal class RecoveryBloc(previewEnabled: Boolean = false) {
-    private val mutableState = MutableStateFlow(RecoveryState(previewEnabled = previewEnabled))
+internal class RecoveryBloc(
+    previewEnabled: Boolean = false,
+    private val service: RecoveryService? = null,
+    private val scope: CoroutineScope? = null,
+) {
+    private val mutableState = MutableStateFlow(
+        RecoveryState(previewEnabled = previewEnabled, serviceAvailable = service != null && scope != null)
+    )
     val state = mutableState.asStateFlow()
 
     fun dispatch(event: RecoveryEvent) {
-        mutableState.value = transition(mutableState.value, event)
+        val before = mutableState.value
+        val after = transition(before, event)
+        mutableState.value = after
+        if (after.busy && !before.busy) when (event) {
+            RecoveryEvent.ResetRequested -> launchRequest(after.email)
+            RecoveryEvent.NewPasswordSubmitted -> launchConfirm(after.resetToken, after.password)
+            else -> Unit
+        }
+    }
+
+    private fun launchRequest(email: String) {
+        val service = service ?: return
+        scope?.launch {
+            val result = try {
+                service.requestReset(email.trim())
+                RecoveryEvent.RequestAccepted
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                RecoveryEvent.RequestFailed(recoveryNetworkMessage)
+            }
+            dispatch(result)
+        }
+    }
+
+    private fun launchConfirm(token: String, password: String) {
+        val service = service ?: return
+        scope?.launch {
+            val result = try {
+                service.confirmReset(token, password)
+                RecoveryEvent.ResetCompleted
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                RecoveryEvent.ResetFailed(error.isAuthRejection(), recoveryNetworkMessage)
+            }
+            dispatch(result)
+        }
     }
 
     companion object {
         fun transition(state: RecoveryState, event: RecoveryEvent): RecoveryState {
             val preview = state.previewEnabled
-            val newPassword = preview && state.stage == RecoveryStage.NewPassword
+            val newPassword = (preview || state.resetToken.isNotEmpty()) &&
+                state.stage == RecoveryStage.NewPassword && !state.busy
             return when (event) {
                 is RecoveryEvent.EmailChanged ->
                     state.copy(email = event.value, emailTouched = true, notice = "")
@@ -26,8 +73,11 @@ internal class RecoveryBloc(previewEnabled: Boolean = false) {
                     if (state.stage != RecoveryStage.Request) state
                     else {
                         val touched = state.copy(emailTouched = true)
-                        if (touched.canRequest) touched.copy(notice = recoveryUnavailableMessage)
-                        else touched
+                        when {
+                            !touched.canRequest -> touched
+                            touched.serviceAvailable -> touched.copy(busy = true, notice = "")
+                            else -> touched.copy(notice = recoveryUnavailableMessage)
+                        }
                     }
                 }
 
@@ -66,18 +116,45 @@ internal class RecoveryBloc(previewEnabled: Boolean = false) {
                     if (!newPassword) state
                     else {
                         val touched = state.copy(passwordTouched = true, confirmationTouched = true)
-                        if (touched.canReset) cleared(touched)
-                            .copy(notice = passwordResetUnavailableMessage)
-                        else touched
+                        when {
+                            !touched.canReset -> touched
+                            touched.serviceAvailable && touched.resetToken.isNotEmpty() ->
+                                touched.copy(busy = true, notice = "")
+                            else -> cleared(touched).copy(notice = passwordResetUnavailableMessage)
+                        }
                     }
                 }
 
                 RecoveryEvent.Cancelled ->
                     cleared(state).copy(
-                        notice = "", stage = RecoveryStage.Request, email = "", emailTouched = false
+                        resetToken = "", busy = false, notice = "", stage = RecoveryStage.Request, email = "", emailTouched = false
                     )
 
-                RecoveryEvent.Cleared -> cleared(state)
+                RecoveryEvent.Cleared -> cleared(state).copy(resetToken = "")
+
+                is RecoveryEvent.TokenReceived ->
+                    if (!state.serviceAvailable || event.token.isBlank()) state
+                    else cleared(state).copy(
+                        resetToken = event.token, stage = RecoveryStage.NewPassword,
+                        notice = "", busy = false
+                    )
+
+                RecoveryEvent.RequestAccepted ->
+                    if (!state.busy) state
+                    else state.copy(busy = false, notice = "", stage = RecoveryStage.CheckEmail)
+
+                is RecoveryEvent.RequestFailed ->
+                    if (!state.busy) state else state.copy(busy = false, notice = event.message)
+
+                RecoveryEvent.ResetCompleted ->
+                    if (!state.busy) state
+                    else cleared(state).copy(busy = false, resetToken = "", stage = RecoveryStage.Changed)
+
+                is RecoveryEvent.ResetFailed ->
+                    if (!state.busy) state
+                    else if (event.invalidToken) cleared(state).copy(
+                        busy = false, resetToken = "", stage = RecoveryStage.InvalidLink
+                    ) else state.copy(busy = false, notice = event.message)
             }
         }
 

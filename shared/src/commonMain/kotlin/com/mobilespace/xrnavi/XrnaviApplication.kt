@@ -23,11 +23,15 @@ internal fun XrnaviApplication(
 ) {
     val accountViewModel: AuthenticatedAccountViewModel = viewModel(
         factory = remember(dependencies) {
-            authenticatedAccountViewModelFactory(dependencies.authenticatedProfileService)
+            authenticatedAccountViewModelFactory(
+                dependencies.authenticatedProfileService,
+                dependencies.sessionManager,
+            )
         }
     )
     val accountBloc = accountViewModel.bloc
     val accountState by accountBloc.state.collectAsStateWithLifecycle()
+    LaunchedEffect(accountBloc) { accountBloc.dispatch(AuthenticatedAccountEvent.Restore) }
     val signInViewModel: SignInViewModel = viewModel(
         factory = remember(dependencies, accountBloc) {
             signInViewModelFactory(dependencies.signInAuthService) {
@@ -50,7 +54,9 @@ internal fun XrnaviApplication(
     val registrationViewModel: RegistrationViewModel = viewModel(factory = RegistrationViewModelFactory)
     val previewEnabled = internalAuthPreviewEnabled()
     val recoveryViewModel: RecoveryViewModel = viewModel(
-        factory = remember(previewEnabled) { recoveryViewModelFactory(previewEnabled) }
+        factory = remember(previewEnabled, dependencies.recoveryService) {
+            recoveryViewModelFactory(previewEnabled, dependencies.recoveryService)
+        }
     )
     val savedPlacesStore = rememberSavedPlacesStore()
     val routeStopsStore = rememberRouteStopsStore()
@@ -119,7 +125,9 @@ internal fun XrnaviApplication(
             accountBloc.dispatch(AuthenticatedAccountEvent.Logout)
             dispatch(DemoAppEvent.DemoExited)
         }
-        if (accountState.mode == AccountMode.Authenticated) {
+        if (accountState.restoring) {
+            SessionRestoringScreen()
+        } else if (accountState.mode == AccountMode.Authenticated) {
             AuthenticatedAccountScreen(
                 state = accountState,
                 dispatch = accountBloc::dispatch,

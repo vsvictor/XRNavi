@@ -18,6 +18,7 @@ class XrnaviAndroidApplication : Application() {
         AppDependencies(
             mapboxToken = { getString(R.string.mapbox_access_token) },
             locationProvider = locationProvider,
+            sessionStorage = AndroidKeystoreSessionStorage(this),
         )
     }
 }

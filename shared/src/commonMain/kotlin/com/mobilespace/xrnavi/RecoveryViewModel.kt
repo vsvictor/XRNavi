@@ -4,13 +4,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.launch
 
 /** Compose-facing host of [RecoveryBloc]: mirrors its state and forwards intents as events. */
-internal class RecoveryViewModel(previewEnabled: Boolean = false) : ViewModel() {
-    private val bloc = RecoveryBloc(previewEnabled)
+internal class RecoveryViewModel(
+    previewEnabled: Boolean = false,
+    service: RecoveryService? = null,
+) : ViewModel() {
+    private val bloc = RecoveryBloc(previewEnabled, service, if (service != null) viewModelScope else null)
     private var current by mutableStateOf(bloc.state.value)
+
+    init {
+        if (service != null) viewModelScope.launch { bloc.state.collect { current = it } }
+    }
 
     private fun dispatch(event: RecoveryEvent) {
         bloc.dispatch(event)
@@ -29,6 +38,7 @@ internal class RecoveryViewModel(previewEnabled: Boolean = false) : ViewModel() 
     val confirmationError get() = current.confirmationError
     val canRequest get() = current.canRequest
     val canReset get() = current.canReset
+    val busy get() = current.busy
 
     fun updateEmail(value: String) = dispatch(RecoveryEvent.EmailChanged(value))
     fun touchEmail() = dispatch(RecoveryEvent.EmailTouched)
@@ -50,6 +60,7 @@ internal class RecoveryViewModel(previewEnabled: Boolean = false) : ViewModel() 
     fun toggleConfirmationVisibility() = dispatch(RecoveryEvent.ConfirmationVisibilityToggled)
     fun submitNewPassword() = dispatch(RecoveryEvent.NewPasswordSubmitted)
     fun cancel() = dispatch(RecoveryEvent.Cancelled)
+    fun receiveResetToken(token: String) = dispatch(RecoveryEvent.TokenReceived(token))
 
     override fun onCleared() {
         dispatch(RecoveryEvent.Cleared)
@@ -57,6 +68,6 @@ internal class RecoveryViewModel(previewEnabled: Boolean = false) : ViewModel() 
     }
 }
 
-internal fun recoveryViewModelFactory(previewEnabled: Boolean) = viewModelFactory {
-    initializer { RecoveryViewModel(previewEnabled) }
+internal fun recoveryViewModelFactory(previewEnabled: Boolean, service: RecoveryService? = null) = viewModelFactory {
+    initializer { RecoveryViewModel(previewEnabled, service) }
 }

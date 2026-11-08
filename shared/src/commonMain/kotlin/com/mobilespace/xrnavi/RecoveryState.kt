@@ -12,6 +12,9 @@ internal const val recoveryUnavailableMessage =
     "Відновлення пароля ще не підключено. Дані не надіслано"
 internal const val passwordResetUnavailableMessage =
     "Зміну пароля ще не підключено. Пароль не змінено. Дані не надіслано"
+internal const val recoveryNetworkMessage =
+    "Не вдалося зв’язатися із сервером. Спробуйте ще раз"
+
 internal const val recoveryPreviewMessage =
     "Внутрішній preview · демо. Листи не надсилалися, токен не перевірявся, пароль не змінювався."
 internal const val recoveryMailUnavailableMessage =
@@ -28,7 +31,10 @@ internal data class RecoveryState(
     val notice: String = "",
     val emailTouched: Boolean = false,
     val passwordTouched: Boolean = false,
-    val confirmationTouched: Boolean = false
+    val confirmationTouched: Boolean = false,
+    val serviceAvailable: Boolean = false,
+    val resetToken: String = "",
+    val busy: Boolean = false
 ) {
     val emailError: String?
         get() = emailValidationError(email).takeIf { emailTouched }
@@ -37,9 +43,10 @@ internal data class RecoveryState(
     val confirmationError: String?
         get() = passwordConfirmationError(password, confirmation).takeIf { confirmationTouched }
     val canRequest: Boolean
-        get() = stage == RecoveryStage.Request && emailValidationError(email) == null
+        get() = stage == RecoveryStage.Request && !busy && emailValidationError(email) == null
     val canReset: Boolean
-        get() = previewEnabled && stage == RecoveryStage.NewPassword &&
+        get() = (previewEnabled || resetToken.isNotEmpty()) && !busy &&
+                stage == RecoveryStage.NewPassword &&
                 passwordValidationError(password) == null &&
                 passwordConfirmationError(password, confirmation) == null
 }
@@ -61,4 +68,9 @@ internal sealed interface RecoveryEvent {
     data object NewPasswordSubmitted : RecoveryEvent
     data object Cancelled : RecoveryEvent
     data object Cleared : RecoveryEvent
+    data class TokenReceived(val token: String) : RecoveryEvent
+    data object RequestAccepted : RecoveryEvent
+    data class RequestFailed(val message: String) : RecoveryEvent
+    data object ResetCompleted : RecoveryEvent
+    data class ResetFailed(val invalidToken: Boolean, val message: String) : RecoveryEvent
 }
