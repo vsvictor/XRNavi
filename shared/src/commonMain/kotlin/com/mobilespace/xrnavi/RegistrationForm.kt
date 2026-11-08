@@ -22,7 +22,6 @@ import xrnavi.shared.generated.resources.*
 internal fun RegistrationForm(
     model: RegistrationViewModel,
     modifier: Modifier,
-    onDocuments: () -> Unit,
     onBack: () -> Unit
 ) {
     val focus = LocalFocusManager.current
@@ -86,15 +85,11 @@ internal fun RegistrationForm(
             )
             Text(
                 "Погоджуюся з Умовами користування та Політикою конфіденційності.",
-                fontSize = 12.sp,
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                maxLines = 2,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
-            )
-        }
-        TextButton(onClick = onDocuments) {
-            Text(
-                "Умови та конфіденційність · недоступні",
-                fontSize = 12.sp
             )
         }
         Button(
@@ -106,12 +101,9 @@ internal fun RegistrationForm(
             enabled = model.canSubmit,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
             shape = RoundedCornerShape(26.dp)
-        ) { Text("Створити акаунт") }
+        ) { Text("Реєстрація") }
         if (model.notice.isNotEmpty()) {
             AuthInfo(model.notice)
-        }
-        if (model.membership == RegistrationMembership.Personal) {
-            AuthInfo(invitationUnavailableMessage)
         }
         TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
             Text("Уже маєте акаунт? Увійти")

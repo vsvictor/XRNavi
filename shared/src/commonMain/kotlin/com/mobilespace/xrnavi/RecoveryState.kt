@@ -1,7 +1,7 @@
 package com.mobilespace.xrnavi
 
 internal enum class RecoveryStage(val code: String, val title: String) {
-    Request("S41", "Відновити пароль"),
+    Request("S41", "Відновлення пароля"),
     CheckEmail("S42", "Перевірте пошту"),
     NewPassword("S43", "Новий пароль"),
     Changed("S44", "Пароль змінено"),
@@ -88,6 +88,7 @@ internal sealed interface RecoveryEvent {
     data class TokenInputChanged(val value: String) : RecoveryEvent
     data object TokenSubmitted : RecoveryEvent
     data class TokenReceived(val token: String) : RecoveryEvent
+    data class Restored(val email: String) : RecoveryEvent
     data object RequestAccepted : RecoveryEvent
     data class RequestFailed(val message: String) : RecoveryEvent
     data object ResetCompleted : RecoveryEvent

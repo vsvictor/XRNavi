@@ -128,11 +128,12 @@ internal fun SignInScreen(
             .fillMaxSize()
     ) {
         val availableWidth = maxWidth
-        val splitLayout = windowSize.width > windowSize.height
+        val splitLayout = maxWidth > maxHeight
+        LaunchedEffect(splitLayout) { formScroll.scrollTo(0) }
         val heroHeight = when {
-            windowHeight < 680.dp -> 210.dp
-            availableWidth >= 600.dp -> 330.dp
-            else -> 280.dp
+            maxHeight < 680.dp -> 196.dp
+            availableWidth >= 600.dp -> maxHeight * 0.45f
+            else -> 266.dp
         }
         val screenBackground = Modifier.drawBehind {
             if (dark) {
@@ -163,12 +164,17 @@ internal fun SignInScreen(
                     dark = dark,
                     horizontalLayout = true
                 )
-                SignInForm(
+                Column(
                     modifier = Modifier
                         .weight(1.1f)
                         .fillMaxHeight()
                         .verticalScroll(formScroll)
-                        .padding(horizontal = 24.dp, vertical = 18.dp),
+                        .padding(horizontal = 24.dp, vertical = 18.dp)
+                ) {
+                HeroTitle(title = null, horizontalLayout = true)
+                Spacer(Modifier.height(12.dp))
+                SignInForm(
+                    modifier = Modifier.fillMaxWidth(),
                     email = email,
                     onEmailChange = onEmailChange,
                     password = password,
@@ -184,6 +190,7 @@ internal fun SignInScreen(
                     onForgotPassword = onForgotPassword,
                     dark = dark
                 )
+                }
             }
         } else {
             Column(
@@ -200,6 +207,12 @@ internal fun SignInScreen(
                     dark = dark,
                     horizontalLayout = false
                 )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = (windowHeight - heroHeight).coerceAtLeast(0.dp)),
+                    contentAlignment = Alignment.TopCenter
+                ) {
                 SignInForm(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -220,6 +233,7 @@ internal fun SignInScreen(
                     onForgotPassword = onForgotPassword,
                     dark = dark
                 )
+                }
             }
         }
     }

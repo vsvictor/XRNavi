@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import xrnavi.shared.generated.resources.Res
@@ -55,14 +56,6 @@ internal fun SignInForm(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "З поверненням",
-            fontFamily = rememberRobotoCondensedFontFamily(),
-            fontSize = 28.sp,
-            lineHeight = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
         LabeledInput(
             label = "Електронна пошта",
             value = email,
@@ -147,23 +140,6 @@ internal fun SignInForm(
             )
         }
         Text(
-            text = "Apple та Google не підключені",
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = "Продовжити без входу · деморежим",
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .clickable(role = Role.Button, onClick = onDemo)
-                .padding(vertical = 9.dp),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
             text = "Не маєте акаунта? Зареєструватися",
             modifier = Modifier
                 .fillMaxWidth()
@@ -172,21 +148,5 @@ internal fun SignInForm(
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.primary
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FigmaIcon(
-                light = Res.drawable.sign_in_building_light,
-                dark = Res.drawable.sign_in_building_dark,
-                modifier = Modifier.size(13.dp)
-            )
-            Text(
-                text = "  Вхід через вашу організацію · не підключено",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }

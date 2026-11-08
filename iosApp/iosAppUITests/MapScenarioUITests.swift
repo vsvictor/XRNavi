@@ -16,7 +16,7 @@ final class MapScenarioUITests: XCTestCase {
         app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
-        XCTAssertTrue(element(containing: "З поверненням").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(containing: "Вхід").waitForExistence(timeout: 10))
         XCUIDevice.shared.orientation = .portrait
         waitForOrientation(.portrait)
     }
@@ -320,7 +320,7 @@ final class MapScenarioUITests: XCTestCase {
             element(containing: "Вантажний транспорт · демо 01").waitForExistence(timeout: 5),
             app.debugDescription
         )
-        XCTAssertFalse(element(containing: "З поверненням").exists)
+        XCTAssertFalse(element(containing: "Вхід").exists)
         XCTAssertTrue(
             element(containing: "Mapbox").waitForExistence(timeout: 5),
             app.debugDescription
@@ -338,7 +338,7 @@ final class MapScenarioUITests: XCTestCase {
         XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"))
         XCTAssertTrue(app.buttons["Вантажне"].isSelected)
         tapElement(containing: "Тема")
-        XCTAssertFalse(element(containing: "З поверненням").exists, app.debugDescription)
+        XCTAssertFalse(element(containing: "Вхід").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "Хрещатик, 22").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists, app.debugDescription)
         XCTAssertTrue(app.buttons["Вантажне"].isSelected, app.debugDescription)
@@ -358,7 +358,7 @@ final class MapScenarioUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Вантажне"].isSelected)
         attachScreenshot(named: "theme-toggled-once")
         tapElement(containing: "Тема")
-        XCTAssertFalse(element(containing: "З поверненням").exists, app.debugDescription)
+        XCTAssertFalse(element(containing: "Вхід").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "Хрещатик, 22").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists, app.debugDescription)
         XCTAssertTrue(app.buttons["Вантажне"].isSelected, app.debugDescription)
@@ -368,7 +368,7 @@ final class MapScenarioUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
-        XCTAssertFalse(element(containing: "З поверненням").exists, app.debugDescription)
+        XCTAssertFalse(element(containing: "Вхід").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "Хрещатик, 22").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists, app.debugDescription)
         XCTAssertTrue(app.buttons["Вантажне"].isSelected, app.debugDescription)

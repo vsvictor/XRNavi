@@ -22,7 +22,7 @@ internal class RecoveryBloc(
         mutableState.value = after
         if (after.busy && !before.busy) when (event) {
             RecoveryEvent.ResetRequested, RecoveryEvent.Resent -> launchRequest(after.email)
-            RecoveryEvent.NewPasswordSubmitted -> launchConfirm(after.resetToken, after.password)
+            RecoveryEvent.NewPasswordSubmitted -> launchConfirm(after.email, after.resetToken, after.password)
             else -> Unit
         }
     }
@@ -42,11 +42,11 @@ internal class RecoveryBloc(
         }
     }
 
-    private fun launchConfirm(token: String, password: String) {
+    private fun launchConfirm(email: String, token: String, password: String) {
         val service = service ?: return
         scope?.launch {
             val result = try {
-                service.confirmReset(token, password)
+                service.confirmReset(email, token, password)
                 RecoveryEvent.ResetCompleted
             } catch (error: CancellationException) {
                 throw error
@@ -151,6 +151,11 @@ internal class RecoveryBloc(
                         resetToken = event.token, stage = RecoveryStage.NewPassword,
                         notice = "", busy = false
                     )
+
+                is RecoveryEvent.Restored ->
+                    if (state.serviceAvailable && state.stage == RecoveryStage.Request &&
+                        emailValidationError(event.email) == null
+                    ) state.copy(email = event.email, stage = RecoveryStage.CheckEmail) else state
 
                 RecoveryEvent.RequestAccepted ->
                     if (!state.busy) state

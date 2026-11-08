@@ -13,18 +13,33 @@ import kotlinx.coroutines.launch
 internal class RecoveryViewModel(
     previewEnabled: Boolean = false,
     service: RecoveryService? = null,
+    private val progress: RecoveryProgressStore? = null,
 ) : ViewModel() {
     private val bloc = RecoveryBloc(previewEnabled, service, if (service != null) viewModelScope else null)
     private var current by mutableStateOf(bloc.state.value)
 
     init {
-        if (service != null) viewModelScope.launch { bloc.state.collect { current = it } }
+        progress?.read()?.let { bloc.dispatch(RecoveryEvent.Restored(it)); current = bloc.state.value }
+        if (service != null) viewModelScope.launch {
+            bloc.state.collect {
+                current = it
+                saveProgress(it)
+            }
+        }
     }
 
     private fun dispatch(event: RecoveryEvent) {
         bloc.dispatch(event)
         current = bloc.state.value
+        saveProgress(current)
     }
+
+    private fun saveProgress(state: RecoveryState) {
+        if (progress == null || notLive(state)) return
+        progress.write(if (state.stage == RecoveryStage.CheckEmail) state.email.trim() else null)
+    }
+
+    private fun notLive(state: RecoveryState) = !state.serviceAvailable
 
     val stage get() = current.stage
     val email get() = current.email
@@ -73,6 +88,10 @@ internal class RecoveryViewModel(
     }
 }
 
-internal fun recoveryViewModelFactory(previewEnabled: Boolean, service: RecoveryService? = null) = viewModelFactory {
-    initializer { RecoveryViewModel(previewEnabled, service) }
+internal fun recoveryViewModelFactory(
+    previewEnabled: Boolean,
+    service: RecoveryService? = null,
+    progress: RecoveryProgressStore? = null,
+) = viewModelFactory {
+    initializer { RecoveryViewModel(previewEnabled, service, progress) }
 }

@@ -21,11 +21,14 @@ import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.darwin.NSObject
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_global_queue
+import platform.posix.QOS_CLASS_UTILITY
 
 class IosLocationProvider : LocationProvider {
     private val manager = CLLocationManager()
     private val mutablePermission = MutableStateFlow(readPermission())
-    private val mutableService = MutableStateFlow(readService())
+    private val mutableService = MutableStateFlow(true)
     private var onFix: ((DeviceFix) -> Unit)? = null
 
     private val delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
@@ -41,6 +44,7 @@ class IosLocationProvider : LocationProvider {
     init {
         manager.delegate = delegate
         manager.desiredAccuracy = kCLLocationAccuracyBest
+        refreshService()
     }
 
     override val permission: StateFlow<LocationPermission> = mutablePermission
@@ -48,7 +52,14 @@ class IosLocationProvider : LocationProvider {
 
     override fun refresh() {
         mutablePermission.value = readPermission()
-        mutableService.value = readService()
+        refreshService()
+    }
+
+    // locationServicesEnabled() блокує потік, тому викликається поза головним.
+    private fun refreshService() {
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY.toLong(), 0u)) {
+            mutableService.value = CLLocationManager.locationServicesEnabled()
+        }
     }
 
     override fun requestPermission() {
@@ -72,8 +83,6 @@ class IosLocationProvider : LocationProvider {
         val point = location.coordinate.useContents { GeoPoint(latitude, longitude) }
         onFix?.invoke(DeviceFix(point, (location.timestamp.timeIntervalSinceReferenceDate + platform.Foundation.NSTimeIntervalSince1970 * 1000).toLong()))
     }
-
-    private fun readService() = CLLocationManager.locationServicesEnabled()
 
     private fun readPermission(): LocationPermission = when (manager.authorizationStatus) {
         kCLAuthorizationStatusAuthorizedAlways, kCLAuthorizationStatusAuthorizedWhenInUse -> LocationPermission.Granted

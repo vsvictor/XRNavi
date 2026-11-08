@@ -15,7 +15,7 @@ class RecoveryBlocServiceTest {
             requested += email
         }
 
-        override suspend fun confirmReset(resetToken: String, newPassword: String) {
+        override suspend fun confirmReset(email: String, resetToken: String, newPassword: String) {
             failure?.let { throw it }
             confirmed += resetToken to newPassword
         }
@@ -112,9 +112,23 @@ class RecoveryBlocServiceTest {
         val calls = mutableListOf<Pair<String, String>>()
         val rpc = RpcRecoveryService { m, p -> calls += m to p; "{}" }
         rpc.requestReset("a@b.co")
-        rpc.confirmReset("t", "p")
+        rpc.confirmReset("a@b.co", "t", "p")
+        rpc.confirmReset("a@b.co", "123456", "p")
         assertEquals("auth.requestPasswordReset", calls[0].first)
         assertEquals("auth.confirmPasswordReset", calls[1].first)
         assertTrue(calls[1].second.contains("reset_token"))
+        assertTrue(calls[2].second.contains("\"code\""))
+        assertTrue(calls[2].second.contains("a@b.co"))
+    }
+
+    @Test
+    fun restoredEmailReturnsToCodeStageOnlyWithLiveService() {
+        val restored = bloc(FakeService())
+        restored.dispatch(RecoveryEvent.Restored("a@b.co"))
+        assertEquals(RecoveryStage.CheckEmail, restored.state.value.stage)
+        assertEquals("a@b.co", restored.state.value.email)
+        val demo = RecoveryBloc()
+        demo.dispatch(RecoveryEvent.Restored("a@b.co"))
+        assertEquals(RecoveryStage.Request, demo.state.value.stage)
     }
 }

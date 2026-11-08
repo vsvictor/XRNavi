@@ -5,8 +5,10 @@ import kotlinx.serialization.json.put
 
 internal interface RecoveryService {
     suspend fun requestReset(email: String)
-    suspend fun confirmReset(resetToken: String, newPassword: String)
+    suspend fun confirmReset(email: String, resetToken: String, newPassword: String)
 }
+
+private fun String.isResetCode() = length == 6 && all { it in '0'..'9' }
 
 internal class RpcRecoveryService(
     private val call: suspend (method: String, paramsJson: String) -> String,
@@ -15,9 +17,14 @@ internal class RpcRecoveryService(
         call("auth.requestPasswordReset", buildJsonObject { put("email", email) }.toString())
     }
 
-    override suspend fun confirmReset(resetToken: String, newPassword: String) {
+    override suspend fun confirmReset(email: String, resetToken: String, newPassword: String) {
         val params = buildJsonObject {
-            put("reset_token", resetToken)
+            if (resetToken.isResetCode()) {
+                put("email", email.trim())
+                put("code", resetToken)
+            } else {
+                put("reset_token", resetToken)
+            }
             put("new_password", newPassword)
         }
         call("auth.confirmPasswordReset", params.toString())

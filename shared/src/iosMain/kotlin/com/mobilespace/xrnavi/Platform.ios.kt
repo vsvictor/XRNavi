@@ -2,8 +2,9 @@ package com.mobilespace.xrnavi
 
 import platform.UIKit.UIDevice
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.backhandler.BackHandler
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.compose.runtime.remember
 import platform.Foundation.NSBundle
 import platform.Foundation.NSUserDefaults
@@ -17,10 +18,12 @@ actual fun getPlatform(): Platform = IOSPlatform()
 
 internal actual fun Modifier.exportTestTags(): Modifier = this
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal actual fun AuthBackHandler(onBack: () -> Unit) {
-    BackHandler(onBack = onBack)
+    NavigationBackHandler(
+        state = rememberNavigationEventState(NavigationEventInfo.None),
+        onBackCompleted = onBack
+    )
 }
 
 @Composable
@@ -77,3 +80,17 @@ internal actual fun rememberAppVersion(): String = remember {
     val build = bundle.objectForInfoDictionaryKey("CFBundleVersion") as? String ?: "—"
     "$version ($build)"
 }
+private class IosRecoveryProgressStore : RecoveryProgressStore {
+    private val preferences = NSUserDefaults.standardUserDefaults
+
+    override fun read(): String? = preferences.stringForKey(recoveryProgressPreferenceKey)
+
+    override fun write(email: String?) {
+        if (email == null) preferences.removeObjectForKey(recoveryProgressPreferenceKey)
+        else preferences.setObject(email, forKey = recoveryProgressPreferenceKey)
+    }
+}
+
+@Composable
+internal actual fun rememberRecoveryProgressStore(): RecoveryProgressStore =
+    remember { IosRecoveryProgressStore() }

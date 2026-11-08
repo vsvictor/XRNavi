@@ -34,18 +34,10 @@ internal fun RecoveryContent(
     }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (!model.live && model.stage != RecoveryStage.Request) AuthInfo(recoveryPreviewMessage)
-        Text(
-            if (model.live || model.stage == RecoveryStage.Request) model.stage.title else "${model.stage.title} · демо",
-            fontFamily = rememberRobotoCondensedFontFamily(),
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.semantics { heading() }
-        )
         when (model.stage) {
             RecoveryStage.Request -> {
                 RecoveryBody(
-                    if (model.live) "Вкажіть електронну пошту акаунта, щоб отримати токен відновлення."
+                    if (model.live) "Вкажіть електронну пошту акаунта, щоб отримати лист із кодом відновлення."
                     else "Вкажіть електронну пошту для запиту відновлення. У цій версії надсилання листів ще не підключено."
                 )
                 AuthFormInput(
@@ -54,16 +46,8 @@ internal fun RecoveryContent(
                     onValueChange = model::updateEmail,
                     error = model.emailError,
                     onBlur = model::touchEmail,
-                    leadingIcon = {
-                        Icon(
-                            painterResource(
-                                if (MaterialTheme.colorScheme.background.red < 0.5f)
-                                    Res.drawable.sign_in_mail_dark else Res.drawable.sign_in_mail_light
-                            ),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
+                    trailingIcon = if (MaterialTheme.colorScheme.background.red < 0.5f)
+                        Res.drawable.sign_in_mail_dark else Res.drawable.sign_in_mail_light,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Email,
                         autoCorrectEnabled = false,
@@ -78,22 +62,22 @@ internal fun RecoveryContent(
                     if (model.live) "Відповідь однакова незалежно від того, чи існує акаунт із цією адресою."
                     else "Після підключення сервісу відповідь буде однаковою незалежно від того, чи існує акаунт із цією адресою."
                 )
-                RecoveryAction(if (model.live) "Надіслати токен" else "Надіслати посилання", model.canRequest) {
+                RecoveryAction(if (model.live) "Надіслати код" else "Надіслати посилання", model.canRequest) {
                     stopEditing()
                     model.requestReset()
                 }
             }
 
             RecoveryStage.CheckEmail -> if (model.live) {
-                RecoveryBody("Якщо акаунт існує, токен відновлення дійсний 15 хвилин. Вставте його нижче.")
+                RecoveryBody("Якщо акаунт існує, ми надіслали лист із шестизначним кодом відновлення. Він дійсний 10–15 хвилин. Введіть його нижче.")
                 AuthFormInput(
-                    label = "Токен відновлення",
+                    label = "Код із листа",
                     value = model.tokenInput,
                     onValueChange = model::updateTokenInput,
                     error = null,
                     onBlur = {},
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Ascii,
+                        keyboardType = KeyboardType.Text,
                         autoCorrectEnabled = false,
                         imeAction = ImeAction.Done
                     ),
@@ -107,7 +91,7 @@ internal fun RecoveryContent(
                     model.submitToken()
                 }
                 TextButton(onClick = { stopEditing(); model.returnToRequest() }) { Text("Змінити адресу") }
-                TextButton(onClick = model::resend, enabled = !model.busy) { Text("Запросити токен повторно") }
+                TextButton(onClick = model::resend, enabled = !model.busy) { Text("Надіслати код повторно") }
             } else {
                 RecoveryBody("Демонстрація екрана очікування листа. Запит не надсилався, існування акаунта не перевірялося.")
                 RecoveryStatusIcon(
@@ -144,7 +128,7 @@ internal fun RecoveryContent(
 
             RecoveryStage.InvalidLink -> {
                 RecoveryBody(
-                    if (model.live) "Токен недійсний, уже використаний або прострочений. Запросіть новий."
+                    if (model.live) "Код недійсний, уже використаний або прострочений. Запросіть новий."
                     else "Демонстраційний стан: посилання недійсне, використане або прострочене. Жодного реального токена не отримували й не перевіряли."
                 )
                 RecoveryStatusIcon(Res.drawable.recovery_link_off, warning = true)
@@ -157,11 +141,6 @@ internal fun RecoveryContent(
         if (model.notice.isNotEmpty()) AuthInfo(model.notice)
         TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
             Text("Повернутися до входу")
-        }
-        if (previewEnabled) {
-            TextButton(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
-                Text("Внутрішній preview S41–S45 · debug", fontSize = 12.sp)
-            }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.mobilespace.xrnavi
 
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -34,7 +35,7 @@ import platform.Security.kSecReturnData
 import platform.Security.kSecValueData
 
 /** Stores the session in the iOS Keychain, available after first unlock and never synced or backed up. */
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IosKeychainSessionStorage : SecureSessionStorage {
     private fun query(vararg extra: Pair<Any?, Any?>): CFDictionaryRef? {
         val map = mutableMapOf<Any?, Any?>(
@@ -43,7 +44,7 @@ class IosKeychainSessionStorage : SecureSessionStorage {
             kSecAttrAccount to account,
         )
         extra.forEach { map[it.first] = it.second }
-        return CFBridgingRetain(map) as CFDictionaryRef?
+        return CFBridgingRetain(map)?.reinterpret()
     }
 
     override fun read(): String? = memScoped {
@@ -59,7 +60,7 @@ class IosKeychainSessionStorage : SecureSessionStorage {
 
     override fun write(value: String): Boolean {
         clear()
-        val data = (value as NSString).dataUsingEncoding(NSUTF8StringEncoding) ?: return false
+        val data = NSString.create(string = value).dataUsingEncoding(NSUTF8StringEncoding) ?: return false
         return SecItemAdd(
             query(
                 kSecValueData to data,

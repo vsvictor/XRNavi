@@ -53,9 +53,10 @@ internal fun XrnaviApplication(
     }
     val registrationViewModel: RegistrationViewModel = viewModel(factory = RegistrationViewModelFactory)
     val previewEnabled = internalAuthPreviewEnabled()
+    val recoveryProgressStore = rememberRecoveryProgressStore()
     val recoveryViewModel: RecoveryViewModel = viewModel(
-        factory = remember(previewEnabled, dependencies.recoveryService) {
-            recoveryViewModelFactory(previewEnabled, dependencies.recoveryService)
+        factory = remember(previewEnabled, dependencies.recoveryService, recoveryProgressStore) {
+            recoveryViewModelFactory(previewEnabled, dependencies.recoveryService, recoveryProgressStore)
         }
     )
     val callbackViewModel: CallbackViewModel = viewModel(
@@ -90,6 +91,11 @@ internal fun XrnaviApplication(
             dispatch(DemoAppEvent.SectionOpened(it))
             additionalBloc.dispatch(AdditionalNavigationEvent.SectionHandled)
         }
+    }
+    LaunchedEffect(accountState.restoring, accountState.mode) {
+        if (!accountState.restoring && accountState.mode == AccountMode.SignedOut &&
+            recoveryViewModel.stage == RecoveryStage.CheckEmail
+        ) dispatch(DemoAppEvent.AuthScreenOpened(AppScreen.Recovery))
     }
     val screen = if (
         accountState.mode == AccountMode.SignedOut &&
@@ -220,8 +226,7 @@ internal fun XrnaviApplication(
                 onBack = {
                     registrationViewModel.cancel()
                     dispatch(DemoAppEvent.ScreenChanged(AppScreen.SignIn))
-                },
-                onToggleTheme = onToggleTheme
+                }
             )
 
             AppScreen.Recovery -> RecoveryScreen(
@@ -230,8 +235,7 @@ internal fun XrnaviApplication(
                 onBack = {
                     recoveryViewModel.cancel()
                     dispatch(DemoAppEvent.ScreenChanged(AppScreen.SignIn))
-                },
-                onToggleTheme = onToggleTheme
+                }
             )
 
             AppScreen.Map, AppScreen.Preview -> MapScreen(

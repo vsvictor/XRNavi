@@ -9,6 +9,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -23,8 +28,7 @@ import xrnavi.shared.generated.resources.*
 internal fun RecoveryScreen(
     model: RecoveryViewModel,
     previewEnabled: Boolean,
-    onBack: () -> Unit,
-    onToggleTheme: () -> Unit
+    onBack: () -> Unit
 ) {
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -60,74 +64,80 @@ internal fun RecoveryScreen(
             }
         )
     }
+    val dark = isDarkXrnaviTheme()
+    val surface = MaterialTheme.colorScheme.background
+    val scroll = rememberScrollState()
+    val windowSize = LocalWindowInfo.current.containerSize
+    val windowHeight = with(LocalDensity.current) { windowSize.height.toDp() }
+    val title = if (model.live || model.stage == RecoveryStage.Request) model.stage.title
+    else "${model.stage.title} · демо"
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val split = maxWidth >= 600.dp && maxWidth > maxHeight
-        val tablet = minOf(maxWidth, maxHeight) >= 600.dp
-        val density = LocalDensity.current
-        val imeHeight = with(density) { WindowInsets.ime.getBottom(this).toDp() }
-        val short = maxHeight - imeHeight < 240.dp
-        Column(Modifier.fillMaxSize().imePadding()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = back,
-                    modifier = Modifier.semantics { contentDescription = "Повернутися до входу" }
-                ) { Text("‹", fontSize = 28.sp) }
-                Column(Modifier.weight(1f).padding(vertical = if (short) 0.dp else 8.dp)) {
-                    ProductWordmark()
-                    if (!short) {
-                        Text(
-                            "Mobile space",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                TextButton(onClick = onToggleTheme) { Text("Тема") }
+        val split = maxWidth > maxHeight
+        LaunchedEffect(split) { scroll.scrollTo(0) }
+        val heroHeight = when {
+            maxHeight < 680.dp -> 196.dp
+            maxWidth >= 600.dp -> maxHeight * 0.45f
+            else -> 266.dp
+        }
+        val screenBackground = Modifier.drawBehind {
+            if (dark) {
+                drawRect(surface)
+            } else {
+                drawRect(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.White, surface),
+                        startY = if (split) 0f else heroHeight.toPx()
+                            .coerceAtMost((size.height - 1f).coerceAtLeast(0f)),
+                        endY = size.height.coerceAtLeast(1f),
+                    )
+                )
             }
-            key(model.stage) {
-                val scroll = rememberScrollState()
-                if (split) {
-                    Row(
-                        Modifier.weight(1f).padding(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(32.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (!short) {
-                            RecoveryPhoto(
-                                Modifier.weight(1f).fillMaxHeight().padding(vertical = 24.dp)
-                            )
-                        }
-                        Column(
-                            Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll)
-                                .padding(vertical = 16.dp),
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            RecoveryContent(model, previewEnabled, back) { previewMenu = true }
-                        }
-                    }
-                } else {
+        }
+        val form: @Composable (Modifier) -> Unit = { modifier ->
+            Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.fillMaxWidth()) {
+                    RecoveryContent(model, previewEnabled, back) { previewMenu = true }
+                }
+            }
+        }
+        key(model.stage) {
+          Box(Modifier.fillMaxSize()) {
+            if (split) {
+                Row(Modifier.fillMaxSize().then(screenBackground).imePadding()) {
+                    SignInHero(
+                        modifier = Modifier.weight(0.9f).fillMaxHeight(),
+                        dark = dark,
+                        horizontalLayout = true,
+                        title = title,
+                        onBack = back
+                    )
                     Column(
-                        Modifier.weight(1f).verticalScroll(scroll)
-                            .padding(horizontal = 24.dp, vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        Modifier.weight(1.1f).fillMaxHeight().verticalScroll(scroll)
+                            .padding(horizontal = 24.dp, vertical = 18.dp)
                     ) {
-                        if (!short) {
-                            RecoveryPhoto(
-                                Modifier.fillMaxWidth().height(if (tablet) 270.dp else 176.dp)
-                            )
-                            Spacer(Modifier.height(28.dp))
-                        }
-                        Column(
-                            Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(bottom = 24.dp)
-                        ) {
-                            RecoveryContent(model, previewEnabled, back) { previewMenu = true }
-                        }
+                        HeroTitle(title = title, horizontalLayout = true)
+                        Spacer(Modifier.height(12.dp))
+                        form(Modifier.fillMaxWidth())
                     }
                 }
+            } else {
+                Column(
+                    Modifier.fillMaxSize().then(screenBackground).imePadding().verticalScroll(scroll)
+                ) {
+                    SignInHero(
+                        modifier = Modifier.fillMaxWidth().height(heroHeight),
+                        dark = dark,
+                        horizontalLayout = false,
+                        title = title,
+                        onBack = back
+                    )
+                    form(
+                        Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                            .padding(top = 10.dp, bottom = 20.dp)
+                    )
+                }
             }
+          }
         }
     }
 }

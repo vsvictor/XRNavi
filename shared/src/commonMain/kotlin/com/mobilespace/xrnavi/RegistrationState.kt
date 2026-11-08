@@ -11,8 +11,6 @@ internal const val registrationUnavailableMessage =
     "Реєстрацію ще не підключено. Дані не надіслано"
 internal const val invitationUnavailableMessage =
     "Для корпоративного акаунта потрібне запрошення від адміністратора організації. Сценарій запрошення ще не підключено."
-internal const val registrationDocumentsMessage =
-    "Умови користування та Політика конфіденційності ще недоступні. Юридичну частину реєстрації не завершено."
 
 internal data class RegistrationState(
     val name: String = "",

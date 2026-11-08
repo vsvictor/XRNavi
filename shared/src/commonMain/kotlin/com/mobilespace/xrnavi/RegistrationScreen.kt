@@ -7,6 +7,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -22,98 +27,89 @@ import xrnavi.shared.generated.resources.*
 @Composable
 internal fun RegistrationScreen(
     viewModel: RegistrationViewModel,
-    onBack: () -> Unit,
-    onToggleTheme: () -> Unit
+    onBack: () -> Unit
 ) {
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    var showDocuments by remember { mutableStateOf(false) }
     val back = {
         focus.clearFocus()
         keyboard?.hide()
         onBack()
     }
     AuthBackHandler(onBack = back)
-    if (showDocuments) {
-        AlertDialog(
-            onDismissRequest = { showDocuments = false },
-            title = { Text("Документи недоступні") },
-            text = { Text(registrationDocumentsMessage) },
-            confirmButton = {
-                TextButton(onClick = { showDocuments = false }) { Text("Зрозуміло") }
-            }
-        )
-    }
+    val dark = isDarkXrnaviTheme()
+    val surface = MaterialTheme.colorScheme.background
+    val scroll = rememberScrollState()
+    val windowSize = LocalWindowInfo.current.containerSize
+    val windowHeight = with(LocalDensity.current) { windowSize.height.toDp() }
+    val title = "Реєстрація"
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val split = maxWidth >= 600.dp && maxWidth > maxHeight
-        val tablet = minOf(maxWidth, maxHeight) >= 600.dp
-        val density = LocalDensity.current
-        val keyboardHeight = with(density) { WindowInsets.ime.getBottom(this).toDp() }
-        val compactHeader = maxHeight - keyboardHeight < 240.dp
-        val scroll = rememberScrollState()
-        Column(Modifier.fillMaxSize().imePadding()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = back, modifier = Modifier.semantics {
-                    contentDescription = "Повернутися до входу"
-                }) { Text("‹", fontSize = 28.sp) }
-                Column(Modifier.weight(1f).padding(vertical = if (compactHeader) 0.dp else 8.dp)) {
-                    Text(
-                        "Створити акаунт",
-                        fontFamily = rememberRobotoCondensedFontFamily(),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = if (compactHeader) 22.sp else 26.sp,
-                        color = MaterialTheme.colorScheme.onBackground
+        val split = maxWidth > maxHeight
+        LaunchedEffect(split) { scroll.scrollTo(0) }
+        val heroHeight = when {
+            maxHeight < 680.dp -> 196.dp
+            maxWidth >= 600.dp -> maxHeight * 0.45f
+            else -> 266.dp
+        }
+        val screenBackground = Modifier.drawBehind {
+            if (dark) {
+                drawRect(surface)
+            } else {
+                drawRect(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.White, surface),
+                        startY = if (split) 0f else heroHeight.toPx()
+                            .coerceAtMost((size.height - 1f).coerceAtLeast(0f)),
+                        endY = size.height.coerceAtLeast(1f),
                     )
-                    if (!compactHeader) {
-                        Text(
-                            "Ваш шлях починається тут",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                TextButton(onClick = onToggleTheme) { Text("Тема") }
+                )
             }
+        }
+        val form: @Composable (Modifier) -> Unit = { modifier ->
+            Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.fillMaxWidth()) {
+                    RegistrationForm(viewModel, Modifier.fillMaxWidth(), onBack = back)
+                }
+            }
+        }
+        run {
+          Box(Modifier.fillMaxSize()) {
             if (split) {
-                Row(
-                    Modifier.weight(1f).padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(32.dp)
-                ) {
-                    if (!compactHeader) {
-                        RegistrationHero(
-                            Modifier.weight(1f).fillMaxHeight().padding(bottom = 16.dp),
-                            compact = false
-                        )
-                    }
-                    RegistrationForm(
-                        viewModel,
-                        Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll)
-                            .padding(bottom = 24.dp),
-                        onDocuments = { showDocuments = true },
+                Row(Modifier.fillMaxSize().then(screenBackground).imePadding()) {
+                    SignInHero(
+                        modifier = Modifier.weight(0.9f).fillMaxHeight(),
+                        dark = dark,
+                        horizontalLayout = true,
+                        title = title,
                         onBack = back
                     )
+                    Column(
+                        Modifier.weight(1.1f).fillMaxHeight().verticalScroll(scroll)
+                            .padding(horizontal = 24.dp, vertical = 18.dp)
+                    ) {
+                        HeroTitle(title = title, horizontalLayout = true)
+                        Spacer(Modifier.height(12.dp))
+                        form(Modifier.fillMaxWidth())
+                    }
                 }
             } else {
                 Column(
-                    Modifier.weight(1f).verticalScroll(scroll).padding(horizontal = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    Modifier.fillMaxSize().then(screenBackground).imePadding().verticalScroll(scroll)
                 ) {
-                    RegistrationHero(
-                        Modifier.fillMaxWidth().height(if (tablet) 260.dp else 110.dp),
-                        compact = !tablet
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    RegistrationForm(
-                        viewModel,
-                        Modifier.widthIn(max = 540.dp).fillMaxWidth().padding(bottom = 24.dp),
-                        onDocuments = { showDocuments = true },
+                    SignInHero(
+                        modifier = Modifier.fillMaxWidth().height(heroHeight),
+                        dark = dark,
+                        horizontalLayout = false,
+                        title = title,
                         onBack = back
+                    )
+                    form(
+                        Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                            .padding(top = 10.dp, bottom = 20.dp)
                     )
                 }
             }
+          }
         }
     }
 }

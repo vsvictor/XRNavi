@@ -224,7 +224,7 @@ class ProfileSettingsRuntimeTest {
             }
             assertTrue(
                 "Focus navigation must not leave the sign-in screen",
-                accessibilityRoots().any { containsText(it, "З поверненням") }
+                accessibilityRoots().any { containsText(it, "Вхід") }
             )
             assertTrue(
                 "Sign-in action must remain available without being activated",
