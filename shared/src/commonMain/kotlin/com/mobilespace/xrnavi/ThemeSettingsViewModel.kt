@@ -7,33 +7,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 
-internal class ThemeSettingsViewModel(private val store: ThemePreferenceStore) : ViewModel() {
-    private val savedValue = store.read()
-    var preference by mutableStateOf(
-        ThemePreference.entries.firstOrNull { it.name == savedValue } ?: ThemePreference.System
-    )
-        private set
-    var notice by mutableStateOf(
-        if (savedValue != null && ThemePreference.entries.none { it.name == savedValue }) {
-            "Збережений режим теми не розпізнано. Використано «Як у системі»; виберіть тему повторно."
-        } else {
-            ""
-        }
-    )
-        private set
+/** Compose-facing host of [ThemeSettingsBloc]: mirrors its state and forwards intents as events. */
+internal class ThemeSettingsViewModel(store: ThemePreferenceStore) : ViewModel() {
+    private val bloc = ThemeSettingsBloc(store)
+    private var current by mutableStateOf(bloc.state.value)
 
-    fun select(theme: ThemePreference) {
-        if (!store.write(theme)) {
-            notice = "Не вдалося зберегти тему. Попередній режим залишено; спробуйте ще раз."
-            return
-        }
-        preference = theme
-        notice = ""
+    private fun dispatch(event: ThemeSettingsEvent) {
+        bloc.dispatch(event)
+        current = bloc.state.value
     }
 
-    fun toggle(systemDark: Boolean) {
-        select(if (preference.isDark(systemDark)) ThemePreference.Light else ThemePreference.Dark)
-    }
+    val preference get() = current.preference
+    val notice get() = current.notice
+
+    fun select(theme: ThemePreference) = dispatch(ThemeSettingsEvent.Select(theme))
+    fun toggle(systemDark: Boolean) = dispatch(ThemeSettingsEvent.Toggle(systemDark))
 }
 
 internal fun themeSettingsFactory(store: ThemePreferenceStore) = viewModelFactory {

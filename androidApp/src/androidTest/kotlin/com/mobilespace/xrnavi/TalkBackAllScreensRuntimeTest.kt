@@ -51,7 +51,7 @@ class TalkBackAllScreensRuntimeTest {
             audit(
                 ui,
                 "sign-in",
-                "ТВІЙ РИТМ",
+                "XR - НОВИЙ ФОРМАТ ВЗАЄМОДІЇ",
                 "Тема",
                 "Електронна пошта",
                 "Пароль",
@@ -62,11 +62,11 @@ class TalkBackAllScreensRuntimeTest {
             )
 
             click(ui, "Не маєте акаунта? Зареєструватися")
-            waitFor("registration screen") { find(ui, "Створити акаунт") != null }
+            waitFor("registration screen") { find(ui, "Реєстрація") != null }
             audit(
                 ui,
                 "registration",
-                "Створити акаунт",
+                "Реєстрація",
                 "Тема",
                 "Особистий",
                 "Корпоративний",
@@ -75,29 +75,24 @@ class TalkBackAllScreensRuntimeTest {
                 "Пароль",
                 "Підтвердіть пароль",
                 "Згода з Умовами користування",
-                "Умови та конфіденційність",
-                "Створити акаунт",
+                "Реєстрація",
                 "Уже маєте акаунт? Увійти"
             )
-            click(ui, "Умови та конфіденційність")
-            waitFor("registration documents dialog") { find(ui, "Документи недоступні") != null }
-            audit(ui, "registration-documents-dialog", "Документи недоступні", "Зрозуміло")
-            click(ui, "Зрозуміло")
             click(ui, "Уже маєте акаунт? Увійти")
             waitFor("sign-in after registration") { find(ui, "Забули пароль?") != null }
 
             click(ui, "Забули пароль?")
-            waitFor("password recovery request screen") { find(ui, "Відновити пароль") != null }
+            waitFor("password recovery request screen") { find(ui, "Відновлення пароля") != null }
             audit(
                 ui,
                 "recovery-request",
-                "Відновити пароль",
+                "Відновлення пароля",
                 "Електронна пошта",
                 "Надіслати посилання",
                 "Внутрішній preview S41–S45"
             )
             val recoveryStages = listOf(
-                "S41" to listOf("Відновити пароль", "Електронна пошта", "Надіслати посилання"),
+                "S41" to listOf("Відновлення пароля", "Електронна пошта", "Надіслати посилання"),
                 "S42" to listOf(
                     "Перевірте пошту", "Відкрити пошту", "Змінити адресу",
                     "Запросити лист повторно"

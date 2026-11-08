@@ -1,0 +1,134 @@
+package com.mobilespace.xrnavi
+
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlin.test.*
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class RecoveryBlocServiceTest {
+    private class FakeService(var failure: Exception? = null) : RecoveryService {
+        val requested = mutableListOf<String>()
+        val confirmed = mutableListOf<Pair<String, String>>()
+        override suspend fun requestReset(email: String) {
+            failure?.let { throw it }
+            requested += email
+        }
+
+        override suspend fun confirmReset(email: String, resetToken: String, newPassword: String) {
+            failure?.let { throw it }
+            confirmed += resetToken to newPassword
+        }
+    }
+
+    private fun bloc(service: FakeService) =
+        RecoveryBloc(false, service, TestScope(UnconfinedTestDispatcher()))
+
+    @Test
+    fun requestMovesToCheckEmail() {
+        val service = FakeService()
+        val bloc = bloc(service)
+        bloc.dispatch(RecoveryEvent.EmailChanged(" a@b.co "))
+        bloc.dispatch(RecoveryEvent.ResetRequested)
+        assertEquals(listOf("a@b.co"), service.requested)
+        assertEquals(RecoveryStage.CheckEmail, bloc.state.value.stage)
+        assertFalse(bloc.state.value.busy)
+    }
+
+    @Test
+    fun requestFailureKeepsRequestStage() {
+        val bloc = bloc(FakeService(RuntimeException("net")))
+        bloc.dispatch(RecoveryEvent.EmailChanged("a@b.co"))
+        bloc.dispatch(RecoveryEvent.ResetRequested)
+        assertEquals(RecoveryStage.Request, bloc.state.value.stage)
+        assertEquals(recoveryNetworkMessage, bloc.state.value.notice)
+    }
+
+    @Test
+    fun methodNotFoundIsReportedAsUnsupportedServer() {
+        val bloc = bloc(FakeService(RuntimeException("rpc error -32601: Method not found")))
+        bloc.dispatch(RecoveryEvent.EmailChanged("a@b.co"))
+        bloc.dispatch(RecoveryEvent.ResetRequested)
+        assertEquals(recoveryUnsupportedMessage, bloc.state.value.notice)
+    }
+
+    @Test
+    fun weakPasswordRejectionIsReported() {
+        val service = FakeService()
+        val bloc = bloc(service)
+        bloc.dispatch(RecoveryEvent.TokenReceived("tok"))
+        bloc.dispatch(RecoveryEvent.PasswordChanged("Str0ng!Pass1"))
+        bloc.dispatch(RecoveryEvent.ConfirmationChanged("Str0ng!Pass1"))
+        service.failure = RuntimeException("rpc error -32602: weak password")
+        bloc.dispatch(RecoveryEvent.NewPasswordSubmitted)
+        assertEquals(recoveryWeakPasswordMessage, bloc.state.value.notice)
+        assertEquals(RecoveryStage.NewPassword, bloc.state.value.stage)
+    }
+
+    @Test
+    fun confirmChangesPasswordAndDropsToken() {
+        val service = FakeService()
+        val bloc = bloc(service)
+        bloc.dispatch(RecoveryEvent.TokenReceived("tok"))
+        assertEquals(RecoveryStage.NewPassword, bloc.state.value.stage)
+        bloc.dispatch(RecoveryEvent.PasswordChanged("Str0ng!Pass1"))
+        bloc.dispatch(RecoveryEvent.ConfirmationChanged("Str0ng!Pass1"))
+        bloc.dispatch(RecoveryEvent.NewPasswordSubmitted)
+        assertEquals(listOf("tok" to "Str0ng!Pass1"), service.confirmed)
+        assertEquals(RecoveryStage.Changed, bloc.state.value.stage)
+        assertEquals("", bloc.state.value.resetToken)
+        assertEquals("", bloc.state.value.password)
+    }
+
+    @Test
+    fun rejectedTokenShowsInvalidLink() {
+        val bloc = bloc(FakeService(RuntimeException("RPC error -32001")))
+        bloc.dispatch(RecoveryEvent.TokenReceived("tok"))
+        bloc.dispatch(RecoveryEvent.PasswordChanged("Str0ng!Pass1"))
+        bloc.dispatch(RecoveryEvent.ConfirmationChanged("Str0ng!Pass1"))
+        bloc.dispatch(RecoveryEvent.NewPasswordSubmitted)
+        assertEquals(RecoveryStage.InvalidLink, bloc.state.value.stage)
+    }
+
+    @Test
+    fun pastedTokenLeadsToNewPasswordAndResendRequestsAgain() {
+        val service = FakeService()
+        val bloc = bloc(service)
+        bloc.dispatch(RecoveryEvent.EmailChanged("a@b.co"))
+        bloc.dispatch(RecoveryEvent.ResetRequested)
+        bloc.dispatch(RecoveryEvent.Resent)
+        assertEquals(2, service.requested.size)
+        assertFalse(bloc.state.value.canSubmitToken)
+        bloc.dispatch(RecoveryEvent.TokenInputChanged("  tok  "))
+        assertTrue(bloc.state.value.canSubmitToken)
+        bloc.dispatch(RecoveryEvent.TokenSubmitted)
+        assertEquals(RecoveryStage.NewPassword, bloc.state.value.stage)
+        assertEquals("tok", bloc.state.value.resetToken)
+        assertEquals("", bloc.state.value.tokenInput)
+    }
+
+    @Test
+    fun rpcServiceCallsPublicMethods() = kotlinx.coroutines.test.runTest {
+        val calls = mutableListOf<Pair<String, String>>()
+        val rpc = RpcRecoveryService { m, p -> calls += m to p; "{}" }
+        rpc.requestReset("a@b.co")
+        rpc.confirmReset("a@b.co", "t", "p")
+        rpc.confirmReset("a@b.co", "123456", "p")
+        assertEquals("auth.requestPasswordReset", calls[0].first)
+        assertEquals("auth.confirmPasswordReset", calls[1].first)
+        assertTrue(calls[1].second.contains("reset_token"))
+        assertTrue(calls[2].second.contains("\"code\""))
+        assertTrue(calls[2].second.contains("a@b.co"))
+    }
+
+    @Test
+    fun restoredEmailReturnsToCodeStageOnlyWithLiveService() {
+        val restored = bloc(FakeService())
+        restored.dispatch(RecoveryEvent.Restored("a@b.co"))
+        assertEquals(RecoveryStage.CheckEmail, restored.state.value.stage)
+        assertEquals("a@b.co", restored.state.value.email)
+        val demo = RecoveryBloc()
+        demo.dispatch(RecoveryEvent.Restored("a@b.co"))
+        assertEquals(RecoveryStage.Request, demo.state.value.stage)
+    }
+}

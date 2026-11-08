@@ -1,5 +1,7 @@
 package com.mobilespace.xrnavi
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,7 +15,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.DrawableResource
 import xrnavi.shared.generated.resources.*
 
 @Composable
@@ -29,86 +31,46 @@ internal fun AuthFormInput(
     secret: Boolean = false,
     visible: Boolean = false,
     onToggleVisibility: () -> Unit = {},
-    leadingIcon: @Composable (() -> Unit)? = null
+    trailingIcon: DrawableResource? = null
 ) {
-    var wasFocused by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = modifier.fillMaxWidth().onFocusChanged {
-                if (wasFocused && !it.isFocused) onBlur()
-                wasFocused = it.isFocused
-            }.semantics {
-                contentDescription = label
-                if (error != null) error(error)
-            },
-            singleLine = true,
-            textStyle = LocalTextStyle.current.copy(
-                fontFamily = rememberInterFontFamily(),
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            ),
-            isError = error != null,
-            shape = RoundedCornerShape(4.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                errorContainerColor = MaterialTheme.colorScheme.surface
-            ),
-            visualTransformation = if (secret && !visible) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = keyboardActions,
-            leadingIcon = leadingIcon,
-            trailingIcon = if (secret) {
-                {
-                    IconButton(
-                        onClick = onToggleVisibility,
-                        modifier = Modifier.semantics {
-                            contentDescription =
-                                "${if (visible) "Приховати" else "Показати"}: $label"
-                            stateDescription =
-                                if (visible) "Пароль показано" else "Пароль приховано"
-                        }
-                    ) {
-                        Icon(
-                            painterResource(
-                                if (MaterialTheme.colorScheme.background.red < 0.5f)
-                                    Res.drawable.sign_in_eye_off_dark
-                                else Res.drawable.sign_in_eye_off_light
-                            ),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+    val dark = MaterialTheme.colorScheme.background.red < 0.5f
+    XrnaviTextField(
+        label = label,
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        error = error,
+        onBlur = onBlur,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        visualTransformation = if (secret && !visible) PasswordVisualTransformation() else VisualTransformation.None,
+    ) { inputHeight ->
+        if (secret) {
+            IconButton(
+                onClick = onToggleVisibility,
+                modifier = Modifier.size(inputHeight).clearAndSetSemantics {
+                    contentDescription = "${if (visible) "Приховати" else "Показати"}: $label"
+                    stateDescription = if (visible) "Пароль показано" else "Пароль приховано"
+                    role = Role.Button
+                    onClick { onToggleVisibility(); true }
                 }
-            } else null
-        )
-        if (error != null) {
-            Text(
-                error,
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 12.sp,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            ) {
+                FigmaIcon(
+                    light = if (visible) Res.drawable.sign_in_eye
+                    else if (dark) Res.drawable.sign_in_eye_off_dark else Res.drawable.sign_in_eye_off_light,
+                    dark = if (visible) Res.drawable.sign_in_eye
+                    else if (dark) Res.drawable.sign_in_eye_off_dark else Res.drawable.sign_in_eye_off_light,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else if (trailingIcon != null) {
+            FigmaIcon(
+                light = trailingIcon,
+                dark = trailingIcon,
+                modifier = Modifier.size(18.dp)
             )
         }
-    }
-}
-
-@Composable
-internal fun AuthInfo(message: String) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
-    ) {
-        Text(
-            message,
-            modifier = Modifier.padding(14.dp),
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

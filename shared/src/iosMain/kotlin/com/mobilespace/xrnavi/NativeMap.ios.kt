@@ -4,7 +4,7 @@ package com.mobilespace.xrnavi
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.interop.UIKitView
+import androidx.compose.ui.viewinterop.UIKitView
 import platform.UIKit.UIView
 
 interface IosMapView {

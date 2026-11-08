@@ -20,7 +20,7 @@ private final class MapboxNativeView: IosMapView {
     private var subscriptions: [AnyCancelable] = []
     private var active = true
     private var styleReady = false
-    private var overlay = MapOverlay(route: [], origin: nil, destination: nil)
+    private var overlay = MapOverlay(route: [], origin: nil, destination: nil, user: nil)
     private var fittedRoute: [GeoPoint] = []
     private let status: (KotlinInt, MapLoadStatus) -> Void
 
@@ -79,9 +79,12 @@ private final class MapboxNativeView: IosMapView {
             } else if command.name == "ZoomOut" {
                 mapView.mapboxMap.setCamera(to: CameraOptions(zoom: max(0, zoom - 1)))
             } else if command.name == "Recenter" {
+                let target = overlay.user
                 mapView.mapboxMap.setCamera(to: CameraOptions(
-                    center: CLLocationCoordinate2D(latitude: 50.4501, longitude: 30.5234),
-                    zoom: 11, bearing: 0, pitch: 0
+                    center: CLLocationCoordinate2D(
+                        latitude: target?.latitude ?? 50.4501, longitude: target?.longitude ?? 30.5234
+                    ),
+                    zoom: target == nil ? 11 : 14, bearing: 0, pitch: 0
                 ))
             }
         }
@@ -119,6 +122,11 @@ private final class MapboxNativeView: IosMapView {
         if let destination = overlay.destination {
             var feature = Feature(geometry: .point(Point(CLLocationCoordinate2D(latitude: destination.latitude, longitude: destination.longitude))))
             feature.properties = ["pin-color": .string("#E5484D")]
+            features.append(feature)
+        }
+        if let user = overlay.user {
+            var feature = Feature(geometry: .point(Point(CLLocationCoordinate2D(latitude: user.latitude, longitude: user.longitude))))
+            feature.properties = ["pin-color": .string("#2F7BFF")]
             features.append(feature)
         }
         if !features.isEmpty {

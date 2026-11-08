@@ -14,7 +14,7 @@ class ExistingScreensRenderingTest {
                 SignInScreen("", {}, "", {}, false, {}, {}, false, "", {}, {}, {}, {})
             },
             DesignCase("S02-Registration") {
-                RegistrationScreen(remember { RegistrationViewModel() }, {}, {})
+                RegistrationScreen(remember { RegistrationViewModel() }, {})
             },
             DesignCase("S04-RouteSettings") {
                 RouteSettingsScreen(
@@ -102,7 +102,7 @@ class ExistingScreensRenderingTest {
                 val model =
                     remember { RecoveryViewModel(previewEnabled = true).apply { openPreview(stage) } }
                 check(model.stage == stage) { "Recovery capture must render ${stage.code}" }
-                RecoveryScreen(model, true, {}, {})
+                RecoveryScreen(model, true, {})
             }
         }
         captureDesigns(cases, "existing-captures")

@@ -16,7 +16,7 @@ final class AdditionalScreensUITests: XCTestCase {
         app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
-        XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 15))
+        XCTAssertTrue(find("Вхід").waitForExistence(timeout: 15))
         let frame = app.windows.firstMatch.frame
         originalInterfaceOrientation = frame.width > frame.height ? .landscapeLeft : .portrait
         tap("Продовжити без входу · деморежим")
@@ -36,13 +36,13 @@ final class AdditionalScreensUITests: XCTestCase {
         if let originalTheme {
             app.terminate()
             app.launch()
-            if find("З поверненням").waitForExistence(timeout: 15) {
+            if find("Вхід").waitForExistence(timeout: 15) {
                 tap("Продовжити без входу · деморежим")
                 tap("Налаштування")
                 setTheme(originalTheme)
                 tap("Профіль")
                 tap("Вийти з деморежиму")
-                XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5))
+                XCTAssertTrue(find("Вхід").waitForExistence(timeout: 5))
             } else {
                 XCTFail("Could not restore the original app theme.")
             }
@@ -152,15 +152,15 @@ final class AdditionalScreensUITests: XCTestCase {
                 let variant = "\(orientation.isLandscape ? "landscape" : "portrait")-\(theme)"
                 app.terminate()
                 app.launch()
-                XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 15))
+                XCTAssertTrue(find("Вхід").waitForExistence(timeout: 15))
                 capture("S01", variant, tagged: false)
                 tap("Не маєте акаунта? Зареєструватися")
-                reveal("Створити акаунт")
-                XCTAssertTrue(find("Створити акаунт").waitForExistence(timeout: 5))
+                reveal("Реєстрація")
+                XCTAssertTrue(find("Реєстрація").waitForExistence(timeout: 5))
                 capture("S02", variant, tagged: false)
                 tap("Повернутися до входу")
                 tap("Забули пароль?")
-                XCTAssertTrue(find("Відновити пароль").waitForExistence(timeout: 5))
+                XCTAssertTrue(find("Відновлення пароля").waitForExistence(timeout: 5))
                 capture("S41", variant, tagged: false)
                 for (designID, title) in [
                     ("S42", "Перевірте пошту"),
@@ -171,7 +171,7 @@ final class AdditionalScreensUITests: XCTestCase {
                     tap("Внутрішній preview S41–S45 · debug")
                     XCTAssertTrue(find("Закрити").waitForExistence(timeout: 5))
                     tap("\(designID) · \(title)")
-                    XCTAssertTrue(find("\(title) · демо").waitForExistence(timeout: 5))
+                    XCTAssertTrue(find(title).waitForExistence(timeout: 5))
                     capture(designID, variant, tagged: false)
                 }
                 tap("Повернутися до входу")

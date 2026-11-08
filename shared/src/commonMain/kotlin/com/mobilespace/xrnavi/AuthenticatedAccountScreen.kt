@@ -1,5 +1,6 @@
 package com.mobilespace.xrnavi
 
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -30,14 +31,41 @@ internal fun AuthenticatedAccountScreen(
     onLogout: () -> Unit,
     mapFactory: PlatformMapFactory,
     routeService: RoutePlanningService,
+    garageService: GarageService,
+    sessionProvider: () -> AuthSession?,
+    locationProvider: LocationProvider,
     onToggleTheme: () -> Unit,
 ) {
     val mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
     val mapState by mapViewModel.bloc.state.collectAsStateWithLifecycle()
     val routeViewModel: RouteViewModel = viewModel(factory = routeViewModelFactory(routeService))
     val routeState by routeViewModel.bloc.state.collectAsStateWithLifecycle()
+    val garageViewModel: GarageViewModel = viewModel(factory = garageViewModelFactory(garageService, sessionProvider))
+    val garageState by garageViewModel.bloc.state.collectAsStateWithLifecycle()
+    val addViewModel: AddVehicleViewModel = viewModel(factory = addVehicleViewModelFactory(garageService, sessionProvider))
+    val addState by addViewModel.bloc.state.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(state.section) {
+        if (state.section == DemoSection.Garage && !garageState.loaded && !garageState.loading) {
+            garageViewModel.bloc.dispatch(GarageEvent.Load)
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(addState.added) {
+        if (addState.added != null) garageViewModel.bloc.dispatch(GarageEvent.Load)
+    }
+    val detailsViewModel: VehicleDetailsViewModel = viewModel(factory = VehicleDetailsViewModelFactory)
+    val detailsState by detailsViewModel.bloc.state.collectAsStateWithLifecycle()
+    val geoViewModel: GeoViewModel = viewModel(factory = geoViewModelFactory(locationProvider))
+    val geoState by geoViewModel.bloc.state.collectAsStateWithLifecycle()
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        geoViewModel.bloc.dispatch(GeoEvent.Refresh)
+        onPauseOrDispose {}
+    }
     AuthBackHandler {
-        dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
+        if (state.section == DemoSection.Garage && addViewModel.bloc.handleBack()) {
+        } else if (state.section == DemoSection.Garage && detailsViewModel.bloc.handleBack()) {
+        } else if (state.section != DemoSection.Map || !routeViewModel.bloc.handleBack()) {
+            dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
+        }
     }
     BoxWithConstraints(Modifier.fillMaxSize().testTag("authenticated-account")) {
         val layout = AccountLayout.forWindow(maxWidth.value, maxHeight.value)
@@ -71,6 +99,8 @@ internal fun AuthenticatedAccountScreen(
                         dispatch = mapViewModel.bloc::dispatch,
                         routeState = routeState,
                         routeDispatch = routeViewModel.bloc::dispatch,
+                        geoState = geoState,
+                        geoDispatch = geoViewModel.bloc::dispatch,
                         expired = state.expired,
                         onProfile = { navigate(DemoSection.Profile) },
                         modifier = Modifier.weight(1f).fillMaxSize(),
@@ -102,8 +132,15 @@ internal fun AuthenticatedAccountScreen(
                     when (state.section) {
                         DemoSection.Profile -> state.profile?.let { AuthenticatedProfileScreen(it) }
                         DemoSection.Garage -> {
-                            Text("Гараж недоступний", style = MaterialTheme.typography.titleLarge)
-                            Text("Сервіс транспорту акаунта ще не підключено. Список автомобілів не завантажено; це не означає, що гараж порожній.")
+                            val details = garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }
+                            if (addState.open) AddVehicleScreen(addState, addViewModel.bloc::dispatch)
+                            else if (details != null) VehicleDetailsScreen(details) {
+                                detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Close)
+                            } else GarageScreen(
+                                garageState, garageViewModel.bloc::dispatch,
+                                onAddVehicle = { addViewModel.bloc.dispatch(AddVehicleEvent.Open) },
+                                onOpenDetails = { detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Open(it)) },
+                            )
                         }
                         DemoSection.Settings -> {
                             Text("Тема застосунку · на цьому пристрої")

@@ -294,6 +294,11 @@ field without replacing it. The envelope opens Android's user-controlled system 
 (no broad account-reading permission); selecting an account only fills the email field.
 iOS does not expose a public email-account list, so it displays an explanation and keeps manual entry.
 
+Password recovery uses the public methods `auth.requestPasswordReset` (`email`) and
+`auth.confirmPasswordReset` (`reset_token`, `new_password`) through `RecoveryService`, driven by
+`RecoveryBloc`. A rejected or expired token (-32001) shows the invalid-link screen. The server does
+not e-mail the token itself; the app receives it via `RecoveryViewModel.receiveResetToken`.
+
 Login calls `auth.login` on the current verified RPC connection with `email`, `password`, and
 `grant_type: "password"`, following the contract in
 [JSON-RPC-2-OAuth2](https://github.com/vsvictor/JSON-RPC-2-OAuth2), without including that repository.
@@ -313,6 +318,11 @@ Login also uses unencrypted TCP when that is the active fallback, as explicitly 
 Конверт відкриває системний вибір акаунта Android за дією користувача (без широкого дозволу
 на читання акаунтів); вибір лише заповнює пошту. iOS не надає публічного списку поштових
 акаунтів, тому відображається пояснення й залишається ручне введення.
+
+Відновлення пароля використовує публічні методи `auth.requestPasswordReset` (`email`) та
+`auth.confirmPasswordReset` (`reset_token`, `new_password`) через `RecoveryService` під керуванням
+`RecoveryBloc`. Відхилений або прострочений токен (-32001) відкриває екран недійсного посилання.
+Сервер сам не надсилає токен поштою; застосунок отримує його через `RecoveryViewModel.receiveResetToken`.
 
 Вхід викликає `auth.login` через поточне перевірене RPC-з'єднання з `email`, `password` та
 `grant_type: "password"` за контрактом JSON-RPC-2-OAuth2, без включення цього репозиторію.
@@ -403,11 +413,62 @@ remain visible instead of copying authenticated or connected-service states from
 [Profile and settings verification, 2026-10-27 (Ukrainian)](docs/profile-settings-ui-2026-10-27.md)
 records the checks and remaining platform limitations.
 
+### OAuth 2 session lifecycle / Життєвий цикл OAuth 2-сесії
+
+**English.** `SessionManager` owns the session; tokens are stored only in platform secure storage
+(Android Keystore AES-GCM, iOS Keychain `AfterFirstUnlockThisDeviceOnly`) and are never logged.
+- At launch `Restore` runs: no token → sign-in page; valid token → automatic sign-in; expired
+  token → `auth.refresh`. A server rejection (`-32001`) clears the tokens and opens sign-in;
+  a network failure keeps them and asks to sign in again.
+- Every server call goes through `AuthorizedRpc`: the token is validated (30 s skew) and refreshed
+  first; if the server still answers `-32001`, one refresh and one retry follow. Refreshes are
+  serialized by a mutex.
+- Calls sent without a token (`publicRpcMethods`): `auth.login`, `auth.register`, `auth.refresh`,
+  password-recovery methods. Mapbox requests use their own key and are not backend calls.
+- A background job refreshes the token shortly before it expires; a rejected refresh ends the session.
+- Logout clears stored tokens; closing the app keeps them.
+
+**Українською.** `SessionManager` керує сесією; токени зберігаються лише в захищеному сховищі
+платформи (Android Keystore AES-GCM, iOS Keychain `AfterFirstUnlockThisDeviceOnly`) і не логуються.
+- Під час запуску виконується `Restore`: токена немає → сторінка входу; токен чинний → автоматичний
+  вхід; токен застарів → `auth.refresh`. Відмова сервера (`-32001`) очищає токени й відкриває вхід;
+  помилка мережі зберігає їх і просить увійти знову.
+- Кожен виклик сервера проходить через `AuthorizedRpc`: токен перевіряється (запас 30 с) і за потреби
+  оновлюється; якщо сервер усе ж відповів `-32001` — одне оновлення й один повтор. Оновлення
+  серіалізуються mutex-ом.
+- Виклики без токена (`publicRpcMethods`): `auth.login`, `auth.register`, `auth.refresh`, методи
+  відновлення пароля. Запити Mapbox мають власний ключ і не є викликами бекенду.
+- Фонове завдання оновлює токен перед завершенням строку; відхилене оновлення завершує сесію.
+- Вихід очищає збережені токени; закриття застосунку їх зберігає.
+
+### Password-reset token delivery / Доставка токена відновлення пароля
+
+**English.** A password-reset token is never returned to the requesting device. The server pushes it
+as a `navi.reset_token` callback to the user's other signed-in device over the same transport as the
+direct connection. `RpcCallbackService` subscribes after sign-in (`navi.callback.subscribe`, access
+token required) and stops on logout; `CallbackBloc` shows `ResetTokenDialog`. Limits: a user with
+no subscribed device receives nothing; the gateway keeps one connection per `client_id`, so with
+several devices the last subscriber wins; push works on QUIC, TCP/TLS (line framing), SRT and
+WS-SRT only. Live check: sign in on one device, then run the iPad UI test
+`TEST_RUNNER_XRNAVI_TEST_EMAIL=<email> xcodebuild test ... -only-testing:iosAppUITests/RecoveryFlowUITests/testRequestTokenForConfiguredAccount`.
+Test credentials live in the git-ignored `.test-account.json`.
+
+**Українською.** Токен відновлення пароля ніколи не повертається пристрою, що його запросив. Сервер
+надсилає його як callback `navi.reset_token` на інший авторизований пристрій користувача тим самим
+транспортом, що й пряме з'єднання. `RpcCallbackService` підписується після входу
+(`navi.callback.subscribe`, потрібен access-токен) і зупиняється при виході; `CallbackBloc` показує
+`ResetTokenDialog`. Обмеження: користувач без підписаного пристрою нічого не отримає; gateway
+тримає одне з'єднання на `client_id`, тож при кількох пристроях діє останній підписник; push
+працює лише на QUIC, TCP/TLS (line framing), SRT і WS-SRT. Перевірка наживо: увійдіть на одному
+пристрої та запустіть UI-тест iPad
+`TEST_RUNNER_XRNAVI_TEST_EMAIL=<email> xcodebuild test ... -only-testing:iosAppUITests/RecoveryFlowUITests/testRequestTokenForConfiguredAccount`.
+Тестові облікові дані — у `.test-account.json` (у `.gitignore`).
+
 ### Mapbox map / Мапа Mapbox
 
-**EN.** The Map tab uses the native Mapbox Maps SDK 11.34.2 on Android (`MapView`) and iOS (Swift Package `MapboxMaps` via `MapboxViewFactory.swift`). The public `pk.` token is read from the git-ignored `tokens.dat` at build time (Android `resValue`; iOS via git-ignored `iosApp/Mapbox.local.xcconfig`, generated by `python3 tools/configure-mapbox.py`). Never commit tokens or embed secret/download tokens. Screen S03 (`AuthenticatedMapScreen`, `RouteBloc`, `RoutePlanning.kt`): Mapbox Geocoding v6 address search, Mapbox Directions v5 driving route drawn as a map line with pins, bottom sheet (time, distance, roads, vehicle class), light/dark/satellite layers. HTTP is done with Ktor; the token is passed through `AppDependencies` and never logged. Not implemented yet: geolocation (the locate button only recentres on Kyiv), turn-by-turn navigation ("Почати маршрут" shows a notice).
+**EN.** The Map tab uses the native Mapbox Maps SDK 11.34.2 on Android (`MapView`) and iOS (Swift Package `MapboxMaps` via `MapboxViewFactory.swift`). The public `pk.` token is read from the git-ignored `tokens.dat` at build time (Android `resValue`; iOS via git-ignored `iosApp/Mapbox.local.xcconfig`, generated by `python3 tools/configure-mapbox.py`). Never commit tokens or embed secret/download tokens. Screen S03 (`AuthenticatedMapScreen`, `RouteBloc`, `RoutePlanning.kt`): Mapbox Geocoding v6 address search, Mapbox Directions v5 driving route drawn as a map line with pins, bottom sheet (time, distance, roads, vehicle class), light/dark/satellite layers. HTTP is done with Ktor; the token is passed through `AppDependencies` and never logged. S03 states: geolocation is a BLoC (`GeoBloc`, injected `LocationProvider`; Android `LocationManager`, iOS `CLLocationManager`) with phases Unknown/Denied/PermanentlyDenied/ServiceOff/Acquiring/TimedOut/Reliable/Stale shown in `GeoStatusCard`; the current place can be a route origin only with a reliable fix. Search phases Idle/Loading/Results/Empty/Error (empty ≠ error, retry keeps the query); a stale route is marked while re-planning or after failure; Back closes search then lowers the sheet; the sheet has expand/collapse buttons. Policy numbers (stale 60 s, acquire timeout 30 s) are PROVISIONAL pending QA/backend. Not implemented yet: turn-by-turn navigation ("Почати маршрут" shows a notice), long-press point (S35/S36), real vehicle data/garage, links to S04/S17/S18/S19/S34/S38, unverified-truck blocking.
 
-**UK.** Вкладка «Мапа» використовує нативний Mapbox Maps SDK 11.34.2 на Android (`MapView`) та iOS (Swift Package `MapboxMaps` через `MapboxViewFactory.swift`). Публічний токен `pk.` читається з ігнорованого git файлу `tokens.dat` під час збірки (Android `resValue`; iOS — через ігнорований `iosApp/Mapbox.local.xcconfig`, що генерує `python3 tools/configure-mapbox.py`). Не комітьте токени й не вбудовуйте секретні токени. Екран S03 (`AuthenticatedMapScreen`, `RouteBloc`, `RoutePlanning.kt`): пошук адрес через Mapbox Geocoding v6, маршрут Mapbox Directions v5 (driving) із лінією та позначками на мапі, нижня панель (час, відстань, дороги, клас ТЗ), шари світлий/темний/супутник. HTTP — Ktor; токен передається через `AppDependencies` і не логується. Ще немає: геолокації (кнопка лише центрує на Києві), покрокової навігації («Почати маршрут» показує повідомлення).
+**UK.** Вкладка «Мапа» використовує нативний Mapbox Maps SDK 11.34.2 на Android (`MapView`) та iOS (Swift Package `MapboxMaps` через `MapboxViewFactory.swift`). Публічний токен `pk.` читається з ігнорованого git файлу `tokens.dat` під час збірки (Android `resValue`; iOS — через ігнорований `iosApp/Mapbox.local.xcconfig`, що генерує `python3 tools/configure-mapbox.py`). Не комітьте токени й не вбудовуйте секретні токени. Екран S03 (`AuthenticatedMapScreen`, `RouteBloc`, `RoutePlanning.kt`): пошук адрес через Mapbox Geocoding v6, маршрут Mapbox Directions v5 (driving) із лінією та позначками на мапі, нижня панель (час, відстань, дороги, клас ТЗ), шари світлий/темний/супутник. HTTP — Ktor; токен передається через `AppDependencies` і не логується. Стани S03: геолокація — BLoC (`GeoBloc`, інжектований `LocationProvider`; Android `LocationManager`, iOS `CLLocationManager`) зі станами Unknown/Denied/PermanentlyDenied/ServiceOff/Acquiring/TimedOut/Reliable/Stale у `GeoStatusCard`; поточне місце може бути початком маршруту лише за надійної позиції. Фази пошуку Idle/Loading/Results/Empty/Error (порожньо ≠ помилка, повтор зберігає запит); застарілий маршрут позначається під час перебудови або після помилки; «Назад» закриває пошук, потім знижує панель; у панелі є кнопки розгорнути/згорнути. Числа політики (застаріло 60 с, тайм-аут 30 с) ПОПЕРЕДНІ до уточнення QA/бекендом. Ще немає: покрокової навігації («Почати маршрут» показує повідомлення), довгого натискання (S35/S36), реальних даних ТЗ/гаража, переходів на S04/S17/S18/S19/S34/S38, блокування неверифікованої вантажівки.
 
 ### Local stop-place catalog / Локальний каталог місць зупинки
 
@@ -430,3 +491,17 @@ identifies the checked artifacts and separates local Android evidence from unver
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+
+**EN.** Garage (authenticated Garage tab): `GarageBloc` (list/select active/details) and `AddVehicleBloc` (class → make → model → year+trim wizard, S10/S14/S15/S17) with separate ViewModels; `GarageService` is injected via `AppDependencies` (`RpcGarageService`). The JSON-RPC method names (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) and payloads are PROVISIONAL: the backend contract is not confirmed, so on failure the UI shows an error with retry (never an empty garage). Selection changes only after server confirmation. Not yet: S11 dimensions screen, S16 configurations, S03 integration.
+
+**UK.** Гараж (вкладка «Гараж» в автентифікованому режимі): `GarageBloc` (список/вибір активного/деталі) та `AddVehicleBloc` (майстер клас → марка → модель → рік+комплектація, S10/S14/S15/S17) з окремими ViewModel; `GarageService` інжектується через `AppDependencies` (`RpcGarageService`). Назви JSON-RPC методів (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) і формати ПОПЕРЕДНІ: контракт бекенду не підтверджено, тому при збої UI показує помилку з повтором (ніколи не порожній гараж). Вибір змінюється лише після підтвердження сервером. Ще немає: екрана габаритів S11, конфігурацій S16, інтеграції з S03.
+
+### File structure rule / Правило структури файлів
+
+**EN.** Every screen, its ViewModel and its BLoC (state, events, transitions) live in separate files (`XScreen.kt`, `XViewModel.kt`, `XBloc.kt`, with state/events in `XState.kt`). `DemoAccountScreen` is a thin host; settings/profile/garage/vehicle screens, `RecoveryBloc`, `RegistrationBloc` and `ThemeSettingsBloc` have own files (Recovery, Registration and Theme ViewModels are facades over their BLoCs). `StopPlacesBloc` is a stateless class (no singleton) in `StopPlacesBloc.kt`; app models moved from `App.kt` to `AppModels.kt`. Tests live in separate files.
+
+**UK.** Кожен екран, його ViewModel і BLoC (стан, події, переходи) лежать в окремих файлах (`XScreen.kt`, `XViewModel.kt`, `XBloc.kt`, стан/події в `XState.kt`). `DemoAccountScreen` — тонкий хост; екрани налаштувань/профілю/гаража/авто, `RecoveryBloc`, `RegistrationBloc` і `ThemeSettingsBloc` мають власні файли (ViewModel Recovery, Registration і Theme — фасади над BLoC). `StopPlacesBloc` — клас без стану (не singleton) у `StopPlacesBloc.kt`; моделі застосунку винесено з `App.kt` до `AppModels.kt`. Тести — в окремих файлах.
+
+**EN.** Demo navigation lives in `DemoAppBloc` (`DemoAppState.kt` state/events, `DemoAppBloc.kt` transitions) held by `DemoAppViewModel` (persistence of saved places and route stops); `XrnaviApplication.kt` only renders and dispatches events. Navigation state survives rotation but is no longer restored after process death.
+
+**UK.** Демо-навігація живе в `DemoAppBloc` (`DemoAppState.kt` — стан/події, `DemoAppBloc.kt` — переходи) у `DemoAppViewModel` (збереження адрес і зупинок); `XrnaviApplication.kt` лише малює й надсилає події. Стан навігації переживає поворот екрана, але більше не відновлюється після завершення процесу.

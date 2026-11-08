@@ -16,7 +16,7 @@ final class ProfileSettingsUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(find("Вхід").waitForExistence(timeout: 10), app.debugDescription)
         tap("Продовжити без входу · деморежим")
         tap("Налаштування")
         tap("Тема застосунку")
@@ -29,7 +29,7 @@ final class ProfileSettingsUITests: XCTestCase {
         tap("Зрозуміло")
         tap("Профіль")
         tap("Вийти з деморежиму")
-        XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(find("Вхід").waitForExistence(timeout: 5), app.debugDescription)
         rotate(.portrait)
         attachText(
             "VoiceOver: \(UIAccessibility.isVoiceOverRunning)\n" +
@@ -44,7 +44,7 @@ final class ProfileSettingsUITests: XCTestCase {
         app.terminate()
         if let originalTheme {
             app.launch()
-            guard find("З поверненням").waitForExistence(timeout: 15) else {
+            guard find("Вхід").waitForExistence(timeout: 15) else {
                 XCTFail("Could not relaunch the app to restore its original theme.")
                 app.terminate()
                 XCUIDevice.shared.orientation = originalOrientation
@@ -59,7 +59,7 @@ final class ProfileSettingsUITests: XCTestCase {
             tap("Зрозуміло")
             tap("Профіль")
             tap("Вийти з деморежиму")
-            XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(find("Вхід").waitForExistence(timeout: 5), app.debugDescription)
         }
         app.terminate()
         XCUIDevice.shared.orientation = originalOrientation
@@ -81,7 +81,7 @@ final class ProfileSettingsUITests: XCTestCase {
             assertSelected(label)
             app.terminate()
             app.launch()
-            XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 10))
+            XCTAssertTrue(find("Вхід").waitForExistence(timeout: 10))
             screenshot("signin-restored-\(mode)")
             tap("Продовжити без входу · деморежим")
             tap("Налаштування")
@@ -113,7 +113,7 @@ final class ProfileSettingsUITests: XCTestCase {
         tap("Історія поїздок і статистика відсутні; серверні дані не отримувалися.")
         screenshot("profile-empty-statistics")
         tap("Вийти з деморежиму")
-        XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5))
+        XCTAssertTrue(find("Вхід").waitForExistence(timeout: 5))
     }
 
     func testLandscapeProfileGarageScrolling() {
@@ -246,11 +246,11 @@ final class ProfileSettingsUITests: XCTestCase {
         XCTAssertFalse(find("Зареєстровано").exists)
         XCTAssertFalse(find("Синхронізовано").exists)
         tap("Додати транспорт · не підключено")
-        XCTAssertTrue(find("Можливість не підключено").waitForExistence(timeout: 3))
-        XCTAssertTrue(find("Додавання реального транспорту не підключено").exists)
-        tap("Зрозуміло")
+        XCTAssertTrue(find("Додати транспорт").waitForExistence(timeout: 3), app.debugDescription)
+        app.buttons["Назад"].firstMatch.tap()
+        assertGarageScreen()
         tap("Назад до попереднього розділу")
-        XCTAssertTrue(find("Панель маршруту").exists, app.debugDescription)
+        XCTAssertTrue(app.buttons["Мапа"].isSelected, app.debugDescription)
 
         tap("Профіль")
         tap("Керувати гаражем")
@@ -408,9 +408,9 @@ final class ProfileSettingsUITests: XCTestCase {
         tap("Продовжити без входу · деморежим")
         tap("Профіль")
         tap("Відновлення пароля")
-        XCTAssertTrue(find("Відновити пароль").waitForExistence(timeout: 5))
+        XCTAssertTrue(find("Відновлення пароля").waitForExistence(timeout: 5))
         tap("Повернутися до входу")
-        XCTAssertTrue(find("З поверненням").waitForExistence(timeout: 5))
+        XCTAssertTrue(find("Вхід").waitForExistence(timeout: 5))
     }
 
     private func assertGarageScreen() {
@@ -447,6 +447,7 @@ final class ProfileSettingsUITests: XCTestCase {
     }
 
     private func reveal(_ text: String) {
+        if find(text).exists && find(text).isHittable { return }
         let frame = app.windows.firstMatch.frame
         let landscape = frame.width > frame.height
         let top = frame.minY + (landscape ? 90 : 150)

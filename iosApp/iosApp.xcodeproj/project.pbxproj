@@ -187,12 +187,12 @@
 			);
 			mainGroup = E01A90B0EC000FEFDD36EFB2;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B20000000000000000000002 /* XCRemoteSwiftPackageReference "mapbox-maps-ios-binary" */,
+			);
 			preferredProjectObjectVersion = 110;
 			productRefGroup = 9958231292365B7E768836DE /* Products */;
 			projectDirPath = "";
-			packageReferences = (
-				B20000000000000000000002 /* mapbox-maps-ios-binary */,
-			);
 			projectRoot = "";
 			targets = (
 				1FD1ADAC64F33705B11648FD /* iosApp */,
@@ -502,17 +502,22 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
 /* Begin XCRemoteSwiftPackageReference section */
-		B20000000000000000000002 /* mapbox-maps-ios-binary */ = {
+		B20000000000000000000002 /* XCRemoteSwiftPackageReference "mapbox-maps-ios-binary" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mapbox/mapbox-maps-ios-binary.git";
-			requirement = { kind = exactVersion; version = 11.34.2; };
+			requirement = {
+				kind = exactVersion;
+				version = 11.34.2;
+			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		B20000000000000000000003 /* MapboxMaps */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = B20000000000000000000002 /* mapbox-maps-ios-binary */;
+			package = B20000000000000000000002 /* XCRemoteSwiftPackageReference "mapbox-maps-ios-binary" */;
 			productName = MapboxMaps;
 		};
 /* End XCSwiftPackageProductDependency section */
