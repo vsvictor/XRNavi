@@ -1,5 +1,6 @@
 package com.mobilespace.xrnavi
 
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text

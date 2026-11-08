@@ -14,9 +14,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun DemoVehicleConfigurationsScreen(
@@ -236,46 +234,5 @@ internal fun DemoVehicleConfigurationsScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ConfigurationName(text: String, modifier: Modifier) {
-    Text(
-        text,
-        modifier = modifier,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-}
-
-@Composable
-private fun ConfigurationStatusPill(
-    text: String,
-    selected: Boolean = false,
-    applied: Boolean = false,
-    unavailable: Boolean = false
-) {
-    val background = when {
-        unavailable -> MaterialTheme.colorScheme.surfaceVariant
-        applied -> MaterialTheme.colorScheme.secondaryContainer
-        selected -> MaterialTheme.colorScheme.primaryContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
-    val content = when {
-        unavailable -> MaterialTheme.colorScheme.onSurfaceVariant
-        applied -> MaterialTheme.colorScheme.onSecondaryContainer
-        selected -> MaterialTheme.colorScheme.onPrimaryContainer
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Surface(color = background, shape = RoundedCornerShape(16.dp)) {
-        Text(
-            text,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            color = content,
-            fontSize = 11.sp,
-            lineHeight = 14.sp,
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }

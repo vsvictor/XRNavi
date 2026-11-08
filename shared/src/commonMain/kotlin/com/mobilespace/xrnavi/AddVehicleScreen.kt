@@ -1,13 +1,9 @@
 package com.mobilespace.xrnavi
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -71,12 +67,5 @@ internal fun AddVehicleScreen(state: AddVehicleState, dispatch: (AddVehicleEvent
             onClick = { dispatch(AddVehicleEvent.Back) },
             modifier = Modifier.testTag("add-vehicle-back"),
         ) { Text("Назад") }
-    }
-}
-
-@Composable
-private fun Choice(label: String, tag: String, selected: Boolean, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().testTag(tag).clickable(onClick = onClick)) {
-        Text(if (selected) "✓ $label" else label, Modifier.padding(12.dp))
     }
 }

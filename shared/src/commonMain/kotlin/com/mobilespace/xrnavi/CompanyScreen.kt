@@ -1,5 +1,6 @@
 package com.mobilespace.xrnavi
 
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable

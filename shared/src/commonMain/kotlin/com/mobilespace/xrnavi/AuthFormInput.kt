@@ -1,5 +1,7 @@
 package com.mobilespace.xrnavi
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -93,22 +95,6 @@ internal fun AuthFormInput(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
             )
         }
-    }
-}
-
-@Composable
-internal fun AuthInfo(message: String) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
-    ) {
-        Text(
-            message,
-            modifier = Modifier.padding(14.dp),
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
