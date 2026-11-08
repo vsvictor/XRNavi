@@ -246,11 +246,11 @@ final class ProfileSettingsUITests: XCTestCase {
         XCTAssertFalse(find("Зареєстровано").exists)
         XCTAssertFalse(find("Синхронізовано").exists)
         tap("Додати транспорт · не підключено")
-        XCTAssertTrue(find("Можливість не підключено").waitForExistence(timeout: 3))
-        XCTAssertTrue(find("Додавання реального транспорту не підключено").exists)
-        tap("Зрозуміло")
+        XCTAssertTrue(find("Додати транспорт").waitForExistence(timeout: 3), app.debugDescription)
+        app.buttons["Назад"].firstMatch.tap()
+        assertGarageScreen()
         tap("Назад до попереднього розділу")
-        XCTAssertTrue(find("Панель маршруту").exists, app.debugDescription)
+        XCTAssertTrue(app.buttons["Мапа"].isSelected, app.debugDescription)
 
         tap("Профіль")
         tap("Керувати гаражем")
@@ -447,6 +447,7 @@ final class ProfileSettingsUITests: XCTestCase {
     }
 
     private func reveal(_ text: String) {
+        if find(text).exists && find(text).isHittable { return }
         let frame = app.windows.firstMatch.frame
         let landscape = frame.width > frame.height
         let top = frame.minY + (landscape ? 90 : 150)

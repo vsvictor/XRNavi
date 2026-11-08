@@ -260,10 +260,8 @@ final class MapScenarioUITests: XCTestCase {
             }
             attachScreenshot(named: "sheet-\(expectedState)")
             rotate(to: .landscapeLeft)
-            XCTAssertTrue(
-                "\(sheet.label) \(sheet.value ?? "")".contains(expectedState),
-                app.debugDescription
-            )
+            // The landscape layout uses a fixed side pane without the drag handle.
+            XCTAssertFalse(sheet.exists, app.debugDescription)
             attachScreenshot(named: "sheet-\(expectedState)-landscape")
             let landscapeAction = element(containing: "Почати маршрут")
             XCTAssertTrue(landscapeAction.isHittable, "CTA frame \(landscapeAction.frame)\n\(app.debugDescription)")
@@ -327,26 +325,16 @@ final class MapScenarioUITests: XCTestCase {
             element(containing: "Mapbox").waitForExistence(timeout: 5),
             app.debugDescription
         )
-        XCTAssertTrue(
-            "\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"),
-            app.debugDescription
-        )
+        XCTAssertFalse(sheet.exists, app.debugDescription)
         attachScreenshot(named: "preview-landscape")
-
-        sheet.tap()
-        XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Згорнута"))
         XCTAssertTrue(element(containing: "Хрещатик, 22").exists, app.debugDescription)
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists, app.debugDescription)
         rotate(to: .portrait)
-        XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Згорнута"))
         XCTAssertTrue(
             element(containing: "Хрещатик, 22").waitForExistence(timeout: 5),
             app.debugDescription
         )
         XCTAssertTrue(element(containing: "площа Ринок, 1").exists)
-        sheet.tap()
-        XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Частково розгорнута"))
-        sheet.tap()
         XCTAssertTrue("\(sheet.label) \(sheet.value ?? "")".contains("Розгорнута"))
         XCTAssertTrue(app.buttons["Вантажне"].isSelected)
         tapElement(containing: "Тема")
