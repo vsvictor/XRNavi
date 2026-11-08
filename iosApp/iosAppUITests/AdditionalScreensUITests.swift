@@ -171,7 +171,7 @@ final class AdditionalScreensUITests: XCTestCase {
                     tap("Внутрішній preview S41–S45 · debug")
                     XCTAssertTrue(find("Закрити").waitForExistence(timeout: 5))
                     tap("\(designID) · \(title)")
-                    XCTAssertTrue(find("\(title) · демо").waitForExistence(timeout: 5))
+                    XCTAssertTrue(find(title).waitForExistence(timeout: 5))
                     capture(designID, variant, tagged: false)
                 }
                 tap("Повернутися до входу")

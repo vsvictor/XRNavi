@@ -21,5 +21,7 @@ class AppDependencies(
     internal val recoveryService: RecoveryService = RpcRecoveryService(authorizedRpc::call)
     internal val authenticatedProfileService: AuthenticatedProfileService =
         RpcAuthenticatedProfileService(authorizedRpc::call)
+    internal val callbackService: CallbackService =
+        RpcCallbackService(mobileSpaceRpcClient.clients, authorizedRpc::call)
     internal val garageService: GarageService = RpcGarageService(authorizedRpc::call)
 }

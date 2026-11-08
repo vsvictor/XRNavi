@@ -15,6 +15,20 @@ internal const val passwordResetUnavailableMessage =
 internal const val recoveryNetworkMessage =
     "Не вдалося зв’язатися із сервером. Спробуйте ще раз"
 
+internal const val recoveryUnsupportedMessage =
+    "Сервер ще не підтримує відновлення пароля. Спробуйте пізніше"
+internal const val recoveryWeakPasswordMessage =
+    "Сервер відхилив пароль: він занадто простий. Оберіть надійніший"
+
+internal fun Throwable.recoveryFailureMessage(): String {
+    val text = message.orEmpty()
+    return when {
+        text.contains("-32601") -> recoveryUnsupportedMessage
+        text.contains("-32602") -> recoveryWeakPasswordMessage
+        else -> recoveryNetworkMessage
+    }
+}
+
 internal const val recoveryPreviewMessage =
     "Внутрішній preview · демо. Листи не надсилалися, токен не перевірявся, пароль не змінювався."
 internal const val recoveryMailUnavailableMessage =
@@ -34,6 +48,7 @@ internal data class RecoveryState(
     val confirmationTouched: Boolean = false,
     val serviceAvailable: Boolean = false,
     val resetToken: String = "",
+    val tokenInput: String = "",
     val busy: Boolean = false
 ) {
     val emailError: String?
@@ -42,6 +57,8 @@ internal data class RecoveryState(
         get() = passwordValidationError(password).takeIf { passwordTouched }
     val confirmationError: String?
         get() = passwordConfirmationError(password, confirmation).takeIf { confirmationTouched }
+    val canSubmitToken: Boolean
+        get() = serviceAvailable && stage == RecoveryStage.CheckEmail && !busy && tokenInput.isNotBlank()
     val canRequest: Boolean
         get() = stage == RecoveryStage.Request && !busy && emailValidationError(email) == null
     val canReset: Boolean
@@ -68,6 +85,8 @@ internal sealed interface RecoveryEvent {
     data object NewPasswordSubmitted : RecoveryEvent
     data object Cancelled : RecoveryEvent
     data object Cleared : RecoveryEvent
+    data class TokenInputChanged(val value: String) : RecoveryEvent
+    data object TokenSubmitted : RecoveryEvent
     data class TokenReceived(val token: String) : RecoveryEvent
     data object RequestAccepted : RecoveryEvent
     data class RequestFailed(val message: String) : RecoveryEvent

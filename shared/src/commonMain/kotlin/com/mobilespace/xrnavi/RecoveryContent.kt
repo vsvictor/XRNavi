@@ -33,9 +33,9 @@ internal fun RecoveryContent(
         keyboard?.hide()
     }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (model.stage != RecoveryStage.Request) AuthInfo(recoveryPreviewMessage)
+        if (!model.live && model.stage != RecoveryStage.Request) AuthInfo(recoveryPreviewMessage)
         Text(
-            if (model.stage == RecoveryStage.Request) model.stage.title else "${model.stage.title} · демо",
+            if (model.live || model.stage == RecoveryStage.Request) model.stage.title else "${model.stage.title} · демо",
             fontFamily = rememberRobotoCondensedFontFamily(),
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
@@ -44,7 +44,10 @@ internal fun RecoveryContent(
         )
         when (model.stage) {
             RecoveryStage.Request -> {
-                RecoveryBody("Вкажіть електронну пошту для запиту відновлення. У цій версії надсилання листів ще не підключено.")
+                RecoveryBody(
+                    if (model.live) "Вкажіть електронну пошту акаунта, щоб отримати токен відновлення."
+                    else "Вкажіть електронну пошту для запиту відновлення. У цій версії надсилання листів ще не підключено."
+                )
                 AuthFormInput(
                     label = "Електронна пошта",
                     value = model.email,
@@ -71,14 +74,41 @@ internal fun RecoveryContent(
                         model.requestReset()
                     })
                 )
-                RecoveryBody("Після підключення сервісу відповідь буде однаковою незалежно від того, чи існує акаунт із цією адресою.")
-                RecoveryAction("Надіслати посилання", model.canRequest) {
+                RecoveryBody(
+                    if (model.live) "Відповідь однакова незалежно від того, чи існує акаунт із цією адресою."
+                    else "Після підключення сервісу відповідь буде однаковою незалежно від того, чи існує акаунт із цією адресою."
+                )
+                RecoveryAction(if (model.live) "Надіслати токен" else "Надіслати посилання", model.canRequest) {
                     stopEditing()
                     model.requestReset()
                 }
             }
 
-            RecoveryStage.CheckEmail -> {
+            RecoveryStage.CheckEmail -> if (model.live) {
+                RecoveryBody("Якщо акаунт існує, токен відновлення дійсний 15 хвилин. Вставте його нижче.")
+                AuthFormInput(
+                    label = "Токен відновлення",
+                    value = model.tokenInput,
+                    onValueChange = model::updateTokenInput,
+                    error = null,
+                    onBlur = {},
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        autoCorrectEnabled = false,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        stopEditing()
+                        model.submitToken()
+                    })
+                )
+                RecoveryAction("Продовжити", model.canSubmitToken) {
+                    stopEditing()
+                    model.submitToken()
+                }
+                TextButton(onClick = { stopEditing(); model.returnToRequest() }) { Text("Змінити адресу") }
+                TextButton(onClick = model::resend, enabled = !model.busy) { Text("Запросити токен повторно") }
+            } else {
                 RecoveryBody("Демонстрація екрана очікування листа. Запит не надсилався, існування акаунта не перевірялося.")
                 RecoveryStatusIcon(
                     if (MaterialTheme.colorScheme.background.red < 0.5f)
@@ -91,7 +121,10 @@ internal fun RecoveryContent(
             }
 
             RecoveryStage.NewPassword -> {
-                RecoveryBody("Демонстрація форми нового пароля. Перевіреного посилання немає; зміна пароля недоступна.")
+                RecoveryBody(
+                    if (model.live) "Введіть новий пароль для акаунта."
+                    else "Демонстрація форми нового пароля. Перевіреного посилання немає; зміна пароля недоступна."
+                )
                 RecoveryPasswords(model)
                 RecoveryBody("Мінімум 8 символів.")
                 RecoveryAction("Зберегти новий пароль", model.canReset) {
@@ -101,13 +134,19 @@ internal fun RecoveryContent(
             }
 
             RecoveryStage.Changed -> {
-                RecoveryBody("Це лише демонстрація стану S44. Насправді пароль не змінено, акаунт і сесію не створено.")
+                RecoveryBody(
+                    if (model.live) "Пароль змінено. Увійдіть із новим паролем."
+                    else "Це лише демонстрація стану S44. Насправді пароль не змінено, акаунт і сесію не створено."
+                )
                 RecoveryStatusIcon(Res.drawable.recovery_check)
                 RecoveryAction("Перейти до входу", onClick = onBack)
             }
 
             RecoveryStage.InvalidLink -> {
-                RecoveryBody("Демонстраційний стан: посилання недійсне, використане або прострочене. Жодного реального токена не отримували й не перевіряли.")
+                RecoveryBody(
+                    if (model.live) "Токен недійсний, уже використаний або прострочений. Запросіть новий."
+                    else "Демонстраційний стан: посилання недійсне, використане або прострочене. Жодного реального токена не отримували й не перевіряли."
+                )
                 RecoveryStatusIcon(Res.drawable.recovery_link_off, warning = true)
                 RecoveryAction("Запросити нове посилання") {
                     stopEditing()

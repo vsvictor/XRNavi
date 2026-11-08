@@ -45,6 +45,27 @@ class RecoveryBlocServiceTest {
     }
 
     @Test
+    fun methodNotFoundIsReportedAsUnsupportedServer() {
+        val bloc = bloc(FakeService(RuntimeException("rpc error -32601: Method not found")))
+        bloc.dispatch(RecoveryEvent.EmailChanged("a@b.co"))
+        bloc.dispatch(RecoveryEvent.ResetRequested)
+        assertEquals(recoveryUnsupportedMessage, bloc.state.value.notice)
+    }
+
+    @Test
+    fun weakPasswordRejectionIsReported() {
+        val service = FakeService()
+        val bloc = bloc(service)
+        bloc.dispatch(RecoveryEvent.TokenReceived("tok"))
+        bloc.dispatch(RecoveryEvent.PasswordChanged("Str0ng!Pass1"))
+        bloc.dispatch(RecoveryEvent.ConfirmationChanged("Str0ng!Pass1"))
+        service.failure = RuntimeException("rpc error -32602: weak password")
+        bloc.dispatch(RecoveryEvent.NewPasswordSubmitted)
+        assertEquals(recoveryWeakPasswordMessage, bloc.state.value.notice)
+        assertEquals(RecoveryStage.NewPassword, bloc.state.value.stage)
+    }
+
+    @Test
     fun confirmChangesPasswordAndDropsToken() {
         val service = FakeService()
         val bloc = bloc(service)
@@ -67,6 +88,23 @@ class RecoveryBlocServiceTest {
         bloc.dispatch(RecoveryEvent.ConfirmationChanged("Str0ng!Pass1"))
         bloc.dispatch(RecoveryEvent.NewPasswordSubmitted)
         assertEquals(RecoveryStage.InvalidLink, bloc.state.value.stage)
+    }
+
+    @Test
+    fun pastedTokenLeadsToNewPasswordAndResendRequestsAgain() {
+        val service = FakeService()
+        val bloc = bloc(service)
+        bloc.dispatch(RecoveryEvent.EmailChanged("a@b.co"))
+        bloc.dispatch(RecoveryEvent.ResetRequested)
+        bloc.dispatch(RecoveryEvent.Resent)
+        assertEquals(2, service.requested.size)
+        assertFalse(bloc.state.value.canSubmitToken)
+        bloc.dispatch(RecoveryEvent.TokenInputChanged("  tok  "))
+        assertTrue(bloc.state.value.canSubmitToken)
+        bloc.dispatch(RecoveryEvent.TokenSubmitted)
+        assertEquals(RecoveryStage.NewPassword, bloc.state.value.stage)
+        assertEquals("tok", bloc.state.value.resetToken)
+        assertEquals("", bloc.state.value.tokenInput)
     }
 
     @Test

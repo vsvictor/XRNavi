@@ -21,7 +21,7 @@ internal class RecoveryBloc(
         val after = transition(before, event)
         mutableState.value = after
         if (after.busy && !before.busy) when (event) {
-            RecoveryEvent.ResetRequested -> launchRequest(after.email)
+            RecoveryEvent.ResetRequested, RecoveryEvent.Resent -> launchRequest(after.email)
             RecoveryEvent.NewPasswordSubmitted -> launchConfirm(after.resetToken, after.password)
             else -> Unit
         }
@@ -35,8 +35,8 @@ internal class RecoveryBloc(
                 RecoveryEvent.RequestAccepted
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
-                RecoveryEvent.RequestFailed(recoveryNetworkMessage)
+            } catch (error: Exception) {
+                RecoveryEvent.RequestFailed(error.recoveryFailureMessage())
             }
             dispatch(result)
         }
@@ -51,7 +51,7 @@ internal class RecoveryBloc(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                RecoveryEvent.ResetFailed(error.isAuthRejection(), recoveryNetworkMessage)
+                RecoveryEvent.ResetFailed(error.isAuthRejection(), error.recoveryFailureMessage())
             }
             dispatch(result)
         }
@@ -88,7 +88,9 @@ internal class RecoveryBloc(
                     cleared(state).copy(notice = "", stage = RecoveryStage.Request)
 
                 RecoveryEvent.Resent ->
-                    if (preview && state.stage == RecoveryStage.CheckEmail)
+                    if (state.serviceAvailable && state.stage == RecoveryStage.CheckEmail && !state.busy)
+                        state.copy(busy = true, notice = "")
+                    else if (preview && state.stage == RecoveryStage.CheckEmail)
                         state.copy(notice = recoveryUnavailableMessage) else state
 
                 RecoveryEvent.MailOpened ->
@@ -132,6 +134,17 @@ internal class RecoveryBloc(
 
                 RecoveryEvent.Cleared -> cleared(state).copy(resetToken = "")
 
+                is RecoveryEvent.TokenInputChanged ->
+                    if (state.serviceAvailable && state.stage == RecoveryStage.CheckEmail)
+                        state.copy(tokenInput = event.value, notice = "") else state
+
+                RecoveryEvent.TokenSubmitted ->
+                    if (!state.canSubmitToken) state
+                    else cleared(state).copy(
+                        resetToken = state.tokenInput.trim(), stage = RecoveryStage.NewPassword,
+                        notice = ""
+                    )
+
                 is RecoveryEvent.TokenReceived ->
                     if (!state.serviceAvailable || event.token.isBlank()) state
                     else cleared(state).copy(
@@ -161,6 +174,7 @@ internal class RecoveryBloc(
         private fun cleared(state: RecoveryState) = state.copy(
             password = "",
             confirmation = "",
+            tokenInput = "",
             passwordVisible = false,
             confirmationVisible = false,
             passwordTouched = false,

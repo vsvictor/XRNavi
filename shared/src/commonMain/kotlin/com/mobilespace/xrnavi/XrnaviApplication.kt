@@ -58,6 +58,18 @@ internal fun XrnaviApplication(
             recoveryViewModelFactory(previewEnabled, dependencies.recoveryService)
         }
     )
+    val callbackViewModel: CallbackViewModel = viewModel(
+        factory = remember(dependencies) { callbackViewModelFactory(dependencies.callbackService) }
+    )
+    val callbackState by callbackViewModel.bloc.state.collectAsStateWithLifecycle()
+    LaunchedEffect(accountState.mode) {
+        callbackViewModel.bloc.dispatch(
+            if (accountState.mode == AccountMode.Authenticated) CallbackEvent.Started else CallbackEvent.Stopped
+        )
+    }
+    ResetTokenDialog(callbackState.resetToken) {
+        callbackViewModel.bloc.dispatch(CallbackEvent.ResetTokenDismissed)
+    }
     val savedPlacesStore = rememberSavedPlacesStore()
     val routeStopsStore = rememberRouteStopsStore()
     val appModel: DemoAppViewModel = viewModel(

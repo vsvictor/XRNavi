@@ -39,6 +39,9 @@ internal class RecoveryViewModel(
     val canRequest get() = current.canRequest
     val canReset get() = current.canReset
     val busy get() = current.busy
+    val live get() = current.serviceAvailable
+    val tokenInput get() = current.tokenInput
+    val canSubmitToken get() = current.canSubmitToken
 
     fun updateEmail(value: String) = dispatch(RecoveryEvent.EmailChanged(value))
     fun touchEmail() = dispatch(RecoveryEvent.EmailTouched)
@@ -59,6 +62,8 @@ internal class RecoveryViewModel(
     fun togglePasswordVisibility() = dispatch(RecoveryEvent.PasswordVisibilityToggled)
     fun toggleConfirmationVisibility() = dispatch(RecoveryEvent.ConfirmationVisibilityToggled)
     fun submitNewPassword() = dispatch(RecoveryEvent.NewPasswordSubmitted)
+    fun updateTokenInput(value: String) = dispatch(RecoveryEvent.TokenInputChanged(value))
+    fun submitToken() = dispatch(RecoveryEvent.TokenSubmitted)
     fun cancel() = dispatch(RecoveryEvent.Cancelled)
     fun receiveResetToken(token: String) = dispatch(RecoveryEvent.TokenReceived(token))
 
