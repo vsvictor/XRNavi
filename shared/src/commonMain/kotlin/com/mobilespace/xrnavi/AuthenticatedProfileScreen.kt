@@ -23,7 +23,7 @@ internal fun authenticatedProfileField(profile: AuthenticatedProfile, key: Strin
 
 @Composable
 internal fun AuthenticatedProfileScreen(profile: AuthenticatedProfile) {
-    Text("Дані акаунта з сервера", style = MaterialTheme.typography.titleLarge)
+    Text("Дані аккаунта з сервера", style = MaterialTheme.typography.titleLarge)
     Text("ID: ${profile.id}", Modifier.testTag("authenticated-profile-id"))
     Text("Пошта: ${profile.email}", Modifier.testTag("authenticated-profile-email"))
     Text("Створено: ${profile.createdAt}")
@@ -36,7 +36,7 @@ internal fun AuthenticatedProfileScreen(profile: AuthenticatedProfile) {
         "last_name" to "Прізвище",
         "middle_name" to "По батькові",
         "birth_date" to "Дата народження",
-        "notifications_enabled" to "Сповіщення акаунта",
+        "notifications_enabled" to "Сповіщення аккаунта",
     ).forEach { (key, label) ->
         Text("$label: ${authenticatedProfileField(profile, key)}")
     }

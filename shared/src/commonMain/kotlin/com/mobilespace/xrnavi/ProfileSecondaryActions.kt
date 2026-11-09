@@ -17,7 +17,7 @@ internal fun ProfileSecondaryActions(
         AccountAction("Безпека та особисті дані",
             if (onOpenPrivacy != null) "Відкрити центр приватності" else "Не підключено") {
             if (onOpenPrivacy != null) onOpenPrivacy()
-            else unavailable("Керування даними акаунта й видалення профілю не підключено. Демо-профіль не є акаунтом.")
+            else unavailable("Керування даними аккаунта й видалення профілю не підключено. Демо-профіль не є аккаунтом.")
         }
     }
     val favorites: @Composable () -> Unit = {

@@ -46,7 +46,7 @@ internal fun ColumnScope.DemoSettingsScreen(
             listOf(AdditionalScreen.Company, AdditionalScreen.Diagnostics), onOpenAdditional
         )
         AccountBody("XRNavi $version · Mobile space")
-        AccountBody("Демонстраційний UI. Дані акаунта та справжня навігація не підключені.")
+        AccountBody("Демонстраційний UI. Дані аккаунта та справжня навігація не підключені.")
     }
     val personal: @Composable ColumnScope.() -> Unit = {
         SettingsHeading("Особисті · локально", layout)

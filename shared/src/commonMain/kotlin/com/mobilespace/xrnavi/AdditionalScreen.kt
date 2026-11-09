@@ -17,7 +17,7 @@ internal enum class AdditionalScreen(
     TaskDetails("S26", "Рейс DL-204"),
     TripHistory("S27", "Історія поїздок"),
     Privacy("S28", "Центр приватності"),
-    DeleteAccount("S29", "Видалити акаунт?"),
+    DeleteAccount("S29", "Видалити аккаунт?"),
     Diagnostics("S31", "Пристрої та діагностика"),
     RouteExplanation("S38", "Чому обрано цей шлях"),
     LocationEducation("S46", "Навіщо геолокація"),

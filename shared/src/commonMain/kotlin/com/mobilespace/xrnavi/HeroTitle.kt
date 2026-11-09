@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -19,14 +23,17 @@ internal fun HeroTitle(
 ) {
     BoxWithConstraints(modifier) {
         val titleSize = rememberHeroTitleSize(maxWidth, horizontalLayout)
+        var shrink by remember(titleSize, maxWidth) { mutableStateOf(1f) }
+        val fontSize = titleSize * shrink
         Text(
             text = title?.uppercase() ?: heroSlogan,
             fontFamily = rememberRobotoCondensedFontFamily(),
             fontWeight = FontWeight.Bold,
-            fontSize = titleSize,
-            lineHeight = titleSize * 1.05f,
+            fontSize = fontSize,
+            lineHeight = fontSize * 1.05f,
             softWrap = false,
             maxLines = 1,
+            onTextLayout = { if (it.hasVisualOverflow && shrink > 0.3f) shrink *= 0.94f },
             letterSpacing = (-0.45).sp,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = if (title != null) Modifier.semantics { heading() } else Modifier

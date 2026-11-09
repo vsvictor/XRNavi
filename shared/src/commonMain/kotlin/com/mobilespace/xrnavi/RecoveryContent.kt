@@ -37,7 +37,7 @@ internal fun RecoveryContent(
         when (model.stage) {
             RecoveryStage.Request -> {
                 RecoveryBody(
-                    if (model.live) "Вкажіть електронну пошту акаунта, щоб отримати лист із кодом відновлення."
+                    if (model.live) "Вкажіть електронну пошту аккаунта, щоб отримати лист із кодом відновлення."
                     else "Вкажіть електронну пошту для запиту відновлення. У цій версії надсилання листів ще не підключено."
                 )
                 AuthFormInput(
@@ -59,8 +59,8 @@ internal fun RecoveryContent(
                     })
                 )
                 RecoveryBody(
-                    if (model.live) "Відповідь однакова незалежно від того, чи існує акаунт із цією адресою."
-                    else "Після підключення сервісу відповідь буде однаковою незалежно від того, чи існує акаунт із цією адресою."
+                    if (model.live) "Відповідь однакова незалежно від того, чи існує аккаунт із цією адресою."
+                    else "Після підключення сервісу відповідь буде однаковою незалежно від того, чи існує аккаунт із цією адресою."
                 )
                 RecoveryAction(if (model.live) "Надіслати код" else "Надіслати посилання", model.canRequest) {
                     stopEditing()
@@ -69,7 +69,7 @@ internal fun RecoveryContent(
             }
 
             RecoveryStage.CheckEmail -> if (model.live) {
-                RecoveryBody("Якщо акаунт існує, ми надіслали лист із шестизначним кодом відновлення. Він дійсний 10–15 хвилин. Введіть його нижче.")
+                RecoveryBody("Якщо аккаунт існує, ми надіслали лист із шестизначним кодом відновлення. Він дійсний 10–15 хвилин. Введіть його нижче.")
                 AuthFormInput(
                     label = "Код із листа",
                     value = model.tokenInput,
@@ -93,7 +93,7 @@ internal fun RecoveryContent(
                 TextButton(onClick = { stopEditing(); model.returnToRequest() }) { Text("Змінити адресу") }
                 TextButton(onClick = model::resend, enabled = !model.busy) { Text("Надіслати код повторно") }
             } else {
-                RecoveryBody("Демонстрація екрана очікування листа. Запит не надсилався, існування акаунта не перевірялося.")
+                RecoveryBody("Демонстрація екрана очікування листа. Запит не надсилався, існування аккаунта не перевірялося.")
                 RecoveryStatusIcon(
                     if (MaterialTheme.colorScheme.background.red < 0.5f)
                         Res.drawable.sign_in_mail_dark else Res.drawable.sign_in_mail_light
@@ -106,7 +106,7 @@ internal fun RecoveryContent(
 
             RecoveryStage.NewPassword -> {
                 RecoveryBody(
-                    if (model.live) "Введіть новий пароль для акаунта."
+                    if (model.live) "Введіть новий пароль для аккаунта."
                     else "Демонстрація форми нового пароля. Перевіреного посилання немає; зміна пароля недоступна."
                 )
                 RecoveryPasswords(model)
@@ -120,7 +120,7 @@ internal fun RecoveryContent(
             RecoveryStage.Changed -> {
                 RecoveryBody(
                     if (model.live) "Пароль змінено. Увійдіть із новим паролем."
-                    else "Це лише демонстрація стану S44. Насправді пароль не змінено, акаунт і сесію не створено."
+                    else "Це лише демонстрація стану S44. Насправді пароль не змінено, аккаунт і сесію не створено."
                 )
                 RecoveryStatusIcon(Res.drawable.recovery_check)
                 RecoveryAction("Перейти до входу", onClick = onBack)

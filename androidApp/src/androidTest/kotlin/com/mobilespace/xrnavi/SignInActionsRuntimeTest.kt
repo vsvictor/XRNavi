@@ -67,7 +67,7 @@ class SignInActionsRuntimeTest {
                 field("Пароль")?.text?.toString() != password
             }
             assertFalse(field("Пароль")!!.text.toString() == password)
-            assertTrue(node("Обрати поштовий акаунт")!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            assertTrue(node("Обрати поштовий аккаунт")!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
             chooserOpened = true
             await("Envelope must open the native account chooser") {
                 val packageName = automation.rootInActiveWindow?.packageName?.toString()

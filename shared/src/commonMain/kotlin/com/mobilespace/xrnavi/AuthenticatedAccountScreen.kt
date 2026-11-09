@@ -76,7 +76,7 @@ internal fun AuthenticatedAccountScreen(
             MapTopBar(
                 demoMode = false,
                 preview = false,
-                vehicleMode = "Акаунт",
+                vehicleMode = "Аккаунт",
                 onBack = {},
                 onOpenStopPlaces = {
                     dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
@@ -111,7 +111,7 @@ internal fun AuthenticatedAccountScreen(
                 ) {
                     Text(state.section.label, style = MaterialTheme.typography.headlineMedium)
                     Text(
-                        state.profile?.email ?: "Авторизований акаунт",
+                        state.profile?.email ?: "Авторизований аккаунт",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     if (state.loading && state.section == DemoSection.Profile) {
@@ -152,7 +152,7 @@ internal fun AuthenticatedAccountScreen(
                     if (state.section == DemoSection.Profile) Button(
                         onClick = onLogout,
                         modifier = Modifier.testTag("authenticated-logout"),
-                    ) { Text("Вийти з акаунта") }
+                    ) { Text("Вийти з аккаунта") }
                 }
             }
             if (!layout.landscape) BottomNavigation(

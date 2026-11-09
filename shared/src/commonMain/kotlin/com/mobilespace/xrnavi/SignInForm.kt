@@ -17,9 +17,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -67,7 +72,7 @@ internal fun SignInForm(
             ),
             trailingIcon = if (dark) Res.drawable.sign_in_mail_dark else Res.drawable.sign_in_mail_light,
             onTrailingClick = onSelectAccount,
-            trailingDescription = "Обрати поштовий акаунт",
+            trailingDescription = "Обрати поштовий аккаунт",
             readOnly = submitting,
             trailingEnabled = !submitting,
         )
@@ -131,21 +136,36 @@ internal fun SignInForm(
             ProviderButton(
                 modifier = Modifier.weight(1f),
                 label = "Apple",
-                icon = if (dark) Res.drawable.sign_in_apple_dark else Res.drawable.sign_in_apple_light
+                icon = Res.drawable.sign_in_apple_brand,
+                containerColor = Color.Black,
+                contentColor = Color.White,
+                borderColor = if (dark) Color(0xFF8E918F) else Color.Black
             )
             ProviderButton(
                 modifier = Modifier.weight(1f),
                 label = "Google",
-                icon = if (dark) Res.drawable.sign_in_google_dark else Res.drawable.sign_in_google_light
+                icon = Res.drawable.sign_in_google_brand,
+                containerColor = Color(0xFFDB4437),
+                contentColor = Color.White,
+                borderColor = Color(0xFFDB4437),
+                iconTint = Color.White
             )
         }
+        var registerFontSize by remember { mutableStateOf(13f) }
         Text(
-            text = "Не маєте акаунта? Зареєструватися",
+            text = "Не маєте аккаунта? Зареєструватися",
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(role = Role.Button, onClick = onRegister)
                 .padding(vertical = 12.dp),
-            fontSize = 13.sp,
+            fontSize = registerFontSize.sp,
+            maxLines = 1,
+            softWrap = false,
+            onTextLayout = { layout ->
+                if (layout.hasVisualOverflow && registerFontSize > 8f) {
+                    registerFontSize -= 0.5f
+                }
+            },
             color = MaterialTheme.colorScheme.primary
         )
     }

@@ -207,7 +207,7 @@ class ProfileSettingsRuntimeTest {
             assertTrue("Sign-in content must expose the demo action after scrolling", scrolls > 0)
             listOf(
                 "Продовжити без входу · деморежим",
-                "Не маєте акаунта? Зареєструватися"
+                "Не маєте аккаунта? Зареєструватися"
             ).forEach(::focusAction)
 
             fun containsText(node: AccessibilityNodeInfo, text: String): Boolean {

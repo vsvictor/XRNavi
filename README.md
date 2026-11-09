@@ -1,16 +1,49 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+# XRNavi
 
-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+**EN.** XRNavi is a Kotlin Multiplatform / Compose Multiplatform navigation app for Android and iOS,
+aimed at drivers of trucks and other heavy vehicles ("XR — a new interaction format"). It combines
+a Mapbox route planner, a vehicle garage, stop-place search and a full account flow (sign-in,
+registration, password recovery) on top of a JSON-RPC 2 backend.
 
-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./shared/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+**UK.** XRNavi — навігаційний застосунок на Kotlin Multiplatform / Compose Multiplatform для Android
+та iOS, призначений для водіїв вантажівок і великогабаритного транспорту («XR — новий формат
+взаємодії»). Він поєднує планувальник маршрутів Mapbox, гараж транспортних засобів, пошук місць
+зупинки та повний потік облікового запису (вхід, реєстрація, відновлення пароля) поверх
+JSON-RPC 2 бекенду.
+
+## Features / Можливості
+
+| EN | UK |
+|----|----|
+| Sign-in, registration, password recovery with a six-digit emailed code; adaptive portrait/landscape layout with a shared hero | Вхід, реєстрація, відновлення пароля шестизначним кодом з листа; адаптивний portrait/landscape-макет зі спільним hero |
+| OAuth 2 session lifecycle with secure token storage (Android Keystore, iOS Keychain) | Життєвий цикл OAuth 2-сесії із захищеним сховищем токенів (Android Keystore, iOS Keychain) |
+| Map (S03): Mapbox geocoding, driving directions, geolocation states | Мапа (S03): геокодування Mapbox, маршрути, стани геолокації |
+| Garage and vehicle wizard; local stop-place catalog; profile and theme settings | Гараж і майстер додавання авто; локальний каталог місць зупинки; профіль і теми |
+| Connection indicator (QUIC / TLS / TCP) | Індикатор з'єднання (QUIC / TLS / TCP) |
+
+## Architecture / Архітектура
+
+**EN.** State management is BLoC everywhere: each screen has its own `XScreen`, `XViewModel` and
+`XBloc` (state/events in `XState`) in separate files; dependencies are injected via
+`AppDependencies` (no singletons). The backend is the Rust server `JSON-RPC-2-OAuth2` (deployed with
+the `BRNavi` Docker project); the app talks to it through the
+[JSON-RPC-2-Client-KMP](https://github.com/vsvictor/JSON-RPC-2-Client-KMP) library, included as a Git
+submodule. Docs are kept in English and Ukrainian.
+
+**UK.** Керування станом — BLoC скрізь: кожен екран має окремі `XScreen`, `XViewModel` і `XBloc`
+(стан/події в `XState`) в окремих файлах; залежності передаються через `AppDependencies`
+(без singleton). Бекенд — Rust-сервер `JSON-RPC-2-OAuth2` (розгортається проєктом Docker `BRNavi`);
+застосунок спілкується з ним через бібліотеку
+[JSON-RPC-2-Client-KMP](https://github.com/vsvictor/JSON-RPC-2-Client-KMP), підключену як Git submodule.
+Документація ведеться англійською та українською.
+
+## Project layout / Структура проєкту
+
+* [/shared](./shared/src) — shared Compose UI, BLoCs, ViewModels and services (`commonMain`); platform code in `androidMain` and `iosMain`. / спільний UI, BLoC, ViewModel і сервіси; платформний код в `androidMain` та `iosMain`.
+* [/androidApp](./androidApp) — Android entry point and instrumented tests. / точка входу Android та інструментальні тести.
+* [/iosApp](./iosApp/iosApp) — iOS host app (SwiftUI wrapper, Mapbox view factory) and XCUITests. / iOS-хост (SwiftUI, фабрика Mapbox) та XCUITest.
+* [/external](./external) — `JSON-RPC-2-Client-KMP` submodule. / submodule клієнта JSON-RPC.
+* [/docs](./docs) — design, verification and screen reports. / звіти про дизайн, перевірки й екрани.
 
 ### Running the apps
 
@@ -193,7 +226,7 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
   -resultBundlePath /tmp/xrnavi-ipad-ui.xcresult test
 ```
 
-### JSON-RPC client / Клієнт JSON-RPC
+### Backend connection (JSON-RPC client) / Підключення до бекенду (клієнт JSON-RPC)
 
 Every screen displays a 5 dp connection dot at the top-right corner of the safe drawing
 area, 8 dp from its top and right edges, clear of system bars and display cutouts. Green means QUIC,
@@ -281,7 +314,7 @@ QUIC, а за його невдачі TLS. Нове з'єднання замін
 [Map contracts and iOS launch verification, 2026-10-27 (Ukrainian)](docs/verification-2026-10-27.md)
 records the tested builds, local evidence, and remaining physical-device/accessibility blockers.
 
-### Authenticated account and explicit demo / Авторизований акаунт і явний деморежим
+### Authenticated account and explicit demo / Авторизований аккаунт і явний деморежим
 
 All sections use the Map-style bottom navigation: equal-height tabs with icons above labels.
 Landscape side navigation keeps its existing adaptive layout.
@@ -315,9 +348,9 @@ Login also uses unencrypted TCP when that is the active fallback, as explicitly 
 **TCP exposes credentials and tokens to network observers; QUIC/TLS should be used on untrusted networks.**
 
 Дії входу обробляє `SignInBloc`. Кнопка ока показує/приховує пароль без заміни поля.
-Конверт відкриває системний вибір акаунта Android за дією користувача (без широкого дозволу
-на читання акаунтів); вибір лише заповнює пошту. iOS не надає публічного списку поштових
-акаунтів, тому відображається пояснення й залишається ручне введення.
+Конверт відкриває системний вибір аккаунта Android за дією користувача (без широкого дозволу
+на читання аккаунтів); вибір лише заповнює пошту. iOS не надає публічного списку поштових
+аккаунтів, тому відображається пояснення й залишається ручне введення.
 
 Відновлення пароля використовує публічні методи `auth.requestPasswordReset` (`email`) та
 `auth.confirmPasswordReset` (`reset_token`, `new_password`) через `RecoveryService` під керуванням
@@ -330,7 +363,7 @@ Login also uses unencrypted TCP when that is the active fallback, as explicitly 
 помилки відображаються у формі. Перевірені access/refresh tokens залишаються лише в пам'яті;
 пароль очищається після успіху або виходу з форми, вихід із сесії видаляє токени.
 Постійного збереження сесії, автоматичного refresh чи повторного надсилання входу немає.
-Успішний вхід (також тестового акаунта) відкриває авторизований режим, ніколи не деморежим.
+Успішний вхід (також тестового аккаунта) відкриває авторизований режим, ніколи не деморежим.
 `AuthenticatedAccountBloc` отримує сесію в пам’яті від `SignInBloc` і завантажує `auth.getProfile`
 через DI-сервіс і ViewModel. Завантаження, безпечні помилки, повторний запит, навігація,
 локальний вихід і завершення сесії обробляються BLoC. Вихід скасовує запити й видаляє профіль
@@ -343,7 +376,7 @@ The sign-in layout uses the full window size, not the keyboard-reduced content h
 Opening the keyboard keeps the same form and password input focus.
 The sign-in image panel has no outer padding or rounded frame. Its portrait height is reduced
 to fit the shorter content: no theme button or product caption, and the subtitle is
-“Навігація для кожного”. Text retains its internal padding.
+“XR — новий формат взаємодії”. Text retains its internal padding.
 Email and password fields use the scaled text line height plus 24 dp (12 dp above and below).
 Input text is vertically centered and left-aligned.
 In light mode, the sign-in background transitions linearly from white at the bottom of the
@@ -354,7 +387,7 @@ background transitions from white at its top. Dark mode is unchanged.
 клавіатури. Форма залишається тією самою, а поле пароля зберігає фокус.
 Плашка з картинкою не має зовнішніх відступів і заокругленої рамки. Її висоту в портретній
 орієнтації зменшено під скорочений вміст: без кнопки теми та підпису продукту,
-з підзаголовком «Навігація для кожного». Внутрішні відступи тексту збережено.
+з підзаголовком «XR — новий формат взаємодії». Внутрішні відступи тексту збережено.
 Висота полів пошти й пароля дорівнює масштабованій висоті рядка шрифту плюс 24 dp
 (по 12 dp зверху та знизу). Текст вирівняно по центру вертикально та зліва горизонтально.
 У світлій темі фон входу рівномірно переходить від білого біля нижнього краю картинки до
@@ -490,7 +523,7 @@ identifies the checked artifacts and separates local Android evidence from unver
 
 ---
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+Built with [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
 
 **EN.** Garage (authenticated Garage tab): `GarageBloc` (list/select active/details) and `AddVehicleBloc` (class → make → model → year+trim wizard, S10/S14/S15/S17) with separate ViewModels; `GarageService` is injected via `AppDependencies` (`RpcGarageService`). The JSON-RPC method names (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) and payloads are PROVISIONAL: the backend contract is not confirmed, so on failure the UI shows an error with retry (never an empty garage). Selection changes only after server confirmation. Not yet: S11 dimensions screen, S16 configurations, S03 integration.
 

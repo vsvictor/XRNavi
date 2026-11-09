@@ -15,7 +15,7 @@ internal fun ResetTokenDialog(token: String?, onDismiss: () -> Unit) {
             title = { Text("Запит на відновлення пароля") },
             text = {
                 Text(
-                    "Для вашого акаунта запросили відновлення пароля. Код для введення на іншому пристрої: $it",
+                    "Для вашого аккаунта запросили відновлення пароля. Код для введення на іншому пристрої: $it",
                     Modifier.testTag("reset_token_dialog_text"),
                 )
             },

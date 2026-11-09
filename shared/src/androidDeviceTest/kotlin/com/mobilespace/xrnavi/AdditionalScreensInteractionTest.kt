@@ -68,7 +68,7 @@ class AdditionalScreensInteractionTest {
             assertTrue(bloc.state.value.backStack.isEmpty())
 
             open(AdditionalScreen.Privacy)
-            click("Видалення акаунта")
+            click("Видалення аккаунта")
             assertEquals(AdditionalScreen.DeleteAccount, bloc.state.value.screen)
             val deletionButton =
                 findNode { it.text?.toString() == "Підтвердити запит на видалення" }
@@ -78,7 +78,7 @@ class AdditionalScreensInteractionTest {
             click("Підтвердити запит на видалення")
             assertTrue(deletion.state.value.notice.orEmpty().contains("не видалено"))
             click("Зрозуміло")
-            click("Скасувати · залишити акаунт")
+            click("Скасувати · залишити аккаунт")
             assertEquals(AdditionalScreen.Privacy, bloc.state.value.screen)
             assertFalse(deletion.state.value.consent)
 

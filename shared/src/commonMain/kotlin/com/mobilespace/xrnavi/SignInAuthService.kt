@@ -28,6 +28,8 @@ internal fun interface SessionRefreshService {
 
 internal class RpcSignInAuthService(
     private val clock: () -> Long = ::currentTimeMillis,
+    private val deviceIdProvider: DeviceIdProvider? = null,
+    private val osInfoProvider: OsInfoProvider = PlatformOsInfoProvider(),
     private val call: suspend (method: String, paramsJson: String) -> String,
 ) : SignInAuthService, SessionRefreshService {
     override suspend fun login(email: String, password: String): AuthSession {
@@ -35,6 +37,16 @@ internal class RpcSignInAuthService(
             put("email", email)
             put("password", password)
             put("grant_type", "password")
+            deviceIdProvider?.let { provider ->
+                put("device", buildJsonObject {
+                    put("deviceId", provider.deviceId())
+                    val os = osInfoProvider.osInfo()
+                    put("os", buildJsonObject {
+                        put("name", os.name)
+                        put("version", os.version)
+                    })
+                })
+            }
         }
         return parse(call("auth.login", params.toString()))
     }

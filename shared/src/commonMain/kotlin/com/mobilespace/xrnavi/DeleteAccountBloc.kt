@@ -29,7 +29,7 @@ internal class DeleteAccountBloc {
                 is DeleteAccountEvent.Consent -> state.copy(consent = event.value)
                 DeleteAccountEvent.Confirm -> state.copy(
                     notice = if (!state.consent) "Підтвердьте ознайомлення з наслідками видалення."
-                    else "Видалення акаунта не підключено. Акаунт, сесію та локальні дані не видалено."
+                    else "Видалення аккаунта не підключено. Аккаунт, сесію та локальні дані не видалено."
                 )
 
                 DeleteAccountEvent.DismissNotice -> state.copy(notice = null)

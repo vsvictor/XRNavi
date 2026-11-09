@@ -15,7 +15,7 @@ internal fun DeleteAccountScreen(layout: AccountLayout, actions: AdditionalActio
     AdditionalColumns(layout, primary = {
         AdditionalCard(destructive = true) {
             AdditionalTitle("Ви втратите доступ до XRNavi", large = true)
-            AdditionalBody("Це видалення особистого акаунта, а не всіх даних компанії.")
+            AdditionalBody("Це видалення особистого аккаунта, а не всіх даних компанії.")
         }
         AdditionalHeading("Що буде видалено")
         AdditionalCard {
@@ -37,7 +37,7 @@ internal fun DeleteAccountScreen(layout: AccountLayout, actions: AdditionalActio
             "Розумію наслідки та окреме зберігання робочих даних.",
             state.consent
         ) { model.bloc.dispatch(DeleteAccountEvent.Consent(it)) }
-        AdditionalButton("Скасувати · залишити акаунт", secondary = true) { actions.back() }
+        AdditionalButton("Скасувати · залишити аккаунт", secondary = true) { actions.back() }
         AdditionalButton(
             "Підтвердити запит на видалення", destructive = true,
             enabled = state.consent

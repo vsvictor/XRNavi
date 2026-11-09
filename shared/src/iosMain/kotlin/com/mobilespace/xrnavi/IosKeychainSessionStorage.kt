@@ -6,10 +6,15 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
-import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.usePinned
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.reinterpret
+import platform.CoreFoundation.CFDictionaryAddValue
+import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionaryRef
+import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFTypeRef
+import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
+import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.Foundation.CFBridgingRelease
@@ -36,23 +41,35 @@ import platform.Security.kSecValueData
 
 /** Stores the session in the iOS Keychain, available after first unlock and never synced or backed up. */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-class IosKeychainSessionStorage : SecureSessionStorage {
-    private fun query(vararg extra: Pair<Any?, Any?>): CFDictionaryRef? {
-        val map = mutableMapOf<Any?, Any?>(
-            kSecClass to kSecClassGenericPassword,
-            kSecAttrService to service,
-            kSecAttrAccount to account,
-        )
-        extra.forEach { map[it.first] = it.second }
-        return CFBridgingRetain(map)?.reinterpret()
+class IosKeychainSessionStorage(private val account: String = "oauth2") : SecureSessionStorage {
+    /** Builds a native CFDictionary; Kotlin maps cannot carry the CF constants as keys. */
+    private fun <T> withQuery(vararg extra: Pair<CPointer<*>?, Any?>, block: (CFDictionaryRef?) -> T): T {
+        val dict = CFDictionaryCreateMutable(null, 0, kCFTypeDictionaryKeyCallBacks.ptr, kCFTypeDictionaryValueCallBacks.ptr)
+        val owned = mutableListOf<CFTypeRef?>()
+        fun put(key: CPointer<*>?, value: Any?) {
+            val ref: CFTypeRef? = when (value) {
+                is CPointer<*> -> value.reinterpret()
+                else -> CFBridgingRetain(value).also { owned += it }
+            }
+            CFDictionaryAddValue(dict, key, ref)
+        }
+        put(kSecClass, kSecClassGenericPassword)
+        put(kSecAttrService, service)
+        put(kSecAttrAccount, account)
+        extra.forEach { put(it.first, it.second) }
+        try {
+            return block(dict)
+        } finally {
+            owned.forEach { CFRelease(it) }
+            CFRelease(dict)
+        }
     }
 
     override fun read(): String? = memScoped {
         val result = alloc<CFTypeRefVar>()
-        val status = SecItemCopyMatching(
-            query(kSecReturnData to kCFBooleanTrue, kSecMatchLimit to kSecMatchLimitOne),
-            result.ptr,
-        )
+        val status = withQuery(kSecReturnData to kCFBooleanTrue, kSecMatchLimit to kSecMatchLimitOne) {
+            SecItemCopyMatching(it, result.ptr)
+        }
         if (status != errSecSuccess) return null
         val data = CFBridgingRelease(result.value) as? NSData ?: return null
         NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
@@ -61,21 +78,17 @@ class IosKeychainSessionStorage : SecureSessionStorage {
     override fun write(value: String): Boolean {
         clear()
         val data = NSString.create(string = value).dataUsingEncoding(NSUTF8StringEncoding) ?: return false
-        return SecItemAdd(
-            query(
-                kSecValueData to data,
-                kSecAttrAccessible to kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-            ),
-            null,
-        ) == errSecSuccess
+        return withQuery(
+            kSecValueData to data,
+            kSecAttrAccessible to kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ) { SecItemAdd(it, null) } == errSecSuccess
     }
 
     override fun clear() {
-        SecItemDelete(query())
+        withQuery { SecItemDelete(it) }
     }
 
     private companion object {
         const val service = "com.mobilespace.xrnavi.session"
-        const val account = "oauth2"
     }
 }

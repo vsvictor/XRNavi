@@ -106,7 +106,7 @@ internal fun RegistrationForm(
             AuthInfo(model.notice)
         }
         TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text("Уже маєте акаунт? Увійти")
+            Text("Уже маєте аккаунт? Увійти")
         }
     }
 }
