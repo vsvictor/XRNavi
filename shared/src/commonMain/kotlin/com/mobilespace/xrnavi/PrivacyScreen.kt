@@ -23,7 +23,7 @@ internal fun PrivacyScreen(layout: AccountLayout, actions: AdditionalActions) {
             AdditionalTitle("Робоча геолокація · 30 днів")
             AdditionalBody("Робочі звіти — 180 днів · приклад із дизайну, не підтверджена політика")
             AdditionalTitle("Особиста історія")
-            AdditionalBody("Історію в акаунті й строки зберігання не перевірено.")
+            AdditionalBody("Історію в аккаунті й строки зберігання не перевірено.")
         }
         AdditionalAction(
             "Експортувати особисті дані",
@@ -33,7 +33,7 @@ internal fun PrivacyScreen(layout: AccountLayout, actions: AdditionalActions) {
             actions.unavailable("Видалення історії")
         }
         AdditionalAction(
-            "Видалення акаунта", "Наслідки та підтвердження на наступному кроці",
+            "Видалення аккаунта", "Наслідки та підтвердження на наступному кроці",
             destructive = true
         ) { actions.open(AdditionalScreen.DeleteAccount) }
     })

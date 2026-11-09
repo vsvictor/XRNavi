@@ -32,7 +32,7 @@ internal fun ProfileIdentity(
     ) {
         val edit: @Composable () -> Unit = {
             Button(
-                onClick = { unavailable("Редагування акаунта не підключено. Цей демо-профіль не містить підтверджених особистих даних.") },
+                onClick = { unavailable("Редагування аккаунта не підключено. Цей демо-профіль не містить підтверджених особистих даних.") },
                 shape = RoundedCornerShape(24.dp),
                 modifier = (if (layout == AccountLayout.TabletPortrait) Modifier else Modifier.fillMaxWidth())
                     .heightIn(min = 44.dp)

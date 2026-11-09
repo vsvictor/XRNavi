@@ -314,7 +314,7 @@ QUIC, а за його невдачі TLS. Нове з'єднання замін
 [Map contracts and iOS launch verification, 2026-10-27 (Ukrainian)](docs/verification-2026-10-27.md)
 records the tested builds, local evidence, and remaining physical-device/accessibility blockers.
 
-### Authenticated account and explicit demo / Авторизований акаунт і явний деморежим
+### Authenticated account and explicit demo / Авторизований аккаунт і явний деморежим
 
 All sections use the Map-style bottom navigation: equal-height tabs with icons above labels.
 Landscape side navigation keeps its existing adaptive layout.
@@ -348,9 +348,9 @@ Login also uses unencrypted TCP when that is the active fallback, as explicitly 
 **TCP exposes credentials and tokens to network observers; QUIC/TLS should be used on untrusted networks.**
 
 Дії входу обробляє `SignInBloc`. Кнопка ока показує/приховує пароль без заміни поля.
-Конверт відкриває системний вибір акаунта Android за дією користувача (без широкого дозволу
-на читання акаунтів); вибір лише заповнює пошту. iOS не надає публічного списку поштових
-акаунтів, тому відображається пояснення й залишається ручне введення.
+Конверт відкриває системний вибір аккаунта Android за дією користувача (без широкого дозволу
+на читання аккаунтів); вибір лише заповнює пошту. iOS не надає публічного списку поштових
+аккаунтів, тому відображається пояснення й залишається ручне введення.
 
 Відновлення пароля використовує публічні методи `auth.requestPasswordReset` (`email`) та
 `auth.confirmPasswordReset` (`reset_token`, `new_password`) через `RecoveryService` під керуванням
@@ -363,7 +363,7 @@ Login also uses unencrypted TCP when that is the active fallback, as explicitly 
 помилки відображаються у формі. Перевірені access/refresh tokens залишаються лише в пам'яті;
 пароль очищається після успіху або виходу з форми, вихід із сесії видаляє токени.
 Постійного збереження сесії, автоматичного refresh чи повторного надсилання входу немає.
-Успішний вхід (також тестового акаунта) відкриває авторизований режим, ніколи не деморежим.
+Успішний вхід (також тестового аккаунта) відкриває авторизований режим, ніколи не деморежим.
 `AuthenticatedAccountBloc` отримує сесію в пам’яті від `SignInBloc` і завантажує `auth.getProfile`
 через DI-сервіс і ViewModel. Завантаження, безпечні помилки, повторний запит, навігація,
 локальний вихід і завершення сесії обробляються BLoC. Вихід скасовує запити й видаляє профіль

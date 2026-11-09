@@ -200,7 +200,7 @@ final class ProfileSettingsUITests: XCTestCase {
                 assertVehicleProfileDetails()
                 tap("Назад до попереднього розділу")
                 reveal("Історія поїздок і статистика відсутні; серверні дані не отримувалися.")
-                XCTAssertTrue(find("Ім’я та пошту не отримано. Акаунт і підтвердження пошти відсутні.").exists)
+                XCTAssertTrue(find("Ім’я та пошту не отримано. Аккаунт і підтвердження пошти відсутні.").exists)
                 tap("Налаштування")
             }
             rotate(.portrait)

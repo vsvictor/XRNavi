@@ -61,7 +61,7 @@ class TalkBackAllScreensRuntimeTest {
                 "Зареєструватися"
             )
 
-            click(ui, "Не маєте акаунта? Зареєструватися")
+            click(ui, "Не маєте аккаунта? Зареєструватися")
             waitFor("registration screen") { find(ui, "Реєстрація") != null }
             audit(
                 ui,
@@ -76,9 +76,9 @@ class TalkBackAllScreensRuntimeTest {
                 "Підтвердіть пароль",
                 "Згода з Умовами користування",
                 "Реєстрація",
-                "Уже маєте акаунт? Увійти"
+                "Уже маєте аккаунт? Увійти"
             )
-            click(ui, "Уже маєте акаунт? Увійти")
+            click(ui, "Уже маєте аккаунт? Увійти")
             waitFor("sign-in after registration") { find(ui, "Забули пароль?") != null }
 
             click(ui, "Забули пароль?")

@@ -70,7 +70,7 @@ internal class SignInBloc(
                     current.copy(email = event.email, notice = "", accountPickerRequested = false)
                 } else {
                     current.copy(
-                        notice = "Обраний акаунт не містить коректної електронної адреси.",
+                        notice = "Обраний аккаунт не містить коректної електронної адреси.",
                         accountPickerRequested = false,
                     )
                 }

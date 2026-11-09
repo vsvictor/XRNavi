@@ -38,7 +38,7 @@ internal fun MapMessages(
                 MapLoadStatus.Ready -> Unit
             }
             if (expired) {
-                Text("Сесія завершилась. Онлайн-дані акаунта недоступні; мапа залишається доступною.")
+                Text("Сесія завершилась. Онлайн-дані аккаунта недоступні; мапа залишається доступною.")
                 TextButton(onClick = onProfile) { Text("Перейти до профілю") }
             }
             if (notice.isNotEmpty()) {

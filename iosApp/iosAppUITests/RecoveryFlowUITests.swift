@@ -21,7 +21,7 @@ final class RecoveryFlowUITests: XCTestCase {
     func testRecoveryRequestTokenAndNewPasswordForms() {
         button("Забули пароль?").tap()
         XCTAssertTrue(label("Відновлення пароля").waitForExistence(timeout: 5))
-        XCTAssertTrue(label("Вкажіть електронну пошту акаунта").waitForExistence(timeout: 5))
+        XCTAssertTrue(label("Вкажіть електронну пошту аккаунта").waitForExistence(timeout: 5))
 
         let email = app.textViews.element(boundBy: 0)
         email.tap()
@@ -42,7 +42,7 @@ final class RecoveryFlowUITests: XCTestCase {
         token.typeText("v4.local.dummy")
         button("Продовжити").tap()
 
-        XCTAssertTrue(label("Введіть новий пароль для акаунта").waitForExistence(timeout: 5))
+        XCTAssertTrue(label("Введіть новий пароль для аккаунта").waitForExistence(timeout: 5))
         let password = app.textViews.element(boundBy: 0)
         password.tap()
         password.typeText("Str0ngPass99")

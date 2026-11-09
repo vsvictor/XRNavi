@@ -49,7 +49,7 @@ final class MapScenarioUITests: XCTestCase {
         passwordField.typeText(password)
         app.buttons["Увійти"].firstMatch.tap()
         XCTAssertTrue(element(containing: "Центр мапи").waitForExistence(timeout: 20))
-        XCTAssertFalse(element(containing: "Вийти з акаунта").exists)
+        XCTAssertFalse(element(containing: "Вийти з аккаунта").exists)
         XCTAssertFalse(element(containing: "Мапа недоступна").exists)
         sleep(5)
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.lifetime = .keepAlways; add(shot)
