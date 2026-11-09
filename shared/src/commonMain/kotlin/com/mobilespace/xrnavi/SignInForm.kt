@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -135,12 +136,19 @@ internal fun SignInForm(
             ProviderButton(
                 modifier = Modifier.weight(1f),
                 label = "Apple",
-                icon = if (dark) Res.drawable.sign_in_apple_dark else Res.drawable.sign_in_apple_light
+                icon = Res.drawable.sign_in_apple_brand,
+                containerColor = Color.Black,
+                contentColor = Color.White,
+                borderColor = if (dark) Color(0xFF8E918F) else Color.Black
             )
             ProviderButton(
                 modifier = Modifier.weight(1f),
                 label = "Google",
-                icon = if (dark) Res.drawable.sign_in_google_dark else Res.drawable.sign_in_google_light
+                icon = Res.drawable.sign_in_google_brand,
+                containerColor = Color(0xFFDB4437),
+                contentColor = Color.White,
+                borderColor = Color(0xFFDB4437),
+                iconTint = Color.White
             )
         }
         var registerFontSize by remember { mutableStateOf(13f) }

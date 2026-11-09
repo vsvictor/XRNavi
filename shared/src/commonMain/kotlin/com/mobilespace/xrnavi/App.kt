@@ -55,11 +55,13 @@ fun App(
     }
     XrnaviTheme(darkTheme = darkTheme) {
         Box(Modifier.fillMaxSize()) {
-            XrnaviApplication(
-                dependencies = dependencies,
-                themeSettings = themeSettings,
-                onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
-            )
+            OrientationMorph {
+                XrnaviApplication(
+                    dependencies = dependencies,
+                    themeSettings = themeSettings,
+                    onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
+                )
+            }
             Box(
                 Modifier.fillMaxSize().safeDrawingPadding()
                     .testTag("connection_indicator_safe_area")
