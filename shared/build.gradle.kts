@@ -41,6 +41,12 @@ kotlin {
        namespace = "com.mobilespace.xrnavi.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
        minSdk = libs.versions.android.minSdk.get().toInt()
+       packaging {
+           jniLibs {
+               // Keep the native runtime shipped with the JSON-RPC FFI library.
+               pickFirsts += "**/libc++_shared.so"
+           }
+       }
     
        compilerOptions {
            jvmTarget = JvmTarget.JVM_11

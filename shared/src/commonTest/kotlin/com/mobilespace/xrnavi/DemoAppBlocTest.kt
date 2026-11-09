@@ -8,13 +8,6 @@ class DemoAppBlocTest {
         events.fold(from) { state, event -> DemoAppBloc.transition(state, event) }
 
     @Test
-    fun demoStartOpensMapAndExitReturnsToSignIn() {
-        val started = run(DemoAppEvent.DemoStarted, from = DemoAppState(screen = AppScreen.SignIn))
-        assertEquals(AppScreen.Map, started.screen)
-        assertEquals(AppScreen.SignIn, run(DemoAppEvent.DemoExited, from = started).screen)
-    }
-
-    @Test
     fun searchOpensAndClosesToPreviousScreen() {
         val opened = run(DemoAppEvent.SearchOpened(SearchTarget.Destination))
         assertEquals(AppScreen.Search, opened.screen)

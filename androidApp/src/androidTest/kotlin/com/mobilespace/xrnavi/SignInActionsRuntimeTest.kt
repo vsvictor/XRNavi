@@ -9,6 +9,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -21,6 +22,7 @@ class SignInActionsRuntimeTest {
     fun signInSubmitsInvalidTestCredentialsAndShowsFailureInsteadOfPlaceholder() {
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         try {
+            assumeSignInForm()
             await("Email input must be available") { field("Електронна пошта") != null }
             setText(field("Електронна пошта")!!, "xrnavi-login-check@example.invalid")
             setText(field("Пароль")!!, "Not-a-real-account-password")
@@ -50,6 +52,7 @@ class SignInActionsRuntimeTest {
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         var chooserOpened = false
         try {
+            assumeSignInForm()
             await("Password input must be available") { field("Пароль") != null }
             val password = "Xrnavi-visibility-check"
             setText(field("Пароль")!!, password)
@@ -123,5 +126,16 @@ class SignInActionsRuntimeTest {
             SystemClock.sleep(100)
         }
         assertTrue(description, condition())
+    }
+
+    private fun assumeSignInForm() {
+        val deadline = SystemClock.uptimeMillis() + 10_000
+        while (SystemClock.uptimeMillis() < deadline && field("Електронна пошта") == null) {
+            SystemClock.sleep(100)
+        }
+        assumeTrue(
+            "Sign-in interaction tests require a signed-out app session",
+            field("Електронна пошта") != null
+        )
     }
 }

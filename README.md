@@ -211,6 +211,18 @@ inset. UI-автоматизація прокручує вміст усеред�
 під час запуску зі світлою системною темою, але повна матриця його тем/орієнтацій
 і піксельна тотожність Figma залишаються неперевіреними.
 
+The physical-device capture results above are historical; `AdditionalScreensUITests`
+has been retired because its scenarios depended on the removed guest/demo entry.
+Current iOS UI coverage is in `RegistrationFlowUITests`, `AutoLoginUITests`, and
+`RecoveryFlowUITests`. Additional registration and demo-only profile, garage, and map
+scenarios must be redesigned for the supported authentication flow before they are reintroduced.
+
+Наведені вище результати фізичних пристроїв є історичними; `AdditionalScreensUITests`
+вилучено, оскільки його сценарії залежали від видаленого входу гостем/у деморежим.
+Поточне UI-покриття iOS міститься в `RegistrationFlowUITests`, `AutoLoginUITests` та
+`RecoveryFlowUITests`. Додаткові сценарії реєстрації й демопрофілю, гаража та мапи потрібно
+переробити для підтримуваного потоку авторизації, перш ніж повертати їх.
+
 Run on an unlocked, connected physical device; record its original system settings first.
 Restore and verify any externally changed settings afterward. Use a fresh result-bundle path.
 
@@ -221,7 +233,7 @@ Restore and verify any externally changed settings afterward. Use a fresh result
 ```sh
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
   -destination "platform=iOS,id=$IOS_DEVICE_UDID" \
-  -only-testing:iosAppUITests/AdditionalScreensUITests \
+  -only-testing:iosAppUITests/RegistrationFlowUITests \
   -parallel-testing-enabled NO -collect-test-diagnostics never \
   -resultBundlePath /tmp/xrnavi-ipad-ui.xcresult test
 ```
