@@ -8,6 +8,13 @@ import kotlin.test.assertTrue
 
 class StopPlacesTest {
     @Test
+    fun unavailableContactDoesNotChangeSelectionOrClaimAnOperation() {
+        val state = StopPlacesState(selectedId = stopPlaces.first().id)
+        val next = StopPlacesBloc.reduce(state, StopPlacesEvent.Unavailable("Контакт персоналу"))
+        assertEquals(state.selectedId, next.selectedId)
+        assertTrue(next.notice.contains("Дію не виконано"))
+    }
+    @Test
     fun inlineMapAttributionLeavesReadableExpandedScrollViewport() {
         val density = 3.8f
         val height = 182f * density

@@ -8,7 +8,7 @@ class RegistrationViewModelTest {
     fun emptyFormIsDisabledWithoutPrematureErrors() {
         val model = RegistrationViewModel()
         assertFalse(model.canSubmit)
-        RegistrationField.entries.forEach {
+        RegistrationField.entries.filter { it != RegistrationField.MiddleName }.forEach {
             assertNull(model.visibleError(it))
             assertNotNull(model.validationError(it))
             model.touch(it)
@@ -19,9 +19,9 @@ class RegistrationViewModelTest {
     @Test
     fun nameAndEmailHaveBasicLocalValidation() {
         val model = validForm()
-        model.update(RegistrationField.Name, "   ")
+        model.update(RegistrationField.FirstName, "   ")
         assertFalse(model.canSubmit)
-        model.update(RegistrationField.Name, "  Андрій Коваль  ")
+        model.update(RegistrationField.FirstName, "  Андрій  ")
         listOf("", "a", "a@", "@example.com", "a@b", "a b@example.com", "a@b..com").forEach {
             model.update(RegistrationField.Email, it)
             assertNotNull(model.visibleError(RegistrationField.Email))
@@ -139,7 +139,8 @@ class RegistrationViewModelTest {
     }
 
     private fun validForm() = RegistrationViewModel().apply {
-        update(RegistrationField.Name, "Андрій")
+        update(RegistrationField.FirstName, "Андрій")
+        update(RegistrationField.LastName, "Коваль")
         update(RegistrationField.Email, "andrii@example.com")
         update(RegistrationField.Password, "abcdefgh")
         update(RegistrationField.Confirmation, "abcdefgh")

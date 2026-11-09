@@ -88,3 +88,23 @@ internal actual fun rememberAppVersion(): String {
         "${info.versionName ?: "—"} (${info.longVersionCode})"
     }
 }
+private class AndroidRecoveryProgressStore(context: Context) : RecoveryProgressStore {
+    private val preferences = context.applicationContext.getSharedPreferences(
+        "xrnavi_recovery_progress", Context.MODE_PRIVATE
+    )
+
+    override fun read(): String? = preferences.getString(recoveryProgressPreferenceKey, null)
+
+    override fun write(email: String?) {
+        preferences.edit().apply {
+            if (email == null) remove(recoveryProgressPreferenceKey)
+            else putString(recoveryProgressPreferenceKey, email)
+        }.apply()
+    }
+}
+
+@Composable
+internal actual fun rememberRecoveryProgressStore(): RecoveryProgressStore {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { AndroidRecoveryProgressStore(context) }
+}

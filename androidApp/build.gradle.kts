@@ -34,8 +34,18 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val tokenFile = rootProject.file("tokens.dat")
+        val publicToken = if (tokenFile.isFile) {
+            Regex("(?m)^\\s*(pk\\.[A-Za-z0-9._-]+)\\s*$")
+                .find(tokenFile.readText())?.groupValues?.get(1)
+        } else null
+        require(!publicToken.isNullOrBlank()) {
+            "Mapbox public token missing. Configure local tokens.dat; see tools/mapbox-setup.en.md."
+        }
+        resValue("string", "mapbox_access_token", publicToken)
     }
     packaging {
+        jniLibs.pickFirsts += "**/libc++_shared.so"
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
@@ -55,6 +65,7 @@ android {
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
     buildToolsVersion = "37.0.0"
 }

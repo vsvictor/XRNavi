@@ -22,3 +22,9 @@ node_modules/
 /temp.txt
 /tokens.dat
 /.s18-wiki-publish/
+
+# Local Mapbox build credentials
+tokens.dat
+mapbox.local.properties
+iosApp/Mapbox.local.xcconfig
+/.test-account.json
