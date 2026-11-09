@@ -23,7 +23,7 @@ internal fun HeroTitle(
 ) {
     BoxWithConstraints(modifier) {
         val titleSize = rememberHeroTitleSize(maxWidth, horizontalLayout)
-        var shrink by remember(titleSize, maxWidth) { mutableStateOf(1f) }
+        var shrink by remember(titleSize, maxWidth, title) { mutableStateOf(1f) }
         val fontSize = titleSize * shrink
         Text(
             text = title?.uppercase() ?: heroSlogan,
@@ -33,7 +33,12 @@ internal fun HeroTitle(
             lineHeight = fontSize * 1.05f,
             softWrap = false,
             maxLines = 1,
-            onTextLayout = { if (it.hasVisualOverflow && shrink > 0.3f) shrink *= 0.94f },
+            onTextLayout = {
+                val needed = it.multiParagraph.maxIntrinsicWidth
+                if (it.hasVisualOverflow && needed > 0f && shrink > 0.3f) {
+                    shrink *= (it.size.width / needed * 0.97f).coerceIn(0.5f, 0.97f)
+                }
+            },
             letterSpacing = (-0.45).sp,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = if (title != null) Modifier.semantics { heading() } else Modifier

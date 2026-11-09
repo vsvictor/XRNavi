@@ -22,8 +22,9 @@ internal fun rememberHeroTitleSize(textWidth: Dp, horizontalLayout: Boolean): Te
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val availablePx = with(density) { textWidth.toPx() }
-    val scale = remember(availablePx, fontFamily, baseSize) {
-        val width = heroTitleSizingSamples.maxOf { sample ->
+    // Вимірюємо лише раз на базовому розмірі, щоб на кожному кадрі повороту не перемірювати текст.
+    val baseWidth = remember(fontFamily, baseSize) {
+        heroTitleSizingSamples.maxOf { sample ->
             measurer.measure(
                 text = sample,
                 style = TextStyle(
@@ -35,7 +36,7 @@ internal fun rememberHeroTitleSize(textWidth: Dp, horizontalLayout: Boolean): Te
                 softWrap = false
             ).size.width
         }
-        (availablePx / width).coerceAtMost(1f)
     }
+    val scale = (availablePx / baseWidth * 0.98f).coerceIn(0.1f, 1f)
     return (baseSize * scale).sp
 }
