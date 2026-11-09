@@ -41,7 +41,7 @@ internal fun OrientationMorph(
             )
             to = target
             progress.snapTo(0f)
-            progress.animateTo(1f, tween(700, easing = FastOutSlowInEasing))
+            progress.animateTo(1f, tween(525, easing = FastOutSlowInEasing))
         }
         Layout(content = content, modifier = Modifier.fillMaxSize().clipToBounds()) { measurables, c ->
             val p = progress.value
