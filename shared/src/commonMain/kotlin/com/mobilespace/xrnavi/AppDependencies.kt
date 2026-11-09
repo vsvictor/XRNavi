@@ -22,6 +22,7 @@ class AppDependencies(
     internal val signInAuthService: SignInAuthService = rpcSignIn
     internal val sessionManager = SessionManager(sessionStorage, rpcSignIn)
     private val authorizedRpc = AuthorizedRpc(sessionManager, rawCall)
+    internal val registrationService: RegistrationService = RpcRegistrationService(rawCall)
     internal val recoveryService: RecoveryService = RpcRecoveryService(authorizedRpc::call)
     internal val authenticatedProfileService: AuthenticatedProfileService =
         RpcAuthenticatedProfileService(authorizedRpc::call)

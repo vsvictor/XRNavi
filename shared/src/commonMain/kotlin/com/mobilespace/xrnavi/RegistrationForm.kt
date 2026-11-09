@@ -51,7 +51,15 @@ internal fun RegistrationForm(
         if (model.membership == RegistrationMembership.Corporate) {
             AuthInfo(invitationUnavailableMessage)
         }
-        RegistrationInput(model, RegistrationField.Name, "Ім’я та прізвище", model.name, fieldFocus)
+        RegistrationInput(model, RegistrationField.FirstName, "Ім’я", model.name, fieldFocus)
+        RegistrationInput(model, RegistrationField.LastName, "Прізвище", model.lastName, fieldFocus)
+        RegistrationInput(
+            model,
+            RegistrationField.MiddleName,
+            "По батькові (необов’язково)",
+            model.middleName,
+            fieldFocus
+        )
         RegistrationInput(
             model,
             RegistrationField.Email,

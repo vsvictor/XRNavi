@@ -412,8 +412,13 @@ Exact backend contract verified against read-only BRNavi `src/auth.rs` and its p
 - RPC result (the native client already unwraps JSON-RPC): `id: string`, `email: string`,
   `created_at: RFC3339 string`, `roles: string[]`, `profile: object`. Missing required
   fields/wrong types are rejected. Empty roles/profile are valid.
-- BRNavi profile schema: `first_name`, `last_name`, `middle_name` are text;
+- BRNavi profile schema: `first_name`, `last_name`, `middle_name`, `account_type` are text;
   `birth_date` is an optional RFC3339 datetime; `notifications_enabled` is an optional boolean.
+- `auth.register` params: `email`, `password`, `profile` with required `first_name`,
+  `last_name`, optional `middle_name` (may be empty/omitted) and required `account_type`
+  (`private` or `corporate`). The server validates this for all storage backends.
+  The Registration screen calls it via `RpcRegistrationService`; on success it opens Sign-in,
+  on failure it shows a notice (invalid data / already exists / network).
 - `auth.updateProfile` params: `access_token` plus `profile: map<string,string>`, **not**
   the whole UserResponse. Boolean updates use `"true"`/`"false"` strings; datetime updates
   use RFC3339 strings. It patches supplied fields and returns the same UserResponse.
@@ -431,7 +436,12 @@ Exact backend contract verified against read-only BRNavi `src/auth.rs` and its p
 Контракт перевірено у BRNavi `src/auth.rs` та зафіксованій залежності OAuth2 (ревізія вище).
 `auth.getProfile` приймає лише `access_token`, повертає `id`, `email`, `created_at` (RFC3339),
 `roles` (масив рядків), `profile` (об’єкт). ID/ролі не беруться з вводу користувача.
-`first_name`, `last_name`, `middle_name` — текст; `birth_date` — необов’язкова дата RFC3339;
+`first_name`, `last_name`, `middle_name`, `account_type` — текст; `birth_date` — необов’язкова дата RFC3339;
+`auth.register` приймає `email`, `password` і `profile` з обов’язковими `first_name`, `last_name`,
+необов’язковим `middle_name` (може бути порожнім або відсутнім) та обов’язковим `account_type`
+(`private` — особистий, `corporate` — корпоративний); сервер перевіряє це для всіх сховищ.
+Екран реєстрації викликає його через `RpcRegistrationService`; успіх відкриває вхід,
+помилка показує повідомлення (некоректні дані / вже існує / мережа).
 `notifications_enabled` — необов’язковий boolean. `auth.updateProfile` приймає `access_token`
 і `profile` як мапу **рядкових** значень (boolean — `"true"`/`"false"`, дата — RFC3339),
 оновлює лише передані поля й повертає той самий UserResponse. UI його поки не викликає.

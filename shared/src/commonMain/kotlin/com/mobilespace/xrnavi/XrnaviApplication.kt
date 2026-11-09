@@ -51,7 +51,11 @@ internal fun XrnaviApplication(
             selectEmailAccount()
         }
     }
-    val registrationViewModel: RegistrationViewModel = viewModel(factory = RegistrationViewModelFactory)
+    val registrationViewModel: RegistrationViewModel = viewModel(
+        factory = remember(dependencies.registrationService) {
+            registrationViewModelFactory(dependencies.registrationService)
+        }
+    )
     val previewEnabled = internalAuthPreviewEnabled()
     val recoveryProgressStore = rememberRecoveryProgressStore()
     val recoveryViewModel: RecoveryViewModel = viewModel(
@@ -80,6 +84,12 @@ internal fun XrnaviApplication(
     )
     val app by appModel.bloc.state.collectAsStateWithLifecycle()
     val dispatch = appModel::dispatch
+    LaunchedEffect(registrationViewModel.registered) {
+        if (registrationViewModel.registered) {
+            registrationViewModel.registrationHandled()
+            dispatch(DemoAppEvent.ScreenChanged(AppScreen.SignIn))
+        }
+    }
     val demoMode = accountState.mode == AccountMode.Demo
     val origin = app.addresses.origin
     val destination = app.addresses.destination

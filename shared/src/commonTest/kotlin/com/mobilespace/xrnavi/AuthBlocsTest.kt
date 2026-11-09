@@ -17,7 +17,8 @@ class AuthBlocsTest {
     @Test
     fun registrationValidSubmitClearsSecrets() {
         val bloc = RegistrationBloc()
-        bloc.dispatch(RegistrationEvent.FieldChanged(RegistrationField.Name, "Андрій"))
+        bloc.dispatch(RegistrationEvent.FieldChanged(RegistrationField.FirstName, "Андрій"))
+        bloc.dispatch(RegistrationEvent.FieldChanged(RegistrationField.LastName, "Коваль"))
         bloc.dispatch(RegistrationEvent.FieldChanged(RegistrationField.Email, "a@example.com"))
         bloc.dispatch(RegistrationEvent.FieldChanged(RegistrationField.Password, "abcdefgh"))
         bloc.dispatch(RegistrationEvent.FieldChanged(RegistrationField.Confirmation, "abcdefgh"))

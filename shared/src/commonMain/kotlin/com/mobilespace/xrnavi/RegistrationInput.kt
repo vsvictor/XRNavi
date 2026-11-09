@@ -14,6 +14,12 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.input.*
 import xrnavi.shared.generated.resources.*
 
+private val nameFields = setOf(
+    RegistrationField.FirstName,
+    RegistrationField.LastName,
+    RegistrationField.MiddleName
+)
+
 @Composable
 internal fun RegistrationInput(
     model: RegistrationViewModel,
@@ -46,7 +52,7 @@ internal fun RegistrationInput(
                 field == RegistrationField.Email -> KeyboardType.Email
                 else -> KeyboardType.Text
             },
-            capitalization = if (field == RegistrationField.Name) KeyboardCapitalization.Words else KeyboardCapitalization.None,
+            capitalization = if (field in nameFields) KeyboardCapitalization.Words else KeyboardCapitalization.None,
             autoCorrectEnabled = !secret && field != RegistrationField.Email,
             imeAction = if (field == RegistrationField.Confirmation) ImeAction.Done else ImeAction.Next
         ),

@@ -1,10 +1,10 @@
 package com.mobilespace.xrnavi
 
-internal enum class RegistrationField { Name, Email, Password, Confirmation }
+internal enum class RegistrationField { FirstName, LastName, MiddleName, Email, Password, Confirmation }
 
-internal enum class RegistrationMembership(val label: String) {
-    Personal("Особистий"),
-    Corporate("Корпоративний")
+internal enum class RegistrationMembership(val label: String, val accountType: String) {
+    Personal("Особистий", "private"),
+    Corporate("Корпоративний", "corporate")
 }
 
 internal const val registrationUnavailableMessage =
@@ -14,6 +14,8 @@ internal const val invitationUnavailableMessage =
 
 internal data class RegistrationState(
     val name: String = "",
+    val lastName: String = "",
+    val middleName: String = "",
     val email: String = "",
     val password: String = "",
     val confirmation: String = "",
@@ -22,10 +24,15 @@ internal data class RegistrationState(
     val consent: Boolean = false,
     val membership: RegistrationMembership = RegistrationMembership.Personal,
     val notice: String = "",
-    val touched: Set<RegistrationField> = emptySet()
+    val touched: Set<RegistrationField> = emptySet(),
+    val serviceAvailable: Boolean = false,
+    val busy: Boolean = false,
+    val registered: Boolean = false
 ) {
     fun validationError(field: RegistrationField): String? = when (field) {
-        RegistrationField.Name -> if (name.trim().isEmpty()) "Вкажіть ім’я та прізвище" else null
+        RegistrationField.FirstName -> if (name.trim().isEmpty()) "Вкажіть ім’я" else null
+        RegistrationField.LastName -> if (lastName.trim().isEmpty()) "Вкажіть прізвище" else null
+        RegistrationField.MiddleName -> null
         RegistrationField.Email -> emailValidationError(email)
         RegistrationField.Password -> passwordValidationError(password)
         RegistrationField.Confirmation -> passwordConfirmationError(password, confirmation)
@@ -35,7 +42,19 @@ internal data class RegistrationState(
         validationError(field).takeIf { field in touched }
 
     val canSubmit: Boolean
-        get() = consent && RegistrationField.entries.all { validationError(it) == null }
+        get() = !busy && consent && RegistrationField.entries.all { validationError(it) == null }
+
+    /** Parameters of the `auth.register` request; `middle_name` is sent only when filled. */
+    fun registerParams(): Map<String, Any> = mapOf(
+        "email" to email.trim(),
+        "password" to password,
+        "profile" to buildMap {
+            put("first_name", name.trim())
+            put("last_name", lastName.trim())
+            if (middleName.isNotBlank()) put("middle_name", middleName.trim())
+            put("account_type", membership.accountType)
+        }
+    )
 }
 
 internal sealed interface RegistrationEvent {
@@ -46,6 +65,9 @@ internal sealed interface RegistrationEvent {
     data class ConsentChanged(val value: Boolean) : RegistrationEvent
     data class MembershipSelected(val value: RegistrationMembership) : RegistrationEvent
     data object Submitted : RegistrationEvent
+    data object Registered : RegistrationEvent
+    data class Failed(val message: String) : RegistrationEvent
+    data object RegisteredHandled : RegistrationEvent
     data object Cancelled : RegistrationEvent
     data object Cleared : RegistrationEvent
 }
