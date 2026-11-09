@@ -11,7 +11,10 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** Stores the session encrypted with an AES-GCM key that never leaves the Android Keystore. */
-class AndroidKeystoreSessionStorage(context: Context) : SecureSessionStorage {
+class AndroidKeystoreSessionStorage(
+    context: Context,
+    private val entry: String = "session",
+) : SecureSessionStorage {
     private val preferences = context.applicationContext.getSharedPreferences(
         "xrnavi_session", Context.MODE_PRIVATE
     )
@@ -52,7 +55,6 @@ class AndroidKeystoreSessionStorage(context: Context) : SecureSessionStorage {
 
     private companion object {
         const val alias = "xrnavi_session_key"
-        const val entry = "session"
         const val transformation = "AES/GCM/NoPadding"
         const val ivSize = 12
     }
