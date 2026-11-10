@@ -22,12 +22,14 @@ class GarageBlocTest {
     }
 
     @Test
-    fun failedLoadIsNotEmptyGarage() = runTest {
+    fun failedLoadDoesNotClaimGarageIsEmpty() = runTest {
         val service = FakeGarageService().apply { fail = true }
         val bloc = GarageBloc(service, ::testSession, backgroundScope)
         bloc.dispatch(GarageEvent.Load)
         runCurrent()
         assertFalse(bloc.state.value.loaded)
+        assertTrue(bloc.state.value.vehicles.isEmpty())
+        assertTrue(bloc.state.value.loadFailed)
         assertTrue(bloc.state.value.error.isNotEmpty())
     }
 

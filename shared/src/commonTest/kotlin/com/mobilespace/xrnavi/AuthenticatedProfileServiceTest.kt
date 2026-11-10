@@ -25,6 +25,7 @@ class AuthenticatedProfileServiceTest {
         assertEquals("stored@example.org", profile.email)
         assertEquals("2026-01-01T00:00:00+00:00", profile.createdAt)
         assertEquals(listOf("driver", "admin"), profile.roles)
+        assertEquals(AuthenticatedAccountType.Personal, profile.accountType)
         assertEquals(JsonPrimitive(false), profile.fields["notifications_enabled"])
         assertEquals("Олена", authenticatedProfileField(profile, "first_name"))
         assertEquals("Вимкнено", authenticatedProfileField(profile, "notifications_enabled"))
@@ -39,7 +40,21 @@ class AuthenticatedProfileServiceTest {
         }.getProfile(session())
         assertEquals(emptyList(), profile.roles)
         assertEquals(JsonObject(emptyMap()), profile.fields)
+        assertEquals(AuthenticatedAccountType.Unknown, profile.accountType)
         assertEquals("Не вказано", authenticatedProfileField(profile, "first_name"))
+    }
+
+    @Test
+    fun readsCorporateAccountTypeAndKeepsUnknownTypesExplicit() = runTest {
+        val corporate = RpcAuthenticatedProfileService { _, _ ->
+            response.replace(""""account_type":"private"""", """"account_type":"corporate"""")
+        }.getProfile(session())
+        assertEquals(AuthenticatedAccountType.Corporate, corporate.accountType)
+
+        val unknown = RpcAuthenticatedProfileService { _, _ ->
+            response.replace(""""account_type":"private"""", """"account_type":"future"""")
+        }.getProfile(session())
+        assertEquals(AuthenticatedAccountType.Unknown, unknown.accountType)
     }
 
     @Test
@@ -52,6 +67,7 @@ class AuthenticatedProfileServiceTest {
             response.replace(""""roles":["driver","admin"],""", ""),
             response.replace(""""profile":{""", """"other":{"""),
             response.replace(""""first_name":"Олена"""", """"first_name":null"""),
+            response.replace(""""account_type":"private"""", """"account_type":true"""),
             response.replace(""""notifications_enabled":false""", """"notifications_enabled":"false""""),
         )
         invalid.forEach { result ->
@@ -71,5 +87,5 @@ class AuthenticatedProfileServiceTest {
 
     private fun session() = AuthSession("test-access", "test-refresh", "Bearer", 3600uL)
 
-    private val response = """{"id":"backend-id","email":"stored@example.org","created_at":"2026-01-01T00:00:00+00:00","roles":["driver","admin"],"profile":{"first_name":"Олена","last_name":"Коваль","birth_date":"2000-02-03T00:00:00+00:00","notifications_enabled":false},"extra":true}"""
+    private val response = """{"id":"backend-id","email":"stored@example.org","created_at":"2026-01-01T00:00:00+00:00","roles":["driver","admin"],"profile":{"first_name":"Олена","last_name":"Коваль","birth_date":"2000-02-03T00:00:00+00:00","account_type":"private","notifications_enabled":false},"extra":true}"""
 }

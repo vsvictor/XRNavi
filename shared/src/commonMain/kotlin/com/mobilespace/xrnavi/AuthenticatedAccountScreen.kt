@@ -1,6 +1,5 @@
 package com.mobilespace.xrnavi
 
-import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,7 @@ internal fun AuthenticatedAccountScreen(
     sessionProvider: () -> AuthSession?,
     locationProvider: LocationProvider,
     onToggleTheme: () -> Unit,
+    onOpenSavedPlaces: () -> Unit,
 ) {
     val mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
     val mapState by mapViewModel.bloc.state.collectAsStateWithLifecycle()
@@ -44,8 +44,13 @@ internal fun AuthenticatedAccountScreen(
     val garageState by garageViewModel.bloc.state.collectAsStateWithLifecycle()
     val addViewModel: AddVehicleViewModel = viewModel(factory = addVehicleViewModelFactory(garageService, sessionProvider))
     val addState by addViewModel.bloc.state.collectAsStateWithLifecycle()
-    androidx.compose.runtime.LaunchedEffect(state.section) {
-        if (state.section == DemoSection.Garage && !garageState.loaded && !garageState.loading) {
+    androidx.compose.runtime.LaunchedEffect(
+        state.section, garageState.loaded, garageState.loading, garageState.error,
+    ) {
+        if (
+            state.section in listOf(DemoSection.Garage, DemoSection.Profile) &&
+            !garageState.loaded && !garageState.loading && garageState.error.isEmpty()
+        ) {
             garageViewModel.bloc.dispatch(GarageEvent.Load)
         }
     }
@@ -63,6 +68,10 @@ internal fun AuthenticatedAccountScreen(
     AuthBackHandler {
         if (state.section == DemoSection.Garage && addViewModel.bloc.handleBack()) {
         } else if (state.section == DemoSection.Garage && detailsViewModel.bloc.handleBack()) {
+        } else if (state.section == DemoSection.AccountSecurity) {
+            dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+        } else if (state.section == DemoSection.Profile) {
+            dispatch(AuthenticatedAccountEvent.BackFromProfile)
         } else if (state.section != DemoSection.Map || !routeViewModel.bloc.handleBack()) {
             dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
         }
@@ -73,7 +82,7 @@ internal fun AuthenticatedAccountScreen(
             dispatch(AuthenticatedAccountEvent.OpenSection(it))
         }
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-            MapTopBar(
+            if (state.section != DemoSection.Profile && state.section != DemoSection.AccountSecurity) MapTopBar(
                 demoMode = false,
                 preview = false,
                 vehicleMode = "Аккаунт",
@@ -105,20 +114,17 @@ internal fun AuthenticatedAccountScreen(
                         onProfile = { navigate(DemoSection.Profile) },
                         modifier = Modifier.weight(1f).fillMaxSize(),
                     )
-                } else Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                } else if (state.section == DemoSection.Profile) Column(
+                    Modifier.weight(1f).fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(state.section.label, style = MaterialTheme.typography.headlineMedium)
-                    Text(
-                        state.profile?.email ?: "Авторизований аккаунт",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    if (state.loading && state.section == DemoSection.Profile) {
+                    if (state.loading) {
                         CircularProgressIndicator(Modifier.testTag("authenticated-profile-loading"))
                         Text("Завантаження профілю…")
                     }
-                    if (state.error.isNotEmpty() && state.section == DemoSection.Profile) {
+                    if (state.error.isNotEmpty()) {
                         Text(
                             state.error, Modifier.testTag("authenticated-profile-error"),
                             color = MaterialTheme.colorScheme.error,
@@ -129,8 +135,48 @@ internal fun AuthenticatedAccountScreen(
                             modifier = Modifier.testTag("retry-authenticated-profile"),
                         ) { Text("Повторити завантаження профілю") }
                     }
+                    state.profile?.let {
+                        AuthenticatedProfileScreen(
+                            profile = it,
+                            layout = layout,
+                            garageState = garageState,
+                            onBack = { dispatch(AuthenticatedAccountEvent.BackFromProfile) },
+                            onOpenGarage = { navigate(DemoSection.Garage) },
+                            onOpenVehicleDetails = { vehicleId ->
+                                detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Open(vehicleId))
+                                navigate(DemoSection.Garage)
+                            },
+                            onOpenSecurity = { navigate(DemoSection.AccountSecurity) },
+                            onOpenFavorites = onOpenSavedPlaces,
+                        )
+                    }
+                    Button(
+                        onClick = onLogout,
+                        modifier = Modifier.testTag("authenticated-logout"),
+                    ) { Text("Вийти з акаунта") }
+                } else if (state.section == DemoSection.AccountSecurity) Column(
+                    Modifier.weight(1f).fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.profile?.let { profile ->
+                        AuthenticatedAccountSecurityScreen(
+                            profile = profile,
+                            onBack = { navigate(DemoSection.Profile) },
+                            onLogout = onLogout,
+                        )
+                    }
+                } else Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(state.section.label, style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        state.profile?.email ?: "Авторизований акаунт",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
                     when (state.section) {
-                        DemoSection.Profile -> state.profile?.let { AuthenticatedProfileScreen(it) }
                         DemoSection.Garage -> {
                             val details = garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }
                             if (addState.open) AddVehicleScreen(addState, addViewModel.bloc::dispatch)
@@ -149,10 +195,6 @@ internal fun AuthenticatedAccountScreen(
                         }
                         else -> Unit
                     }
-                    if (state.section == DemoSection.Profile) Button(
-                        onClick = onLogout,
-                        modifier = Modifier.testTag("authenticated-logout"),
-                    ) { Text("Вийти з аккаунта") }
                 }
             }
             if (!layout.landscape) BottomNavigation(

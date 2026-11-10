@@ -47,7 +47,7 @@ internal class RpcAuthenticatedProfileService(
                 ?: throw InvalidProfileResponseException()
         } ?: throw InvalidProfileResponseException()
         val fields = user["profile"] as? JsonObject ?: throw InvalidProfileResponseException()
-        listOf("first_name", "last_name", "middle_name", "birth_date").forEach { key ->
+        listOf("first_name", "last_name", "middle_name", "birth_date", "account_type").forEach { key ->
             if (key in fields && (fields[key] as? JsonPrimitive)?.isString != true) {
                 throw InvalidProfileResponseException()
             }

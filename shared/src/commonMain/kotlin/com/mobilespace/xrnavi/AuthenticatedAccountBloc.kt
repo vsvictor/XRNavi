@@ -17,6 +17,7 @@ internal enum class AccountMode { SignedOut, Demo, Authenticated }
 internal data class AuthenticatedAccountState(
     val mode: AccountMode = AccountMode.SignedOut,
     val section: DemoSection = DemoSection.Map,
+    val profileOrigin: DemoSection? = null,
     val profile: AuthenticatedProfile? = null,
     val loading: Boolean = false,
     val error: String = "",
@@ -29,6 +30,7 @@ internal data class AuthenticatedAccountState(
 internal sealed interface AuthenticatedAccountEvent {
     class LoginCompleted(val session: AuthSession) : AuthenticatedAccountEvent
     class OpenSection(val section: DemoSection) : AuthenticatedAccountEvent
+    data object BackFromProfile : AuthenticatedAccountEvent
     data object RetryProfile : AuthenticatedAccountEvent
     data object ContinueWithoutLogin : AuthenticatedAccountEvent
     data object Logout : AuthenticatedAccountEvent
@@ -69,13 +71,35 @@ internal class AuthenticatedAccountBloc(
                 ).toLong() * 1000)
                 loadProfile()
             }
-            is AuthenticatedAccountEvent.OpenSection -> if (
-                mutableState.value.mode == AccountMode.Authenticated &&
-                event.section in listOf(
-                    DemoSection.Map, DemoSection.Garage, DemoSection.Settings, DemoSection.Profile,
-                )
-            ) {
-                mutableState.value = mutableState.value.copy(section = event.section)
+            is AuthenticatedAccountEvent.OpenSection -> {
+                val current = mutableState.value
+                if (
+                    current.mode == AccountMode.Authenticated &&
+                    event.section in listOf(
+                        DemoSection.Map, DemoSection.Garage, DemoSection.Settings, DemoSection.Profile,
+                        DemoSection.AccountSecurity,
+                    )
+                ) {
+                    mutableState.value = current.copy(
+                        section = event.section,
+                        profileOrigin = when {
+                            event.section == DemoSection.Profile &&
+                                current.section != DemoSection.Profile &&
+                                current.section != DemoSection.AccountSecurity -> current.section
+                            event.section == DemoSection.Map -> null
+                            else -> current.profileOrigin
+                        },
+                    )
+                }
+            }
+            AuthenticatedAccountEvent.BackFromProfile -> {
+                val current = mutableState.value
+                if (current.mode == AccountMode.Authenticated) {
+                    mutableState.value = current.copy(
+                        section = current.profileOrigin ?: DemoSection.Map,
+                        profileOrigin = null,
+                    )
+                }
             }
             AuthenticatedAccountEvent.RetryProfile -> loadProfile()
             AuthenticatedAccountEvent.ContinueWithoutLogin -> {

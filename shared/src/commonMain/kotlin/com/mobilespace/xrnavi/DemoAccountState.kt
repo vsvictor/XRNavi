@@ -8,7 +8,8 @@ internal enum class DemoSection(val label: String) {
     VehicleDetails("Профіль автомобіля"),
     VehicleConfigurations("Конфігурації"),
     Settings("Налаштування"),
-    Profile("Профіль")
+    Profile("Профіль"),
+    AccountSecurity("Безпека та особисті дані")
 }
 
 internal enum class GarageFilter(val label: String) {

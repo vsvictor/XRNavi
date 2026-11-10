@@ -255,9 +255,11 @@ the indicator does not send additional pings.
 
 The shared module depends on [JSON-RPC-2-Client-KMP](https://github.com/vsvictor/JSON-RPC-2-Client-KMP)
 as a Git submodule and Gradle project; its source is not copied into XRNavi. Initialize it with
-`git submodule update --init --recursive`. Build the native artifacts required by this client with
-`external/JSON-RPC-2-Client-KMP/scripts/build-ios.sh` and/or
-`external/JSON-RPC-2-Client-KMP/scripts/build-android.sh` before building the corresponding target.
+`git submodule update --init --recursive`. Gradle automatically builds the iOS native bridge before
+its Kotlin/Native cinterop tasks. Build Android native artifacts with
+`external/JSON-RPC-2-Client-KMP/scripts/build-android.sh` before building the Android target.
+The iOS artifacts can also be prepared manually with
+`external/JSON-RPC-2-Client-KMP/scripts/build-ios.sh`.
 
 The client pins upstream JSON-RPC-2 commit `e90318f1052d5b7b253c7e4c824aa53404703d23`,
 which includes native lifecycle support; no separate lifecycle patch is required.
@@ -289,10 +291,10 @@ Host, port, intervals, and the missed-pong threshold are defined in
 
 Спільний модуль використовує [JSON-RPC-2-Client-KMP](https://github.com/vsvictor/JSON-RPC-2-Client-KMP)
 як Git submodule та Gradle-модуль; код клієнта не копіюється у XRNavi. Ініціалізуйте його
-командою `git submodule update --init --recursive`. Перед збиранням відповідної платформи згенеруйте
-нативні артефакти клієнта командами
-`external/JSON-RPC-2-Client-KMP/scripts/build-ios.sh` та/або
-`external/JSON-RPC-2-Client-KMP/scripts/build-android.sh`.
+командою `git submodule update --init --recursive`. Gradle автоматично збирає нативний iOS-мост
+перед cinterop-задачами Kotlin/Native. Перед збиранням Android згенеруйте нативні артефакти командою
+`external/JSON-RPC-2-Client-KMP/scripts/build-android.sh`. iOS-артефакти також можна зібрати
+вручну командою `external/JSON-RPC-2-Client-KMP/scripts/build-ios.sh`.
 
 Клієнт використовує зафіксований коміт JSON-RPC-2 `e90318f1052d5b7b253c7e4c824aa53404703d23`
 з нативною підтримкою життєвого циклу; окремий патч життєвого циклу не потрібен.
@@ -407,12 +409,24 @@ background transitions from white at its top. Dark mode is unchanged.
 починається білим зверху. Темну тему не змінено.
 
 The authenticated Map/Garage/Settings/Profile sections share the same bottom navigation and
-adaptive landscape rail as demo. Profile shows the backend identity, roles, creation time and
-available profile fields; absent optional fields say “not specified”, never use fixtures.
-Map/routing/search and account garage APIs are not integrated: their sections explicitly say
-unavailable, with no synthetic map, routes or vehicles. A garage that was not loaded is not
-claimed to be empty. Settings exposes the existing local theme picker, not fake server settings.
-Profile editing is not implemented; the profile is explicitly read-only.
+adaptive landscape rail as demo. The S08 profile follows the Figma portrait hierarchy and adapts
+to landscape/tablet layouts. It displays backend identity and account type (`private` or
+`corporate`), highlighting the server-reported type; missing or unrecognized types do not
+silently select one. Detailed personal and account data are shown only after opening “Security
+and personal data,” not on the main profile screen. The profile identity summary shows the account
+name and email; an unconfirmed email is labeled accordingly. Company geolocation policy is not
+inferred. The type selector is informational. Personal accounts do not display the organization
+section. Its garage preview uses the authenticated garage service and opens
+active-vehicle details; on request failure its preview shows “There are no vehicles in the garage.”
+The full garage reports load errors and supports retry. The security and
+personal-data action opens profile details and session logout; favorites opens locally stored
+places. Organization pages are not routed without verified membership data from the backend;
+the corporate account type alone does not establish membership. The current API has no active-trip
+contract; planned-route state remains in memory when visiting the profile, but no active trip is
+fabricated. No Figma sample identities, memberships, vehicles, photos, or metrics are used as
+account data. Profile editing and corporate policy controls are not connected.
+Map/routing/search APIs remain unavailable, with no synthetic map or routes. Settings exposes
+the existing local theme picker, not fake server settings.
 In explicit demo mode, Map still opens the local demo profile (S08) and settings (S07).
 
 Exact backend contract verified against read-only BRNavi `src/auth.rs` and its pinned
@@ -437,12 +451,26 @@ Exact backend contract verified against read-only BRNavi `src/auth.rs` and its p
   This contract is documented, not called by the current read-only UI.
 
 Авторизовані розділи Мапа/Гараж/Налаштування/Профіль використовують те саме нижнє меню
-й адаптивну бокову панель в альбомній орієнтації. Профіль показує ID, пошту, ролі, дату
-створення та наявні поля з бекенда; відсутні необов’язкові поля — «Не вказано», без фікстур.
-Реальні API мапи/маршрутів/пошуку й гаража не інтегровані: показується недоступність без
-синтетичних мап, маршрутів чи автомобілів. Незавантажений гараж не оголошується порожнім.
-Налаштування містять наявний локальний вибір теми, без імітації серверних перемикачів.
-Профіль лише для перегляду; редагування не реалізоване.
+й адаптивну бокову панель в альбомній орієнтації. Профіль S08 відповідає ієрархії портретного
+макета Figma та адаптується до планшета й альбомної орієнтації. Він показує тип акаунта з бекенда
+(`private` чи `corporate`) з виділенням отриманого типу; невідомий тип не підмінюється іншим.
+Детальні особисті дані та дані акаунта відображаються лише після відкриття блока «Безпека та
+особисті дані», а не на основному екрані профілю. У зведенні профілю залишаються ім’я акаунта й
+пошта; непідтверджена пошта позначається як «e-mail не підтверджено». Політика доступу компанії
+до геолокації не виводиться без даних сервера. Селектор не змінює серверний акаунт.
+Для особистого типу блок організації приховано. Прев’ю гаража використовує авторизований сервіс
+і відкриває деталі активного авто; у разі помилки запиту показується порожній візуальний
+стан із текстом «У гаражі немає авто». Повний гараж показує помилку завантаження та дозволяє
+повторити запит.
+Безпека та особисті дані відкривають дані профілю й дію завершення сеансу; «Обране» відкриває
+збережені локально місця. Екрани організації не відкриваються без підтверджених сервером даних
+про членство: корпоративний тип акаунта сам по собі не підтверджує членство. Поточний API не
+має контракту активного рейсу; стан планування маршруту зберігається під час перегляду профілю,
+але активний рейс не вигадується. Демоімена, членства, авто, фото й показники не
+використовуються як дані акаунта.
+Редагування профілю й корпоративних політик не підключені. API мапи/маршрутів/пошуку
+залишаються недоступними, без синтетичних мап і маршрутів. Налаштування містять наявний
+локальний вибір теми, без імітації серверних перемикачів.
 У явному деморежимі залишаються локальні демопрофіль S08 і налаштування S07.
 
 Контракт перевірено у BRNavi `src/auth.rs` та зафіксованій залежності OAuth2 (ревізія вище).

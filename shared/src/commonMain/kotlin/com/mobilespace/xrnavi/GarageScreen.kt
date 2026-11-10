@@ -34,7 +34,7 @@ internal fun GarageScreen(
                 modifier = Modifier.testTag("garage-retry"),
             ) { Text("Повторити") }
         }
-        if (state.loaded && state.vehicles.isEmpty()) {
+        if (state.loaded && state.vehicles.isEmpty() && !state.loadFailed) {
             Text("У гаражі ще немає авто.", Modifier.testTag("garage-empty"))
         }
         state.vehicles.forEach { vehicle ->

@@ -56,7 +56,8 @@ internal fun BottomNavigation(
             3 -> DemoSection.Profile
             else -> DemoSection.Map
         }
-            val active = section == selectedSection
+            val active = section == selectedSection ||
+                (selectedSection == DemoSection.AccountSecurity && section == DemoSection.Profile)
             val tabModifier = itemModifier
                     .semantics {
                         selected = active

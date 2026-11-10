@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun ProfileStatistics(layout: AccountLayout) {
+internal fun ProfileStatistics(layout: AccountLayout, showUnavailableNotice: Boolean = true) {
     Row(
         Modifier.testTag("profile-statistics"),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -56,5 +56,5 @@ internal fun ProfileStatistics(layout: AccountLayout) {
             }
         }
     }
-    AccountBody("Статистика відсутня · деморежим")
+    if (showUnavailableNotice) AccountBody("Статистика відсутня · деморежим")
 }

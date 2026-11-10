@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuthenticatedAccountBlocTest {
     @Test
-    fun successfulLoginNeverEntersDemoAndLoadsProfileFromSessionForAllFourSections() = runTest {
+    fun successfulLoginNeverEntersDemoAndLoadsProfileFromSessionForAccountSections() = runTest {
         val result = CompletableDeferred<AuthenticatedProfile>()
         var calls = 0
         val account = AuthenticatedAccountBloc({ authenticated ->
@@ -41,14 +41,20 @@ class AuthenticatedAccountBlocTest {
         assertEquals(1, calls)
         result.complete(profile())
         runCurrent()
-        listOf(DemoSection.Map, DemoSection.Garage, DemoSection.Settings, DemoSection.Profile)
-            .forEach {
-                account.dispatch(AuthenticatedAccountEvent.OpenSection(it))
-                assertEquals(it, account.state.value.section)
-                assertEquals(AccountMode.Authenticated, account.state.value.mode)
-                assertEquals("stored@example.org", account.state.value.profile?.email)
-                assertEquals(listOf("backend-role"), account.state.value.profile?.roles)
-            }
+        listOf(
+            DemoSection.Map,
+            DemoSection.Garage,
+            DemoSection.Settings,
+            DemoSection.Profile,
+            DemoSection.AccountSecurity,
+        ).forEach {
+            account.dispatch(AuthenticatedAccountEvent.OpenSection(it))
+            assertEquals(it, account.state.value.section)
+            assertEquals(AccountMode.Authenticated, account.state.value.mode)
+            assertEquals("stored@example.org", account.state.value.profile?.email)
+            assertEquals(listOf("backend-role"), account.state.value.profile?.roles)
+        }
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
         account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.VehicleDetails))
         assertEquals(DemoSection.Profile, account.state.value.section)
         account.dispatch(AuthenticatedAccountEvent.Logout)
@@ -56,6 +62,40 @@ class AuthenticatedAccountBlocTest {
         assertEquals(AccountMode.SignedOut, account.state.value.mode)
         assertNull(account.state.value.profile)
         assertFalse(signIn.state.value.signedIn)
+    }
+
+    @Test
+    fun profileBackReturnsToSectionWhereProfileWasOpened() = runTest {
+        val account = AuthenticatedAccountBloc({ profile() }, backgroundScope)
+        account.dispatch(AuthenticatedAccountEvent.LoginCompleted(session()))
+        runCurrent()
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Garage))
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+        account.dispatch(AuthenticatedAccountEvent.BackFromProfile)
+        assertEquals(DemoSection.Garage, account.state.value.section)
+    }
+
+    @Test
+    fun profileBackDefaultsToMapWhenThereIsNoOrigin() = runTest {
+        val account = AuthenticatedAccountBloc({ profile() }, backgroundScope)
+        account.dispatch(AuthenticatedAccountEvent.LoginCompleted(session()))
+        runCurrent()
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+        account.dispatch(AuthenticatedAccountEvent.BackFromProfile)
+        assertEquals(DemoSection.Map, account.state.value.section)
+    }
+
+    @Test
+    fun profileOriginSurvivesOpeningAndClosingSecuritySection() = runTest {
+        val account = AuthenticatedAccountBloc({ profile() }, backgroundScope)
+        account.dispatch(AuthenticatedAccountEvent.LoginCompleted(session()))
+        runCurrent()
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Garage))
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.AccountSecurity))
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+        account.dispatch(AuthenticatedAccountEvent.BackFromProfile)
+        assertEquals(DemoSection.Garage, account.state.value.section)
     }
 
     @Test

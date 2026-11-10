@@ -155,6 +155,20 @@ internal fun XrnaviApplication(
         }
         if (accountState.restoring) {
             SessionRestoringScreen()
+        } else if (screen == AppScreen.SavedPlaces && accountState.mode == AccountMode.Authenticated) {
+            SavedPlacesScreen(
+                places = app.savedPlaces,
+                initialEditKey = app.savedPlacesEditKey,
+                allowAddressSelection = false,
+                allowDestinationUse = true,
+                notice = app.savedPlacesNotice,
+                onBack = { dispatch(DemoAppEvent.SavedPlacesClosed) },
+                onSelectAddress = { dispatch(DemoAppEvent.SavedPlaceAddressSelected(it)) },
+                onUseAsDestination = { dispatch(DemoAppEvent.SavedPlaceUsedAsDestination(it)) },
+                onRename = appModel::renamePlace,
+                onDelete = appModel::deletePlace,
+                onToggleTheme = onToggleTheme
+            )
         } else if (accountState.mode == AccountMode.Authenticated) {
             AuthenticatedAccountScreen(
                 state = accountState,
@@ -167,6 +181,9 @@ internal fun XrnaviApplication(
                 sessionProvider = accountBloc::currentSession,
                 locationProvider = dependencies.locationProvider,
                 onToggleTheme = onToggleTheme,
+                onOpenSavedPlaces = {
+                    dispatch(DemoAppEvent.SavedPlacesOpened(SavedPlacesOrigin.Profile, null))
+                },
             )
         } else if (additionalState.screen != null && demoMode) {
             AdditionalScreens(additionalState, additionalBloc::dispatch)

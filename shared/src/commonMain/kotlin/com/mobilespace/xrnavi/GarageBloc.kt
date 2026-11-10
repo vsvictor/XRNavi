@@ -13,6 +13,7 @@ internal data class GarageState(
     val vehicles: List<GarageVehicle> = emptyList(),
     val activeVehicleId: String? = null,
     val error: String = "",
+    val loadFailed: Boolean = false,
 ) {
     val active: GarageVehicle? get() = vehicles.firstOrNull { it.id == activeVehicleId }
 }
@@ -41,18 +42,19 @@ internal class GarageBloc(
     private fun load() {
         val session = sessionProvider() ?: return fail("Сесія завершилась. Увійдіть знову.")
         if (mutableState.value.loading) return
-        mutableState.value = mutableState.value.copy(loading = true, error = "")
+        mutableState.value = mutableState.value.copy(loading = true, error = "", loadFailed = false)
         job = scope.launch {
             try {
                 val snapshot = service.vehicles(session)
                 mutableState.value = mutableState.value.copy(
                     loading = false, loaded = true, vehicles = snapshot.vehicles,
-                    activeVehicleId = snapshot.activeVehicleId,
+                    activeVehicleId = snapshot.activeVehicleId, loadFailed = false,
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                fail("Не вдалося завантажити гараж. Це не означає, що він порожній. Повторіть.")
+                fail("Не вдалося завантажити гараж. Перевірте з'єднання та повторіть.")
+                mutableState.value = mutableState.value.copy(loadFailed = true)
             }
         }
     }
