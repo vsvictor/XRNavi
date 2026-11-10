@@ -14,36 +14,8 @@
                     <view key="view" contentMode="scaleToFill" id="launch-view">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <subviews>
-                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="12" translatesAutoresizingMaskIntoConstraints="NO" id="launch-stack">
-                                <rect key="frame" x="119.0" y="365.0" width="155" height="122"/>
-                                <subviews>
-                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchOrbit" translatesAutoresizingMaskIntoConstraints="NO" id="launch-orbit">
-                                        <rect key="frame" x="37.5" y="0.0" width="80" height="80"/>
-                                        <constraints>
-                                            <constraint firstAttribute="width" constant="80" id="launch-orbit-width"/>
-                                            <constraint firstAttribute="height" constant="80" id="launch-orbit-height"/>
-                                        </constraints>
-                                    </imageView>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="XRNavi" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="launch-wordmark">
-                                        <rect key="frame" x="41.5" y="92.0" width="72" height="34"/>
-                                        <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="28"/>
-                                        <color key="textColor" name="LaunchTextColor"/>
-                                    </label>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Продукт Mobile space" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="launch-company">
-                                        <rect key="frame" x="0.0" y="138.0" width="155" height="16"/>
-                                        <fontDescription key="fontDescription" type="system" pointSize="12"/>
-                                        <color key="textColor" name="LaunchSecondaryTextColor"/>
-                                    </label>
-                                </subviews>
-                            </stackView>
-                        </subviews>
                         <viewLayoutGuide key="safeArea" id="launch-safe-area"/>
                         <color key="backgroundColor" name="LaunchBackgroundColor"/>
-                        <constraints>
-                            <constraint firstItem="launch-stack" firstAttribute="centerX" secondItem="launch-view" secondAttribute="centerX" id="launch-center-x"/>
-                            <constraint firstItem="launch-stack" firstAttribute="centerY" secondItem="launch-view" secondAttribute="centerY" id="launch-center-y"/>
-                        </constraints>
                     </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="launch-first-responder" sceneMemberID="firstResponder"/>
@@ -51,7 +23,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchOrbit" width="270" height="270"/>
         <namedColor name="LaunchBackgroundColor">
             <color name="LaunchBackgroundColor" catalog="System" colorSpace="custom" customColorSpace="sRGB" red="0.965" green="0.973" blue="0.988" alpha="1"/>
         </namedColor>

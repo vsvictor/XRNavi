@@ -18,20 +18,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 internal fun XrnaviApplication(
     dependencies: AppDependencies,
+    accountViewModel: AuthenticatedAccountViewModel,
     themeSettings: ThemeSettingsViewModel,
     onToggleTheme: () -> Unit,
 ) {
-    val accountViewModel: AuthenticatedAccountViewModel = viewModel(
-        factory = remember(dependencies) {
-            authenticatedAccountViewModelFactory(
-                dependencies.authenticatedProfileService,
-                dependencies.sessionManager,
-            )
-        }
-    )
     val accountBloc = accountViewModel.bloc
     val accountState by accountBloc.state.collectAsStateWithLifecycle()
-    LaunchedEffect(accountBloc) { accountBloc.dispatch(AuthenticatedAccountEvent.Restore) }
     val signInViewModel: SignInViewModel = viewModel(
         factory = remember(dependencies, accountBloc) {
             signInViewModelFactory(dependencies.signInAuthService) {

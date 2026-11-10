@@ -39,6 +39,21 @@ fun App(
     )
     val systemDarkTheme = isSystemInDarkTheme()
     val darkTheme = themeSettings.preference.isDark(systemDarkTheme)
+    val accountViewModel: AuthenticatedAccountViewModel = viewModel(
+        factory = remember(dependencies) {
+            authenticatedAccountViewModelFactory(
+                dependencies.authenticatedProfileService,
+                dependencies.sessionManager,
+            )
+        }
+    )
+    val splashViewModel: SplashViewModel = viewModel(factory = remember { splashViewModelFactory() })
+    val splashState by splashViewModel.bloc.state.collectAsStateWithLifecycle()
+    LaunchedEffect(splashViewModel) {
+        while (!splashViewModel.bloc.state.value.finished) {
+            withFrameNanos { splashViewModel.bloc.dispatch(SplashEvent.Frame(it)) }
+        }
+    }
     val connectionStatus by dependencies.connectionBloc.state.collectAsStateWithLifecycle()
     val connectionError by dependencies.connectionBloc.error.collectAsStateWithLifecycle()
     val connectionSnackbar = remember { SnackbarHostState() }
@@ -47,17 +62,23 @@ fun App(
             connectionSnackbar.showSnackbar(it, duration = SnackbarDuration.Indefinite)
         }
     }
-    LaunchedEffect(dependencies) {
+    LaunchedEffect(dependencies, accountViewModel) {
         dependencies.mobileSpaceRpcClient.start()
+        accountViewModel.bloc.dispatch(AuthenticatedAccountEvent.Restore)
     }
     LaunchedEffect(darkTheme) {
         onThemeChanged(darkTheme)
     }
     XrnaviTheme(darkTheme = darkTheme) {
+        if (!splashState.finished) {
+            SplashScreen(splashState, darkTheme)
+            return@XrnaviTheme
+        }
         Box(Modifier.fillMaxSize()) {
             OrientationMorph {
                 XrnaviApplication(
                     dependencies = dependencies,
+                    accountViewModel = accountViewModel,
                     themeSettings = themeSettings,
                     onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
                 )

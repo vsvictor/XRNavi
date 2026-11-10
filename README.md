@@ -47,6 +47,24 @@ submodule. Docs are kept in English and Ukrainian.
 
 ### Running the apps
 
+**EN.** S00 uses a single 2.4-second Compose splash on Android and iOS, controlled by
+`SplashBloc`/`SplashViewModel`. The Orbit mark is drawn as vectors at the display density,
+not enlarged from a bitmap; the wordmark uses the bundled Space Grotesk Bold font.
+Figma's appearance keyframes (0/450/480/720 ms) and one satellite revolution
+(200–2200 ms) run once, without waiting for the network or restarting on rotation.
+Connection setup and session restoration run in parallel with the splash.
+The native launch screens show only the matching system-theme background, avoiding a
+second, differently sized raster logo before the animation.
+
+**UK.** S00 використовує єдиний Compose splash тривалістю 2,4 с на Android та iOS,
+яким керують `SplashBloc`/`SplashViewModel`. Знак Orbit малюється векторно з густиною
+пікселів дисплея, а не збільшується з bitmap; напис використовує вбудований Space Grotesk Bold.
+Ключові кадри появи з Figma (0/450/480/720 мс) та один оберт супутника
+(200–2200 мс) виконуються один раз, без очікування мережі й повтору при повороті.
+Підключення та відновлення сесії виконуються паралельно зі splash.
+Нативні екрани запуску показують лише відповідне системній темі тло, щоб перед
+анімацією не з'являвся другий растровий логотип іншого розміру.
+
 Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
 
 - Android app: `./gradlew :androidApp:assembleDebug`
@@ -74,7 +92,7 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 
 ### Updated Figma screens / Екрани оновленого дизайну Figma
 
-The main design page has 46 in-scope screen IDs, including native splash S00 and the
+The main design page has 46 in-scope screen IDs, including animated splash S00 and the
 collapsed/partial/expanded S03 map. Annotations about future S05 and XRDisp S32 are not
 implemented navigation screens. The shared UI adds company settings (S09), invitations (S12),
 trip summaries (S13), vehicle catalog/model selection (S14–S15), unverified routes (S17),
@@ -83,8 +101,8 @@ offline maps (S21), tasks/details/history (S25–S27), privacy/deletion (S28–S
 remain available; the catalog also has a local editable vehicle-parameter draft. Stop-place
 list/details S19–S20 reuse the local catalog and route-stop BLoC with adaptive layouts.
 
-На основній сторінці дизайну є 46 ідентифікаторів екранів поточного scope, включно з нативним
-Splash S00 і трьома станами панелі мапи S03. Примітки про майбутні S05 та XRDisp S32 не є
+На основній сторінці дизайну є 46 ідентифікаторів екранів поточного scope, включно з
+анімованим Splash S00 і трьома станами панелі мапи S03. Примітки про майбутні S05 та XRDisp S32 не є
 реалізованими навігаційними екранами. Додано компанію (S09), запрошення (S12), підсумок
 поїздки (S13), каталог і вибір моделі (S14–S15), неперевірений маршрут (S17), офлайн-мапи
 (S21), завдання, деталі рейсу та історію (S25–S27), приватність і видалення (S28–S29),
@@ -133,7 +151,7 @@ Android device rendering tests cover the 45 Compose screen IDs plus map-sheet va
 the additional S11 catalog draft: 384 PNG captures at 402×874, 874×402, 834×1194, and
 1120×768 in light/dark themes. They verify rendering, exact dimensions, and opaque backgrounds,
 **not pixel equivalence with Figma, complete interaction coverage, or iOS-device fidelity**.
-S00 is a native launch screen and is not included in this Compose capture matrix.
+This historical Compose capture matrix predates the animated S00 and does not include it.
 The test APK has its own capture activity and does not change OS theme, resolution, or rotation.
 Gradle connected tests remove that APK and its output directory afterward; to retain images,
 install `shared/build/outputs/apk/androidTest/shared-androidTest.apk` with `adb`, run the
@@ -145,7 +163,7 @@ instrumentation classes directly, pull `design-captures` and `existing-captures`
 чернетку каталогу S11: 384 PNG у розмірах 402×874, 874×402, 834×1194 та 1120×768,
 у світлій і темній темах. Вони перевіряють рендеринг, точні розміри й непрозоре тло,
 **але не піксельну тотожність Figma, всі взаємодії чи відповідність на iOS-пристрої**.
-S00 — нативний екран запуску, він не входить до Compose-матриці. Тестовий APK має власну
+Ця історична Compose-матриця створена до анімованого S00 й не охоплює його. Тестовий APK має власну
 Activity й не змінює системну тему, роздільність або орієнтацію. Gradle видаляє цей APK
 і його каталог результатів після connected-тесту. Щоб зберегти знімки, встановіть
 `shared/build/outputs/apk/androidTest/shared-androidTest.apk` через `adb`, запустіть класи
