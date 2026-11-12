@@ -1,26 +1,53 @@
 package com.mobilespace.xrnavi
 
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.BoxWithConstraints
 
 @Composable
 internal fun AuthenticatedProfileDetails(profile: AuthenticatedProfile) {
-    AccountCard(tonal = true) {
-        CardHeading("Особисті дані")
-        val fullName = listOf("last_name", "first_name", "middle_name")
-            .map { authenticatedProfileField(profile, it) }
-            .filter { it != "Не вказано" }
-            .joinToString(" ")
-            .ifBlank { "Не вказано" }
-        AccountBody("Прізвище, ім’я та по батькові: $fullName")
-        AccountBody(
-            "Дата народження: ${
-                formatAuthenticatedProfileDate(authenticatedProfileField(profile, "birth_date"))
-            }",
+    BoxWithConstraints {
+        ResponsiveSections(
+            columns = maxWidth >= 600.dp,
+            firstWeight = 0.55f,
+            first = {
+                SecurityPersonalCard(profile)
+            },
+            second = {
+                ProfileSectionCard {
+                    CardHeading("Дані акаунта", singleLine = true)
+                    AccountDetailField(
+                        "Зареєстрований",
+                        formatAuthenticatedProfileDate(profile.createdAt),
+                    )
+                    AccountDetailField(
+                        "ID",
+                        profile.id,
+                        singleLineValue = true,
+                        inlineLabelValue = true,
+                    )
+                    if (profile.roles.isEmpty()) {
+                        AccountDetailField(
+                            "Ролі",
+                            "немає призначених ролей",
+                            divider = false,
+                            emphasizedLabel = true,
+                        )
+                    } else {
+                        AccountDetailLabel("Ролі", emphasized = true)
+                        profile.roles.forEachIndexed { index, role ->
+                            ProfileRoleRow(role)
+                            if (index != profile.roles.lastIndex) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                                )
+                            }
+                        }
+                    }
+                }
+            },
         )
-        AccountBody("Сповіщення: ${authenticatedProfileField(profile, "notifications_enabled")}")
-        CardHeading("Дані акаунта")
-        AccountBody("ID: ${profile.id}")
-        AccountBody("Створено: ${formatAuthenticatedProfileDate(profile.createdAt)}")
-        AccountBody("Ролі: ${profile.roles.joinToString().ifEmpty { "немає призначених ролей" }}")
     }
 }

@@ -13,7 +13,17 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun AccountAction(title: String, status: String, onClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(10.dp), color = accountTonalColor()) {
+    AccountAction(title, status, Modifier, onClick)
+}
+
+@Composable
+internal fun AccountAction(
+    title: String,
+    status: String,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(10.dp), color = accountTonalColor()) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .clickable(role = Role.Button, onClick = onClick)
@@ -21,8 +31,11 @@ internal fun AccountAction(title: String, status: String, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.25.sp)
                 Text(
+                    title, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.25.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (status.isNotEmpty()) Text(
                     status, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

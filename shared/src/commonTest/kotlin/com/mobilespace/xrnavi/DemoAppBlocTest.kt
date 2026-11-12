@@ -64,6 +64,16 @@ class DemoAppBlocTest {
     }
 
     @Test
+    fun exitConfirmationCanBeShownAndDismissed() {
+        val shown = run(DemoAppEvent.ExitConfirmationRequested)
+        assertEquals(true, shown.exitConfirmationVisible)
+        assertEquals(
+            false,
+            run(DemoAppEvent.ExitConfirmationDismissed, from = shown).exitConfirmationVisible
+        )
+    }
+
+    @Test
     fun sheetAndNoticeEventsUpdateState() {
         val state = run(
             DemoAppEvent.SheetLevelChanged(SheetLevel.Expanded),

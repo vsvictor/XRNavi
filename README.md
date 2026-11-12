@@ -13,6 +13,102 @@ JSON-RPC 2 бекенду.
 
 ## Features / Можливості
 
+### Profile visual refresh / Візуальне оновлення профілю
+
+**EN.** The signed-in profile follows Figma S08 and the shared settings/garage visual language:
+Roboto Condensed headings, Inter body text, a circular monogram, flat theme surfaces,
+and the app's blue action accent. A 16 dp identity card groups the name, email
+and actual registration date; a decorative vector car/road illustration gives the garage
+a visual anchor without pretending to be a photo of the user's vehicle. Personal-data
+and saved-place actions form an icon-led list. A BLoC-controlled Personal / Corporate
+tab bar replaces the account caption and type badge. All existing profile content
+lives under Personal; Corporate is a placeholder, not a change to backend account type.
+Statistics follow Figma: three tiles for trips, kilometres and hours on the road,
+placed below the garage. Unavailable metrics show `—`, not fabricated demo values
+or a reporting period. Decorative road slogans and
+organization warnings are omitted; operational errors remain actionable.
+The full-width logout button follows the Figma primary action (52 dp, 26 dp radius).
+It appears only on the personal profile, not security.
+The garage and personal-data/saved-place actions use the existing
+BLoC navigation. The screens use the shared authentication palette and background.
+Profile, account security and saved places reuse the sign-in/registration/recovery
+photo-hero layout, gradient transition, uppercase Roboto Condensed title and Orbit + XRNavi wordmark.
+These three pages use a separate grey Mustang GT image (`profile_mustang_hero_light/dark`)
+with the same bottom fade into the page background; authentication keeps its original photo.
+The photo is shared brand artwork, not a representation of the user's vehicle.
+All child pages and authentication flows use the same accessible `‹` back control.
+Security details and saved places use the same rounded section cards as the profile.
+All three pages share `AccountPageLayout` (hero, 1120 dp maximum width, 24 dp
+horizontal padding, 16 dp section spacing). Security omits the identity card
+and uses read-only label/value rows with dividers, not outlined form inputs; its detail
+cards use two columns when space permits. No logout action is exposed by security.
+Security has two quiet sections: Personal data (full name and an icon/value contact
+list) and Account data (registration date, ID and roles). Contacts come from
+`profile.contacts`, an array of `{ "type": "email", "value": "driver@example.invalid" }`.
+Supported types are phone, email, telegram, viber, facebook, x, instagram, tiktok,
+whatsapp, signal, linkedin and website; each has its own accessible icon.
+Login email remains independent from profile contacts. Legacy responses without
+contacts display the login email; an explicit empty array displays no contacts.
+Malformed contacts cause a profile-loading error, not a fabricated empty list.
+Profile email and the account-details heading fit on one line by adapting font size.
+The profile omits the garage-loading error banner but keeps the garage action;
+the garage screen retains operational error details and retry.
+Only security and saved places show a back arrow; profile is a root destination.
+Phone portrait uses a single column; landscape uses two
+columns, with bounded content on tablets. Both app themes are supported. Unavailable
+trip counters and the nonfunctional edit button are omitted rather than presented as
+working features. No vehicle photo, verification status, membership, or statistics is invented;
+the garage explicitly distinguishes loading, errors, empty, unselected, and active states.
+
+**UK.** Авторизований профіль відповідає Figma S08 і спільній стилістиці налаштувань та
+гаража: заголовки Roboto Condensed, основний текст Inter, кругла монограма, пласкі
+поверхні теми та синій акцент дій застосунку. Картка з радіусом 16 dp об'єднує ім'я,
+електронну пошту й фактичну дату реєстрації з підписом «Зареєстрований»; декоративна векторна ілюстрація авто та дороги
+створює візуальний акцент гаража, не імітуючи фото автомобіля користувача. Дії особистих
+даних і збережених місць згруповано у список з іконками.
+Замість підпису акаунта й позначки типу додано вкладки «Особистий / Корпоративний»
+з керуванням через BLoC. Увесь поточний вміст — в особистій вкладці;
+корпоративна поки містить заглушку й не змінює тип акаунта на сервері.
+Статистика відповідає Figma: три плитки поїздок, кілометрів і годин у дорозі
+під гаражем. Недоступні показники позначено «—», без вигаданих демочисел
+чи звітного періоду. Декоративні гасла й
+попередження про організації прибрано; робочі помилки залишаються доступними для повтору.
+Кнопка виходу на всю ширину відповідає основній дії Figma (52 dp, радіус 26 dp)
+й доступна лише в особистому профілі, не на екрані безпеки.
+Гараж і дії особистих даних та
+збережених місць використовують наявну BLoC-навігацію. Екрани використовують спільну
+палітру та фон авторизації.
+Профіль, безпека акаунта й обране повторно використовують композицію фотоблоку входу, реєстрації
+та відновлення пароля, градієнтний перехід, заголовок Roboto Condensed великими літерами
+та логотип Orbit + XRNavi. Ці три сторінки використовують окремий кадр із сірим Mustang GT
+(`profile_mustang_hero_light/dark`) з таким самим нижнім переходом у фон сторінки;
+фото авторизації залишається незмінним.
+Фото — спільна брендова ілюстрація, а не автомобіль користувача.
+Особисті дані та обране використовують такі самі округлені картки розділів, як профіль.
+Дочірні сторінки та екрани авторизації використовують одну доступну кнопку «‹».
+Усі три сторінки використовують `AccountPageLayout`: фотоблок, максимальну ширину
+1120 dp, горизонтальні відступи 24 dp та інтервали між розділами 16 dp.
+Безпека не показує картку особи й використовує рядки підпис/значення
+з роздільниками замість обведених полів форми; за достатньої ширини картки
+даних розташовані у дві колонки. Дії виходу на екрані безпеки немає.
+Екран безпеки має два стримані розділи: особисті дані (ПІБ і список контактів
+«іконка — значення») та дані акаунта (дата реєстрації, ID, ролі).
+Контакти надходять у `profile.contacts` як масив об'єктів `type`/`value`.
+Типи: phone, email, telegram, viber, facebook, x, instagram, tiktok,
+whatsapp, signal, linkedin, website; кожен має власну іконку з доступним підписом.
+Email для входу не залежить від контактів профілю. Для старих відповідей без
+contacts показується email для входу; явний порожній масив означає відсутність
+контактів. Некоректні контакти спричиняють помилку завантаження профілю.
+Email профілю та заголовок даних акаунта вміщуються в один рядок завдяки
+адаптивному розміру шрифту. Попередження про помилку гаража в профілі прибрано,
+але дію переходу залишено; подробиці помилки й повтор доступні в гаражі.
+Стрілка назад є лише в безпеці та обраному; профіль — кореневий екран.
+У portrait телефона застосовано одну колонку, у landscape — дві, на планшетах ширину контенту обмежено.
+Підтримано обидві теми застосунку. Недоступні лічильники поїздок і неробочу кнопку
+редагування прибрано, а не подано як реалізовані функції. Фото авто, підтвердження,
+членство й статистика не вигадуються; гараж розрізняє завантаження, помилку, порожній
+стан, відсутність основного авто та вибраний автомобіль.
+
 | EN | UK |
 |----|----|
 | Sign-in, registration, password recovery with a six-digit emailed code; adaptive portrait/landscape layout with a shared hero | Вхід, реєстрація, відновлення пароля шестизначним кодом з листа; адаптивний portrait/landscape-макет зі спільним hero |
@@ -437,7 +533,7 @@ inferred. The type selector is informational. Personal accounts do not display t
 section. Its garage preview uses the authenticated garage service and opens
 active-vehicle details; on request failure its preview shows “There are no vehicles in the garage.”
 The full garage reports load errors and supports retry. The security and
-personal-data action opens profile details and session logout; favorites opens locally stored
+personal-data action opens personal/contact and account details without logout; favorites opens locally stored
 places. Organization pages are not routed without verified membership data from the backend;
 the corporate account type alone does not establish membership. The current API has no active-trip
 contract; planned-route state remains in memory when visiting the profile, but no active trip is
@@ -447,7 +543,7 @@ Map/routing/search APIs remain unavailable, with no synthetic map or routes. Set
 the existing local theme picker, not fake server settings.
 In explicit demo mode, Map still opens the local demo profile (S08) and settings (S07).
 
-Exact backend contract verified against read-only BRNavi `src/auth.rs` and its pinned
+The original backend contract was verified against BRNavi `src/auth.rs` and its pinned
 `json-rpc-2-oauth2` dependency at `8b9d6372a80708389c6d4a314879e69bf966a67c`
 (`src/rpc.rs`, `src/models.rs`, `src/mongo.rs`, `src/profile.rs`):
 
@@ -463,10 +559,15 @@ Exact backend contract verified against read-only BRNavi `src/auth.rs` and its p
   (`private` or `corporate`). The server validates this for all storage backends.
   The Registration screen calls it via `RpcRegistrationService`; on success it opens Sign-in,
   on failure it shows a notice (invalid data / already exists / network).
-- `auth.updateProfile` params: `access_token` plus `profile: map<string,string>`, **not**
-  the whole UserResponse. Boolean updates use `"true"`/`"false"` strings; datetime updates
-  use RFC3339 strings. It patches supplied fields and returns the same UserResponse.
+- `auth.updateProfile` params: `access_token` plus `profile`, **not** the whole
+  UserResponse. Scalar fields retain string values (booleans use `"true"`/`"false"`,
+  datetime uses RFC3339); the local contacts extension accepts a native `contacts`
+  array of `{type,value}` objects. It patches supplied fields and returns the same UserResponse.
   This contract is documented, not called by the current read-only UI.
+- The contacts extension was deployed to both BRNavi instances on 2026-11-11
+  using a locked source-snapshot image. BRNavi's Git dependency pins still need
+  an authorized library publication and revision update before a standard rebuild.
+  The deployed snapshot and rollback procedure are documented in BRNavi's README.
 
 Авторизовані розділи Мапа/Гараж/Налаштування/Профіль використовують те саме нижнє меню
 й адаптивну бокову панель в альбомній орієнтації. Профіль S08 відповідає ієрархії портретного
@@ -480,7 +581,7 @@ Exact backend contract verified against read-only BRNavi `src/auth.rs` and its p
 і відкриває деталі активного авто; у разі помилки запиту показується порожній візуальний
 стан із текстом «У гаражі немає авто». Повний гараж показує помилку завантаження та дозволяє
 повторити запит.
-Безпека та особисті дані відкривають дані профілю й дію завершення сеансу; «Обране» відкриває
+Безпека та особисті дані відкривають особисті/контактні дані та дані акаунта без виходу; «Обране» відкриває
 збережені локально місця. Екрани організації не відкриваються без підтверджених сервером даних
 про членство: корпоративний тип акаунта сам по собі не підтверджує членство. Поточний API не
 має контракту активного рейсу; стан планування маршруту зберігається під час перегляду профілю,
@@ -501,8 +602,13 @@ Exact backend contract verified against read-only BRNavi `src/auth.rs` and its p
 Екран реєстрації викликає його через `RpcRegistrationService`; успіх відкриває вхід,
 помилка показує повідомлення (некоректні дані / вже існує / мережа).
 `notifications_enabled` — необов’язковий boolean. `auth.updateProfile` приймає `access_token`
-і `profile` як мапу **рядкових** значень (boolean — `"true"`/`"false"`, дата — RFC3339),
-оновлює лише передані поля й повертає той самий UserResponse. UI його поки не викликає.
+і `profile`: скалярні значення залишаються рядковими (boolean — `"true"`/`"false"`,
+дата — RFC3339), а локальне розширення contacts приймає справжній масив об'єктів
+`type`/`value`. Оновлюються лише передані поля, повертається той самий UserResponse.
+UI його поки не викликає. Розширення розгорнуто на обох екземплярах BRNavi 2026-11-11
+образом із зафіксованого знімка коду. Для стандартної перезбірки ще потрібні
+окремо дозволена публікація бібліотеки й оновлення Git-ревізій залежностей BRNavi.
+Знімок розгортання та порядок відкату описані в README BRNavi.
 
 System/Light/Dark appearance is shared by every screen and stored locally using Android
 SharedPreferences or iOS UserDefaults under `appearance.theme`. No credentials or session are

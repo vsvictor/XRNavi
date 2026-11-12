@@ -3,6 +3,7 @@ package com.mobilespace.xrnavi
 internal data class DemoAppState(
     val screen: AppScreen = AppScreen.Map,
     val previousScreen: AppScreen = AppScreen.Map,
+    val exitConfirmationVisible: Boolean = false,
     val sheet: SheetLevel = SheetLevel.Collapsed,
     val searchStatus: SearchStatus = SearchStatus.Idle,
     val searchRequest: Int = 0,
@@ -51,6 +52,8 @@ internal sealed interface DemoAppEvent {
     data object DemoExited : DemoAppEvent
     data object PreviewClosed : DemoAppEvent
     data object MapLeft : DemoAppEvent
+    data object ExitConfirmationRequested : DemoAppEvent
+    data object ExitConfirmationDismissed : DemoAppEvent
     data class SectionOpened(val section: DemoSection) : DemoAppEvent
     data object SectionBack : DemoAppEvent
     data class StopPlacesSectionOpened(val section: DemoSection) : DemoAppEvent

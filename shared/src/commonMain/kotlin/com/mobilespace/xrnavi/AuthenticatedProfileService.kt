@@ -15,6 +15,7 @@ internal data class AuthenticatedProfile(
     val createdAt: String,
     val roles: List<String>,
     val fields: JsonObject,
+    val contacts: List<ProfileContact> = listOf(ProfileContact("email", email)),
 ) {
     override fun toString(): String = "AuthenticatedProfile"
 }
@@ -58,8 +59,21 @@ internal class RpcAuthenticatedProfileService(
                 throw InvalidProfileResponseException()
             }
         }
+        val email = requiredString("email")
+        val contacts = if ("contacts" !in fields) {
+            listOf(ProfileContact("email", email))
+        } else {
+            val entries = fields["contacts"] as? JsonArray ?: throw InvalidProfileResponseException()
+            entries.map { entry ->
+                val contact = entry as? JsonObject ?: throw InvalidProfileResponseException()
+                fun contactString(key: String): String =
+                    (contact[key] as? JsonPrimitive)?.takeIf { it.isString }
+                        ?.content?.takeIf { it.isNotBlank() } ?: throw InvalidProfileResponseException()
+                ProfileContact(contactString("type"), contactString("value"))
+            }
+        }
         return AuthenticatedProfile(
-            requiredString("id"), requiredString("email"), requiredString("created_at"), roles, fields,
+            requiredString("id"), email, requiredString("created_at"), roles, fields, contacts,
         )
     }
 }

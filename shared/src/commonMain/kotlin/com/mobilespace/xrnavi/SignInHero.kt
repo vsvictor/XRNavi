@@ -32,6 +32,7 @@ import androidx.compose.ui.layout.ContentScale
 import xrnavi.shared.generated.resources.Res
 import xrnavi.shared.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.DrawableResource
 
 @Composable
 internal fun SignInHero(
@@ -39,12 +40,14 @@ internal fun SignInHero(
     dark: Boolean,
     horizontalLayout: Boolean,
     title: String? = null,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    backDescription: String = "Повернутися до входу",
+    image: DrawableResource? = null,
 ) {
     BoxWithConstraints(modifier = modifier) {
         val heroWidth = maxWidth
         Image(
-            painter = painterResource(if (dark) Res.drawable.mustang_hero_dark else Res.drawable.mustang_hero_light),
+            painter = painterResource(image ?: if (dark) Res.drawable.mustang_hero_dark else Res.drawable.mustang_hero_light),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
@@ -104,19 +107,7 @@ internal fun SignInHero(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (onBack != null) {
-                    Text(
-                        text = "‹",
-                        fontSize = 28.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .layout { measurable, constraints ->
-                                val placeable = measurable.measure(constraints)
-                                layout(placeable.width, 0) { placeable.place(0, -placeable.height / 2) }
-                            }
-                            .clickable(onClick = onBack)
-                            .semantics { contentDescription = "Повернутися до входу" }
-                            .padding(end = 12.dp)
-                    )
+                    AuthBackButton(onBack, backDescription)
                 }
                 ProductWordmark()
             }

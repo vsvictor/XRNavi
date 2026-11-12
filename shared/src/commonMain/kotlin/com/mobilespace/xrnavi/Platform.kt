@@ -9,3 +9,8 @@ interface Platform {
 expect fun getPlatform(): Platform
 
 internal expect fun Modifier.exportTestTags(): Modifier
+
+internal expect val supportsProgrammaticApplicationExit: Boolean
+
+@androidx.compose.runtime.Composable
+internal expect fun rememberExitApplication(): () -> Unit

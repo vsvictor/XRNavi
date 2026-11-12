@@ -18,6 +18,13 @@ actual fun getPlatform(): Platform = IOSPlatform()
 
 internal actual fun Modifier.exportTestTags(): Modifier = this
 
+internal actual val supportsProgrammaticApplicationExit: Boolean = false
+
+@Composable
+internal actual fun rememberExitApplication(): () -> Unit = {
+    error("iOS does not support programmatic application termination.")
+}
+
 @Composable
 internal actual fun AuthBackHandler(onBack: () -> Unit) {
     NavigationBackHandler(

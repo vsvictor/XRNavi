@@ -116,8 +116,7 @@ internal fun SavedPlacesScreen(
     onSelectAddress: (SavedPlace) -> Unit,
     onUseAsDestination: (SavedPlace) -> Unit,
     onRename: (String, String) -> Unit,
-    onDelete: (SavedPlace) -> Unit,
-    onToggleTheme: () -> Unit
+    onDelete: (SavedPlace) -> Unit
 ) {
     val screenViewModel: SavedPlacesScreenViewModel = viewModel { SavedPlacesScreenViewModel() }
     val screenBloc = screenViewModel.bloc
@@ -131,142 +130,115 @@ internal fun SavedPlacesScreen(
         screenBloc.dispatch(SavedPlacesScreenEvent.SelectInitialEdit(initial))
     }
 
-    Column(Modifier.fillMaxSize().imePadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Назад",
-                modifier = Modifier.clickable(role = Role.Button, onClick = onBack)
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
-            ProductWordmark(Modifier.weight(1f))
-            Text(
-                "Тема",
-                modifier = Modifier.clickable(role = Role.Button, onClick = onToggleTheme)
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(
-                Modifier.widthIn(max = 760.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Збережені місця",
-                    fontSize = 24.sp,
-                    lineHeight = 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.semantics { heading() }
-                )
-                Text(
-                    "Особисте обране · локально в деморежимі",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
-                )
-                StatusCard(
-                    "Локальне збереження",
-                    "Місця зберігаються лише на цьому пристрої. Хмарну синхронізацію не підключено."
-                )
-                if (notice.isNotBlank()) StatusCard("Збереження", notice)
-                if (places.isEmpty()) {
-                    StatusCard(
-                        "Поки немає збережених місць",
-                        "Додавайте підтверджені адреси з результатів демопошуку. Нещодавні результати не додаються автоматично."
+    Column(
+        Modifier.fillMaxSize().accountPageBackground().imePadding()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        AccountPageLayout(title = "Обране", onBack = onBack) {
+            ProfileSectionCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        CardHeading("Збережені місця")
+                        Text(
+                            "${places.size} · На цьому пристрої",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+            }
+            if (notice.isNotBlank()) ProfileSectionCard {
+                CardHeading("Збереження")
+                Text(notice, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (places.isEmpty()) {
+                ProfileSectionCard {
+                    CardHeading("Поки немає збережених місць")
+                    Text(
+                        "Додайте адресу до обраного з результатів пошуку.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
                     )
-                } else {
-                    places.forEach { place ->
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().testTag("saved-place-${place.key}"),
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                }
+            } else {
+                places.forEach { place ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("saved-place-${place.key}"),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                    ) {
+                        Column(
+                            Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(
-                                Modifier.padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                            Text(
+                                place.label,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (!place.label.equals(place.address, ignoreCase = true)) {
                                 Text(
-                                    place.label,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    place.address,
+                                    fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                if (!place.label.equals(place.address, ignoreCase = true)) {
-                                    Text(
-                                        place.address,
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                Text(
-                                    place.detail,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            Text(
+                                place.detail,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (allowAddressSelection) Text(
+                                    "Вибрати адресу",
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        onSelectAddress(place)
+                                    }.padding(vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 12.sp
                                 )
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    if (allowAddressSelection) Text(
-                                        "Вибрати адресу",
-                                        modifier = Modifier.clickable(role = Role.Button) {
-                                            onSelectAddress(place)
-                                        }.padding(vertical = 8.dp),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 12.sp
-                                    )
-                                    if (allowDestinationUse) Text(
-                                        "Використати як призначення",
-                                        modifier = Modifier.clickable(role = Role.Button) {
-                                            onUseAsDestination(place)
-                                        }.padding(vertical = 8.dp),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    Text(
-                                        "Перейменувати ярлик",
-                                        modifier = Modifier.clickable(role = Role.Button) {
-                                            screenBloc.dispatch(SavedPlacesScreenEvent.Edit(place))
-                                        }.padding(vertical = 6.dp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        "Видалити",
-                                        modifier = Modifier.clickable(role = Role.Button) {
-                                            screenBloc.dispatch(SavedPlacesScreenEvent.RequestDelete(place))
-                                        }.padding(vertical = 6.dp),
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontSize = 12.sp
-                                    )
-                                }
+                                if (allowDestinationUse) Text(
+                                    "Використати як призначення",
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        onUseAsDestination(place)
+                                    }.padding(vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Text(
+                                    "Перейменувати ярлик",
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        screenBloc.dispatch(SavedPlacesScreenEvent.Edit(place))
+                                    }.padding(vertical = 6.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    "Видалити",
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        screenBloc.dispatch(
+                                            SavedPlacesScreenEvent.RequestDelete(
+                                                place
+                                            )
+                                        )
+                                    }.padding(vertical = 6.dp),
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 12.sp
+                                )
                             }
                         }
                     }
                 }
-                StatusCard(
-                    "Організація",
-                    "Корпоративні місця ще не підключено. Особисте обране не означає членство чи доступ до автопарку."
-                )
-                Text(
-                    "Ярлики «Дім» і «Робота» можна задати лише вручну; адреси не заповнюються автоматично.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }

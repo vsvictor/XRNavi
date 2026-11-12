@@ -59,7 +59,7 @@ class ExistingScreensRenderingTest {
             DesignCase("S37-SavedPlaces") {
                 SavedPlacesScreen(
                     demoPlaces.take(2).map { it.toSavedPlace() }, null, true, true,
-                    "", {}, {}, {}, { _, _ -> }, {}, {})
+                    "", {}, {}, {}, { _, _ -> }, {})
             },
             DesignCase("S36-RoutePreview") {
                 CaptureMap(

@@ -19,7 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -35,6 +37,7 @@ internal fun AuthenticatedAccountScreen(
     locationProvider: LocationProvider,
     onToggleTheme: () -> Unit,
     onOpenSavedPlaces: () -> Unit,
+    onRequestExit: () -> Unit,
 ) {
     val mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
     val mapState by mapViewModel.bloc.state.collectAsStateWithLifecycle()
@@ -61,6 +64,7 @@ internal fun AuthenticatedAccountScreen(
     val detailsState by detailsViewModel.bloc.state.collectAsStateWithLifecycle()
     val geoViewModel: GeoViewModel = viewModel(factory = geoViewModelFactory(locationProvider))
     val geoState by geoViewModel.bloc.state.collectAsStateWithLifecycle()
+    val swipeEdgeSize = with(LocalDensity.current) { 32.dp.toPx() }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         geoViewModel.bloc.dispatch(GeoEvent.Refresh)
         onPauseOrDispose {}
@@ -76,7 +80,27 @@ internal fun AuthenticatedAccountScreen(
             dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
         }
     }
-    BoxWithConstraints(Modifier.fillMaxSize().testTag("authenticated-account")) {
+    BoxWithConstraints(
+        Modifier.fillMaxSize().testTag("authenticated-account")
+            .horizontalSwipeGesture { swipe ->
+                val target = primarySectionAfterSwipe(state.section, swipe.direction())
+                val mapEdgeExit = state.section == DemoSection.Map &&
+                    swipe.startedAtEdge(swipeEdgeSize)
+                when {
+                    state.section == DemoSection.Map && routeState.editing != null ->
+                        routeViewModel.bloc.handleBack()
+                    state.section == DemoSection.Garage && addState.open ->
+                        addViewModel.bloc.handleBack()
+                    state.section == DemoSection.Garage && detailsState.vehicleId != null ->
+                        detailsViewModel.bloc.handleBack()
+                    mapEdgeExit -> onRequestExit()
+                    state.section == DemoSection.AccountSecurity ->
+                        dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+                    target != null ->
+                        dispatch(AuthenticatedAccountEvent.OpenSection(target))
+                }
+            }
+    ) {
         val layout = AccountLayout.forWindow(maxWidth.value, maxHeight.value)
         val navigate: (DemoSection) -> Unit = {
             dispatch(AuthenticatedAccountEvent.OpenSection(it))
@@ -117,8 +141,9 @@ internal fun AuthenticatedAccountScreen(
                 } else if (state.section == DemoSection.Profile) Column(
                     Modifier.weight(1f).fillMaxWidth()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .accountPageBackground().padding(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     if (state.loading) {
                         CircularProgressIndicator(Modifier.testTag("authenticated-profile-loading"))
@@ -140,7 +165,6 @@ internal fun AuthenticatedAccountScreen(
                             profile = it,
                             layout = layout,
                             garageState = garageState,
-                            onBack = { dispatch(AuthenticatedAccountEvent.BackFromProfile) },
                             onOpenGarage = { navigate(DemoSection.Garage) },
                             onOpenVehicleDetails = { vehicleId ->
                                 detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Open(vehicleId))
@@ -148,23 +172,24 @@ internal fun AuthenticatedAccountScreen(
                             },
                             onOpenSecurity = { navigate(DemoSection.AccountSecurity) },
                             onOpenFavorites = onOpenSavedPlaces,
+                            selectedTab = state.profileTab,
+                            onSelectTab = { dispatch(AuthenticatedAccountEvent.SelectProfileTab(it)) },
+                            onLogout = onLogout,
                         )
                     }
-                    Button(
-                        onClick = onLogout,
-                        modifier = Modifier.testTag("authenticated-logout"),
-                    ) { Text("Вийти з акаунта") }
+                    if (state.profile == null) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                        ProfileLogoutButton(onLogout)
+                    }
                 } else if (state.section == DemoSection.AccountSecurity) Column(
                     Modifier.weight(1f).fillMaxWidth()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .accountPageBackground(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     state.profile?.let { profile ->
                         AuthenticatedAccountSecurityScreen(
                             profile = profile,
                             onBack = { navigate(DemoSection.Profile) },
-                            onLogout = onLogout,
                         )
                     }
                 } else Column(

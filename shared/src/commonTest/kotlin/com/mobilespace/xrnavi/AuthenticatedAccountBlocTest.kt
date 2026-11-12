@@ -16,6 +16,28 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuthenticatedAccountBlocTest {
     @Test
+    fun profileTabsKeepSessionAndResetOnLogout() = runTest {
+        val account = AuthenticatedAccountBloc({ profile() }, backgroundScope)
+        account.dispatch(AuthenticatedAccountEvent.SelectProfileTab(ProfileAccountTab.Corporate))
+        assertEquals(ProfileAccountTab.Personal, account.state.value.profileTab)
+        account.dispatch(AuthenticatedAccountEvent.LoginCompleted(session()))
+        runCurrent()
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+        account.dispatch(AuthenticatedAccountEvent.SelectProfileTab(ProfileAccountTab.Corporate))
+        assertEquals(ProfileAccountTab.Corporate, account.state.value.profileTab)
+        assertEquals(profile(), account.state.value.profile)
+        assertEquals(DemoSection.Profile, account.state.value.section)
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
+        account.dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+        assertEquals(ProfileAccountTab.Corporate, account.state.value.profileTab)
+        account.dispatch(AuthenticatedAccountEvent.SelectProfileTab(ProfileAccountTab.Personal))
+        assertEquals(ProfileAccountTab.Personal, account.state.value.profileTab)
+        account.dispatch(AuthenticatedAccountEvent.SelectProfileTab(ProfileAccountTab.Corporate))
+        account.dispatch(AuthenticatedAccountEvent.Logout)
+        assertEquals(ProfileAccountTab.Personal, account.state.value.profileTab)
+    }
+
+    @Test
     fun successfulLoginNeverEntersDemoAndLoadsProfileFromSessionForAccountSections() = runTest {
         val result = CompletableDeferred<AuthenticatedProfile>()
         var calls = 0

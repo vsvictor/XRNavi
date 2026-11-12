@@ -23,6 +23,7 @@ internal data class AuthenticatedAccountState(
     val error: String = "",
     val expired: Boolean = false,
     val restoring: Boolean = false,
+    val profileTab: ProfileAccountTab = ProfileAccountTab.Personal,
 ) {
     override fun toString(): String = "AuthenticatedAccountState(mode=$mode, loading=$loading)"
 }
@@ -30,6 +31,7 @@ internal data class AuthenticatedAccountState(
 internal sealed interface AuthenticatedAccountEvent {
     class LoginCompleted(val session: AuthSession) : AuthenticatedAccountEvent
     class OpenSection(val section: DemoSection) : AuthenticatedAccountEvent
+    class SelectProfileTab(val tab: ProfileAccountTab) : AuthenticatedAccountEvent
     data object BackFromProfile : AuthenticatedAccountEvent
     data object RetryProfile : AuthenticatedAccountEvent
     data object ContinueWithoutLogin : AuthenticatedAccountEvent
@@ -90,6 +92,11 @@ internal class AuthenticatedAccountBloc(
                             else -> current.profileOrigin
                         },
                     )
+                }
+            }
+            is AuthenticatedAccountEvent.SelectProfileTab -> {
+                if (mutableState.value.mode == AccountMode.Authenticated) {
+                    mutableState.value = mutableState.value.copy(profileTab = event.tab)
                 }
             }
             AuthenticatedAccountEvent.BackFromProfile -> {

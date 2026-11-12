@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -132,11 +133,62 @@ internal fun XrnaviApplication(
         )
     }
 
+    val rootSwipeEdgeSize = with(androidx.compose.ui.platform.LocalDensity.current) { 32.dp.toPx() }
+    val exitApplication = rememberExitApplication()
+    val rootSwipeEnabled = accountState.mode == AccountMode.SignedOut ||
+        accountState.mode == AccountMode.Authenticated && screen == AppScreen.SavedPlaces ||
+        demoMode && (
+            additionalState.screen != null ||
+                app.sectionNavigation.section == DemoSection.Map ||
+                screen == AppScreen.SavedPlaces
+            )
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .safeDrawingPadding()
+            .then(
+                if (rootSwipeEnabled) Modifier.horizontalSwipeGesture { swipe ->
+                    val sectionTarget = if (
+                        screen == AppScreen.Map &&
+                        demoMode &&
+                        app.sectionNavigation.section == DemoSection.Map &&
+                        additionalState.screen == null
+                    ) primarySectionAfterSwipe(DemoSection.Map, swipe.direction()) else null
+                    when {
+                        additionalState.screen != null -> additionalBloc.dispatch(AdditionalNavigationEvent.Back)
+                        accountState.mode == AccountMode.Authenticated &&
+                            screen == AppScreen.SavedPlaces -> dispatch(DemoAppEvent.SavedPlacesClosed)
+                        screen == AppScreen.SignIn -> dispatch(DemoAppEvent.ExitConfirmationRequested)
+                        screen == AppScreen.Map && demoMode &&
+                            app.sectionNavigation.section == DemoSection.Map &&
+                            additionalState.screen == null &&
+                            swipe.startedAtEdge(rootSwipeEdgeSize) ->
+                            dispatch(DemoAppEvent.ExitConfirmationRequested)
+                        sectionTarget != null -> dispatch(DemoAppEvent.SectionOpened(sectionTarget))
+                        screen == AppScreen.Preview -> dispatch(DemoAppEvent.PreviewClosed)
+                        screen == AppScreen.Registration -> {
+                            registrationViewModel.cancel()
+                            dispatch(DemoAppEvent.ScreenChanged(AppScreen.SignIn))
+                        }
+                        screen == AppScreen.Recovery -> {
+                            recoveryViewModel.cancel()
+                            dispatch(DemoAppEvent.ScreenChanged(AppScreen.SignIn))
+                        }
+                        screen == AppScreen.RouteStops ->
+                            dispatch(DemoAppEvent.RouteStopsEditingCancelled)
+                        screen == AppScreen.RouteStopSearch ->
+                            dispatch(DemoAppEvent.RouteStopSearchCancelled)
+                        screen == AppScreen.RouteSettings ->
+                            dispatch(DemoAppEvent.RouteSettingsClosed)
+                        screen == AppScreen.Search -> dispatch(DemoAppEvent.SearchClosed)
+                        screen == AppScreen.StopPlaces ->
+                            dispatch(DemoAppEvent.StopPlacesDispatched(StopPlacesEvent.Back))
+                        screen == AppScreen.SavedPlaces ->
+                            dispatch(DemoAppEvent.SavedPlacesClosed)
+                    }
+                } else Modifier
+            )
     ) {
         val exitDemo = {
             signInViewModel.clearPassword()
@@ -158,8 +210,7 @@ internal fun XrnaviApplication(
                 onSelectAddress = { dispatch(DemoAppEvent.SavedPlaceAddressSelected(it)) },
                 onUseAsDestination = { dispatch(DemoAppEvent.SavedPlaceUsedAsDestination(it)) },
                 onRename = appModel::renamePlace,
-                onDelete = appModel::deletePlace,
-                onToggleTheme = onToggleTheme
+                onDelete = appModel::deletePlace
             )
         } else if (accountState.mode == AccountMode.Authenticated) {
             AuthenticatedAccountScreen(
@@ -176,6 +227,7 @@ internal fun XrnaviApplication(
                 onOpenSavedPlaces = {
                     dispatch(DemoAppEvent.SavedPlacesOpened(SavedPlacesOrigin.Profile, null))
                 },
+                onRequestExit = { dispatch(DemoAppEvent.ExitConfirmationRequested) },
             )
         } else if (additionalState.screen != null && demoMode) {
             AdditionalScreens(additionalState, additionalBloc::dispatch)
@@ -423,9 +475,16 @@ internal fun XrnaviApplication(
                 onSelectAddress = { dispatch(DemoAppEvent.SavedPlaceAddressSelected(it)) },
                 onUseAsDestination = { dispatch(DemoAppEvent.SavedPlaceUsedAsDestination(it)) },
                 onRename = appModel::renamePlace,
-                onDelete = appModel::deletePlace,
-                onToggleTheme = onToggleTheme
+                onDelete = appModel::deletePlace
             )
         }
+        if (app.exitConfirmationVisible) ExitConfirmationDialog(
+            canExit = supportsProgrammaticApplicationExit,
+            onDismiss = { dispatch(DemoAppEvent.ExitConfirmationDismissed) },
+            onConfirm = {
+                dispatch(DemoAppEvent.ExitConfirmationDismissed)
+                if (supportsProgrammaticApplicationExit) exitApplication()
+            },
+        )
     }
 }

@@ -80,7 +80,12 @@ internal fun DemoAccountScreen(
         section
     }
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
+        BoxWithConstraints(
+            Modifier.fillMaxSize().horizontalSwipeGesture { swipe ->
+                val target = primarySectionAfterSwipe(section, swipe.direction())
+                if (target != null) onSectionChange(target) else handleBack()
+            }
+        ) {
             if (accountState.notice != null || accountState.themePickerVisible) {
                 val dismiss = { account.dispatch(DemoAccountEvent.DismissDialog) }
                 AlertDialog(

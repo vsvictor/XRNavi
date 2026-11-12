@@ -85,6 +85,55 @@ class AuthenticatedProfileServiceTest {
         }
     }
 
+    @Test
+    fun readsStructuredContactsWithoutChangingLoginIdentity() = runTest {
+        val types = listOf("phone", "email", "telegram", "viber", "facebook", "x", "instagram", "tiktok",
+            "whatsapp", "signal", "linkedin", "website")
+        val entries = types.joinToString(",") {
+            """{"type":"$it","value":"contact-$it"}"""
+        }
+        val profile = RpcAuthenticatedProfileService { _, _ ->
+            response.replace(""""first_name":"Олена"""", """"contacts":[$entries],"first_name":"Олена"""")
+        }.getProfile(session())
+        assertEquals(types, profile.contacts.map { it.type })
+        assertEquals(types.map { "contact-$it" }, profile.contacts.map { it.value })
+        assertEquals("stored@example.org", profile.email)
+        assertFalse(profile.contacts.first().toString().contains("contact-phone"))
+    }
+
+    @Test
+    fun distinguishesLegacyContactsFromExplicitEmptyListAndKeepsFutureTypes() = runTest {
+        val legacy = RpcAuthenticatedProfileService { _, _ -> response }.getProfile(session())
+        assertEquals(listOf(ProfileContact("email", legacy.email)), legacy.contacts)
+        val empty = RpcAuthenticatedProfileService { _, _ ->
+            response.replace(""""first_name":"Олена"""", """"contacts":[],"first_name":"Олена"""")
+        }.getProfile(session())
+        assertEquals(emptyList(), empty.contacts)
+        val future = RpcAuthenticatedProfileService { _, _ ->
+            response.replace(
+                """"first_name":"Олена"""",
+                """"contacts":[{"type":"website","value":"https://example.invalid"}],"first_name":"Олена"""",
+            )
+        }.getProfile(session())
+        assertEquals(listOf(ProfileContact("website", "https://example.invalid")), future.contacts)
+    }
+
+    @Test
+    fun rejectsMalformedContactsRatherThanHidingThem() = runTest {
+        listOf(
+            "null", "{}", "\"[]\"", "[null]", "[{}]",
+            """[{"type":"email","value":123}]""",
+            """[{"type":"","value":"address"}]""",
+            """[{"type":"phone","value":" "}]""",
+        ).forEach { contacts ->
+            assertFailsWith<InvalidProfileResponseException> {
+                RpcAuthenticatedProfileService { _, _ ->
+                    response.replace(""""first_name":"Олена"""", """"contacts":$contacts,"first_name":"Олена"""")
+                }.getProfile(session())
+            }
+        }
+    }
+
     private fun session() = AuthSession("test-access", "test-refresh", "Bearer", 3600uL)
 
     private val response = """{"id":"backend-id","email":"stored@example.org","created_at":"2026-01-01T00:00:00+00:00","roles":["driver","admin"],"profile":{"first_name":"Олена","last_name":"Коваль","birth_date":"2000-02-03T00:00:00+00:00","account_type":"private","notifications_enabled":false},"extra":true}"""

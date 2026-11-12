@@ -19,7 +19,7 @@ internal fun ProfileStatistics(layout: AccountLayout, showUnavailableNotice: Boo
         listOf("поїздки", "км", "год у дорозі").forEach { label ->
             Surface(
                 Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Column(
@@ -33,7 +33,7 @@ internal fun ProfileStatistics(layout: AccountLayout, showUnavailableNotice: Boo
                 ) {
                     Text(
                         "—",
-                        fontSize = if (layout.tablet) 32.sp else 26.sp,
+                        fontSize = if (layout.tablet) 32.sp else 24.sp,
                         lineHeight = if (layout.tablet) 38.sp else 31.sp,
                         fontFamily = rememberRobotoCondensedFontFamily(),
                         fontWeight = FontWeight.Bold

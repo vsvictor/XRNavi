@@ -6,6 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import android.content.pm.ApplicationInfo
 import android.content.Context
+import android.app.Activity
+import android.content.ContextWrapper
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
@@ -19,6 +21,25 @@ actual fun getPlatform(): Platform = AndroidPlatform()
 
 internal actual fun Modifier.exportTestTags(): Modifier =
     semantics { testTagsAsResourceId = true }
+
+internal actual val supportsProgrammaticApplicationExit: Boolean = true
+
+@Composable
+internal actual fun rememberExitApplication(): () -> Unit {
+    val context = LocalContext.current
+    return remember(context) {
+        {
+            var activityContext = context
+            while (activityContext is ContextWrapper && activityContext !is Activity) {
+                activityContext = activityContext.baseContext
+            }
+            require(activityContext is Activity) {
+                "Unable to find the foreground Activity to finish."
+            }
+            activityContext.finish()
+        }
+    }
+}
 
 @Composable
 internal actual fun AuthBackHandler(onBack: () -> Unit) {

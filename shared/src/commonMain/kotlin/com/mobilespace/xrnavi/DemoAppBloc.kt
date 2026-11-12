@@ -29,6 +29,8 @@ internal class DemoAppBloc(initial: DemoAppState = DemoAppState()) {
 
             DemoAppEvent.PreviewClosed -> state.copy(screen = AppScreen.Map)
             DemoAppEvent.MapLeft -> state.copy(notice = "", screen = AppScreen.SignIn)
+            DemoAppEvent.ExitConfirmationRequested -> state.copy(exitConfirmationVisible = true)
+            DemoAppEvent.ExitConfirmationDismissed -> state.copy(exitConfirmationVisible = false)
             is DemoAppEvent.SectionOpened ->
                 state.copy(sectionNavigation = state.sectionNavigation.open(event.section))
 
