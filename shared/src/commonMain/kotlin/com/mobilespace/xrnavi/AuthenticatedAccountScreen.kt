@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun AuthenticatedAccountScreen(
@@ -43,10 +44,18 @@ internal fun AuthenticatedAccountScreen(
     val mapState by mapViewModel.bloc.state.collectAsStateWithLifecycle()
     val routeViewModel: RouteViewModel = viewModel(factory = routeViewModelFactory(routeService))
     val routeState by routeViewModel.bloc.state.collectAsStateWithLifecycle()
-    val garageViewModel: GarageViewModel = viewModel(factory = garageViewModelFactory(garageService, sessionProvider))
+    val garageViewModel: GarageViewModel =
+        viewModel(factory = garageViewModelFactory(garageService, sessionProvider))
     val garageState by garageViewModel.bloc.state.collectAsStateWithLifecycle()
-    val addViewModel: AddVehicleViewModel = viewModel(factory = addVehicleViewModelFactory(garageService, sessionProvider))
+    val addViewModel: AddVehicleViewModel =
+        viewModel(factory = addVehicleViewModelFactory(garageService, sessionProvider))
     val addState by addViewModel.bloc.state.collectAsStateWithLifecycle()
+    androidx.compose.runtime.DisposableEffect(garageViewModel, addViewModel) {
+        onDispose {
+            garageViewModel.bloc.dispatch(GarageEvent.Clear)
+            addViewModel.bloc.dispatch(AddVehicleEvent.Close)
+        }
+    }
     androidx.compose.runtime.LaunchedEffect(
         state.section, garageState.loaded, garageState.loading, garageState.error,
     ) {
@@ -60,7 +69,8 @@ internal fun AuthenticatedAccountScreen(
     androidx.compose.runtime.LaunchedEffect(addState.added) {
         if (addState.added != null) garageViewModel.bloc.dispatch(GarageEvent.Load)
     }
-    val detailsViewModel: VehicleDetailsViewModel = viewModel(factory = VehicleDetailsViewModelFactory)
+    val detailsViewModel: VehicleDetailsViewModel =
+        viewModel(factory = VehicleDetailsViewModelFactory)
     val detailsState by detailsViewModel.bloc.state.collectAsStateWithLifecycle()
     val geoViewModel: GeoViewModel = viewModel(factory = geoViewModelFactory(locationProvider))
     val geoState by geoViewModel.bloc.state.collectAsStateWithLifecycle()
@@ -85,38 +95,62 @@ internal fun AuthenticatedAccountScreen(
             .horizontalSwipeGesture { swipe ->
                 val target = primarySectionAfterSwipe(state.section, swipe.direction())
                 val mapEdgeExit = state.section == DemoSection.Map &&
-                    swipe.startedAtEdge(swipeEdgeSize)
+                        swipe.startedAtEdge(swipeEdgeSize)
                 when {
                     state.section == DemoSection.Map && routeState.editing != null ->
                         routeViewModel.bloc.handleBack()
+
                     state.section == DemoSection.Garage && addState.open ->
                         addViewModel.bloc.handleBack()
+
                     state.section == DemoSection.Garage && detailsState.vehicleId != null ->
                         detailsViewModel.bloc.handleBack()
+
                     mapEdgeExit -> onRequestExit()
                     state.section == DemoSection.AccountSecurity ->
                         dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
+
                     target != null ->
                         dispatch(AuthenticatedAccountEvent.OpenSection(target))
                 }
             }
     ) {
         val layout = AccountLayout.forWindow(maxWidth.value, maxHeight.value)
+        val detailVehicle = garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }
+        val boundedGarageScreen = layout.landscape && state.section == DemoSection.Garage &&
+                (addState.open || detailVehicle != null)
         val navigate: (DemoSection) -> Unit = {
             dispatch(AuthenticatedAccountEvent.OpenSection(it))
         }
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-            if (state.section != DemoSection.Profile && state.section != DemoSection.AccountSecurity) MapTopBar(
-                demoMode = false,
-                preview = false,
-                vehicleMode = "Аккаунт",
-                onBack = {},
-                onOpenStopPlaces = {
-                    dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
-                    mapViewModel.bloc.dispatch(MapEvent.PlacesRequested)
-                },
-                onToggleTheme = onToggleTheme,
-            )
+            if (state.section == DemoSection.Garage) {
+                val vehicle = garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }
+                when {
+                    addState.open -> AddVehicleHeader(
+                        onBack = { addViewModel.bloc.handleBack() },
+                    )
+
+                    vehicle != null -> GarageHeader(
+                        title = "Профіль транспорту",
+                        subtitle = garageCategoryLabel(vehicle.category),
+                        onBack = { detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Close) },
+                    )
+
+                    else -> GarageListHeader()
+                }
+            } else if (state.section != DemoSection.Profile && state.section != DemoSection.AccountSecurity) {
+                MapTopBar(
+                    demoMode = false,
+                    preview = false,
+                    vehicleMode = "Аккаунт",
+                    onBack = {},
+                    onOpenStopPlaces = {
+                        dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
+                        mapViewModel.bloc.dispatch(MapEvent.PlacesRequested)
+                    },
+                    onToggleTheme = onToggleTheme,
+                )
+            }
             Row(Modifier.weight(1f).fillMaxWidth()) {
                 if (layout.landscape) BottomNavigation(
                     selectedSection = state.section,
@@ -177,7 +211,9 @@ internal fun AuthenticatedAccountScreen(
                             onLogout = onLogout,
                         )
                     }
-                    if (state.profile == null) Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                    if (state.profile == null) Column(
+                        Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                    ) {
                         ProfileLogoutButton(onLogout)
                     }
                 } else if (state.section == DemoSection.AccountSecurity) Column(
@@ -192,6 +228,42 @@ internal fun AuthenticatedAccountScreen(
                             onBack = { navigate(DemoSection.Profile) },
                         )
                     }
+                } else if (state.section == DemoSection.Garage) Column(
+                    Modifier.weight(1f).fillMaxWidth()
+                        .then(
+                            if (boundedGarageScreen) Modifier else Modifier.verticalScroll(
+                                rememberScrollState()
+                            )
+                        )
+                        .accountPageBackground()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    if (addState.open) {
+                        AddVehicleScreen(
+                            addState,
+                            addViewModel.bloc::dispatch,
+                            landscape = layout.landscape,
+                            compactLandscape = !layout.tablet,
+                        )
+                    } else if (detailVehicle != null) {
+                        VehicleDetailsScreen(
+                            detailVehicle,
+                            landscape = layout.landscape,
+                            compactLandscape = !layout.tablet,
+                        )
+                    } else {
+                        GarageScreen(
+                            garageState,
+                            garageViewModel.bloc::dispatch,
+                            onAddVehicle = { addViewModel.bloc.dispatch(AddVehicleEvent.Open) },
+                            onOpenDetails = {
+                                detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Open(it))
+                            },
+                            onEditVehicle = { addViewModel.bloc.dispatch(AddVehicleEvent.Edit(it)) },
+                            landscape = layout.landscape,
+                        )
+                    }
                 } else Column(
                     Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -202,22 +274,12 @@ internal fun AuthenticatedAccountScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     when (state.section) {
-                        DemoSection.Garage -> {
-                            val details = garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }
-                            if (addState.open) AddVehicleScreen(addState, addViewModel.bloc::dispatch)
-                            else if (details != null) VehicleDetailsScreen(details) {
-                                detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Close)
-                            } else GarageScreen(
-                                garageState, garageViewModel.bloc::dispatch,
-                                onAddVehicle = { addViewModel.bloc.dispatch(AddVehicleEvent.Open) },
-                                onOpenDetails = { detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Open(it)) },
-                            )
-                        }
                         DemoSection.Settings -> {
                             Text("Тема застосунку · на цьому пристрої")
                             ThemePreferenceOptions(themeSettings)
                             Text("Онлайн-налаштування, організації та інтеграції ще не підключено.")
                         }
+
                         else -> Unit
                     }
                 }
@@ -226,6 +288,13 @@ internal fun AuthenticatedAccountScreen(
                 selectedSection = state.section,
                 onSectionChange = navigate,
             )
+        }
+        if (state.section == DemoSection.Garage &&
+            (garageState.loading || addState.loading || addState.vinLoading ||
+                    addState.equipment.loading || addState.equipment.bodiesLoading ||
+                    addState.equipment.enginesLoading || addState.equipment.mileagesLoading)
+        ) {
+            GarageLoadingOverlay()
         }
     }
 }

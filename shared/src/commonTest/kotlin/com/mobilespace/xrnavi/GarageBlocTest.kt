@@ -19,6 +19,48 @@ class GarageBlocTest {
         runCurrent()
         assertEquals(2, bloc.state.value.vehicles.size)
         assertEquals("a", bloc.state.value.active?.id)
+        assertEquals(listOf("passenger", "truck", "special"), bloc.state.value.categories)
+        assertEquals(2, bloc.state.value.visibleVehicles.size)
+    }
+
+    @Test
+    fun categoryFiltersAreAlwaysAvailableAndMatchServerCategoryAliases() = runTest {
+        val service = FakeGarageService().apply {
+            vehicles = listOf(
+                GarageVehicle("a", "Car", "light_vehicle", VerificationStatus.Verified),
+                GarageVehicle("s", "Special vehicle", "special_equipment", VerificationStatus.None),
+            )
+        }
+        val bloc = GarageBloc(service, ::testSession, backgroundScope)
+        bloc.dispatch(GarageEvent.Load)
+        runCurrent()
+
+        assertEquals(listOf("passenger", "truck", "special"), bloc.state.value.categories)
+        bloc.dispatch(GarageEvent.FilterChanged("special"))
+        assertEquals(listOf("s"), bloc.state.value.visibleVehicles.map { it.id })
+        bloc.dispatch(GarageEvent.FilterChanged("passenger"))
+        assertEquals(listOf("a"), bloc.state.value.visibleVehicles.map { it.id })
+    }
+
+    @Test
+    fun categoryFilterOnlyShowsMatchingVehiclesAndCanBeCleared() = runTest {
+        val bloc = GarageBloc(FakeGarageService(), ::testSession, backgroundScope)
+        bloc.dispatch(GarageEvent.Load)
+        runCurrent()
+        bloc.dispatch(GarageEvent.FilterChanged("truck"))
+        assertEquals(listOf("t"), bloc.state.value.visibleVehicles.map { it.id })
+        bloc.dispatch(GarageEvent.FilterChanged(null))
+        assertEquals(2, bloc.state.value.visibleVehicles.size)
+    }
+
+    @Test
+    fun categoryFilterIgnoresUnknownCategory() = runTest {
+        val bloc = GarageBloc(FakeGarageService(), ::testSession, backgroundScope)
+        bloc.dispatch(GarageEvent.Load)
+        runCurrent()
+        bloc.dispatch(GarageEvent.FilterChanged("unknown"))
+        assertNull(bloc.state.value.selectedCategory)
+        assertEquals(2, bloc.state.value.visibleVehicles.size)
     }
 
     @Test

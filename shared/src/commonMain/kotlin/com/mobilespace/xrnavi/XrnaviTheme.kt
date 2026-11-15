@@ -1,6 +1,7 @@
 package com.mobilespace.xrnavi
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -55,6 +56,7 @@ internal fun XrnaviTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
         content = {
             CompositionLocalProvider(
+                LocalContentColor provides MaterialTheme.colorScheme.onBackground,
                 LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = interFontFamily),
                 content = content
             )

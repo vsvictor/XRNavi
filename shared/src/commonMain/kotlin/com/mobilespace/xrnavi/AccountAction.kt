@@ -12,15 +12,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun AccountAction(title: String, status: String, onClick: () -> Unit) {
-    AccountAction(title, status, Modifier, onClick)
-}
-
-@Composable
 internal fun AccountAction(
     title: String,
     status: String,
-    modifier: Modifier,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Surface(modifier = modifier, shape = RoundedCornerShape(10.dp), color = accountTonalColor()) {

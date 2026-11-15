@@ -37,7 +37,68 @@ internal fun GarageVehicleCard(
             else MaterialTheme.colorScheme.outlineVariant
         )
     ) {
-        Column {
+        if (layout.landscape) {
+            Row(
+                Modifier.fillMaxWidth().padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        vehicle.name,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontFamily = rememberRobotoCondensedFontFamily(),
+                        fontSize = 18.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "${vehicle.category} · Демо-профіль",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                    )
+                    Text(
+                        vehicle.specification,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                    )
+                    Text(
+                        "Характеристики не перевірені",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                    )
+                }
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TextButton(
+                        onClick = onDetails,
+                        modifier = Modifier.heightIn(min = 40.dp)
+                            .semantics {
+                                contentDescription = "Переглянути профіль ${vehicle.name}"
+                            },
+                    ) {
+                        Text("Профіль")
+                    }
+                    Button(
+                        onClick = onSelect,
+                        enabled = !selected,
+                        modifier = Modifier.heightIn(min = 40.dp)
+                            .testTag("garage-select-profile"),
+                        shape = RoundedCornerShape(24.dp),
+                    ) {
+                        Text(if (selected) "Обрано" else "Обрати")
+                    }
+                }
+            }
+        } else Column {
             Box {
                 Box(
                     Modifier.fillMaxWidth().aspectRatio(
@@ -100,8 +161,8 @@ internal fun GarageVehicleCard(
                         if (selected) "ОБРАНО ДЛЯ ДЕМОМАРШРУТУ" else "ДОСТУПНИЙ ДЕМОПРОФІЛЬ",
                         Modifier.padding(horizontal = 8.dp, vertical = 5.dp).semantics {
                             contentDescription = "${vehicle.name} · " +
-                                if (selected) "обрано для демомаршруту"
-                                else "доступний демопрофіль"
+                                    if (selected) "обрано для демомаршруту"
+                                    else "доступний демопрофіль"
                         },
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 10.sp,

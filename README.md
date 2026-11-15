@@ -217,6 +217,320 @@ the application ViewModel owns an instance and passes its state and event handle
 Returning to an existing destination
 unwinds the stack instead of accumulating navigation cycles.
 
+The add-vehicle form has General and Equipment tabs below its hero image.
+Vehicle identification is in General; all technical data is in Equipment.
+BLoC controls the selected tab and preserves form data across tab changes.
+
+On the garage's add-vehicle screen, focusing the make field immediately sends
+`car.makes_index2_get` without business parameters over
+the authorized RPC connection. The BLoC caches the returned `data` list for the
+open wizard and filters names by case-insensitive substring using the latest input.
+Typing remains available during loading; further edits reuse the list without
+duplicate requests. Errors are displayed, and editing retries a failed request.
+Selecting a make keeps its name in the make field and reveals a separate model
+input directly below it on the same form. Editing the make returns to the cached
+make suggestions and clears the previous model selection.
+Both fields are editable dropdowns controlled by BLoC. Selecting a make requests
+`car.oemmakemodels_index_get` (`/api/models/v2`) with its name in `make`; the returned `data` populates
+the model dropdown. This endpoint provides model IDs/names, not years or trims.
+Selecting a make or model retains its entire original `data` object in the BLoC
+selection's `rawData`, including additional fields; dropdowns display only `name`.
+Focusing the model field opens the loaded suggestions without typing; losing
+focus closes the dropdown. These focus transitions are handled by BLoC.
+Selecting a make places its cursor at the end and keeps focus on the make
+field with both dropdowns closed; the model field is focused only by the user.
+Selecting a model places its cursor at the end and
+hides the keyboard. BLoC stores cursor selections and pending, acknowledged UI effects.
+Selecting a model keeps its name in the field and requests `car.years_index2_get`
+with the selected `make` and `model` names. The integer result array is stored in
+`selectedModel.years` and displayed as year-selection buttons below the model
+field. Year loading, errors, retry and selection are handled by BLoC; changing
+the make/model clears the year and ignores outdated responses.
+With both make and model selected, choosing an available year saves it and
+automatically switches to the Equipment tab, preserving the selected vehicle.
+Equipment loads all pages of `car.oemtrims_index_get` with make/model/year.
+Requests use `limit: 100`. Below the make/model/year header, the trim dropdown
+displays `data[*].description` with separators and retains the complete selected record
+in BLoC. The field is read-only; descriptions wrap fully, and the popup grows to
+the available screen height with scrolling when needed.
+Selecting a trim loads its body records through BRNavi using
+`car.makemodeltrimbodies_index2_get` with `trim_id` from the selected v2 trim record.
+The request uses the standard BRNavi session authorization and omits `verbose`.
+RPC failures retain their original cause for diagnostics.
+Body cards replace the body selector and show available dimensions/capacities in
+metric units. BLoC handles loading, retry and rejection of outdated responses.
+Selecting a trim also loads engine records via `car.makemodeltrimengines_index2_get`
+with the same `trim_id`. Engine cards replace the engine selector and have independent
+loading/error/retry state in BLoC. Every characteristic in every equipment card
+occupies a separate row; long values wrap without truncation.
+Transmission and drive type are shown in a separate Transmission card from the same
+selected-trim engine response, without another request or a transmission selector.
+They share BLoC loading/error/retry state with the engine and are not duplicated in its card.
+Fuel consumption/range loads separately using `car.makemodeltrimmileages_index2_get`
+with the selected `trim_id`, including all pages. Consumption is shown in l/100 km,
+one characteristic per row, with independent BLoC loading/error/retry and stale-response
+protection. Before a trim is selected, no technical cards, detail hints, or color
+selectors are rendered; only vehicle identification and the trim picker remain.
+The General tab starts with icon-labelled VIN, Scan and SmartCar buttons in one row
+(Scan and SmartCar are enabled placeholders with empty click handlers).
+VIN opens a dialog containing the VIN input and Search action. Search immediately
+closes the dialog and shows an on-screen loader while resolving the vehicle.
+Successful decoding
+through BRNavi resolves the catalog make/model and years, fills both fields and
+selects the returned year, closes the dialog and stays on General. Failures remain
+in the reopened dialog without overwriting existing selections; dismissing ignores late responses.
+Each trim is resolved through `car.oemtrims_view_get` with its ID. Equipment
+shows exterior/interior color grids of 50 dp circular RGB swatches instead of color
+name inputs. Color names remain accessibility labels only; selection is managed by
+BLoC and indicated by a border. Missing/invalid RGB is explicitly marked unavailable,
+not replaced with an invented color. Options are deduplicated and mutually filtered
+by shared trims. Characteristic labels in every information card are bold, with
+smaller regular-weight values on the same row. Only compatible mileage/range
+records are shown for the selected trim. All calls go
+through the authorized BRNavi RPC connection, never directly to CarAPI. Original
+trim and detail objects are preserved. US dimensions, weights, fuel economy and
+range are converted to metric units; missing data is explicitly marked.
+Loading/errors/retry and request isolation are handled by BLoC. Changing the
+vehicle/year clears the previous configuration and ignores outdated responses.
+The Equipment tab's **Save vehicle** action sends the complete selected vehicle
+snapshot through `garage.vehicles.add`. It includes original make/model/trim records,
+body/engine/consumption records, available and selected colors, and a successfully
+decoded VIN response when it still matches the vehicle. Saving waits for technical
+requests to finish and blocks on their errors; failures keep the form for retry.
+Success opens the review and reloads `garage.vehicles.list`. The returned complete
+snapshot is retained with each garage vehicle. Local garage/form state is cleared
+when leaving the authenticated account to avoid leaking a previous user's cars.
+Snapshots also store metric `dimensions` (`height_m`, `width_m`, `length_m`) and
+`weight_kg` derived from the selected body's inches and curb weight in pounds.
+The saved-vehicle review, details, and garage cards read these body measurements,
+including older snapshots without metric fields. Existing top-level server
+measurements take precedence. Missing measurements remain unknown; gross weight
+is not substituted for curb weight. Saved details also show the trim, body, engine,
+transmission, and fuel consumption directly from the persisted snapshot, without
+reloading the catalog.
+
+Знімок авто також зберігає метричні `dimensions` (`height_m`, `width_m`, `length_m`)
+та `weight_kg`, обчислені з дюймів і спорядженої маси кузова у фунтах.
+Екран після додавання, деталі та картки гаража використовують ці характеристики
+кузова, зокрема зі старих знімків без метричних полів. Попередні значення верхнього
+рівня від сервера мають пріоритет. Відсутні значення залишаються невідомими;
+повна маса не підміняє споряджену. Деталі також показують збережені комплектацію,
+кузов, двигун, трансмісію та витрату палива без повторного завантаження каталогу.
+
+**Garage RPC / RPC гаража**
+
+The garage list uses its own grayscale Ford Mustang GT photo with the sign-in
+gradient and product wordmark; its header has no back or add icon.
+Garage operations show a loader centered on the full screen.
+The four card actions are blue with single-line auto-sized labels. Dimensions
+and weight are shown only in the vehicle profile/review, not on list cards.
+Each vehicle card offers **Edit** (the complete prefilled vehicle form) and
+**Delete** (confirmation required). Updates keep the vehicle ID and active
+selection and use `garage.vehicles.update` with the add payload plus `vehicle_id`.
+Deletion uses `garage.vehicles.delete` with `vehicle_id`; its
+`active_vehicle_id` response selects the first remaining car if the active car
+was removed, or null for an empty garage. BLoC waits for server confirmation;
+failures preserve the existing car and allow retry. Editing retains the saved
+technical data, VIN, colors, and unknown snapshot fields and loads catalog options
+for changing make/model/year/trim. Cancelling editing does not write anything.
+
+Список гаража використовує окреме фото Ford Mustang GT у сірих тонах із градієнтом
+екрана входу та логотипом; у шапці немає стрілки назад та плюса.
+Індикатор операцій гаража розташовано в центрі всього екрана.
+Чотири кнопки картки сині, з однорядковим текстом та автоматичним розміром шрифту.
+Габарити й маса показуються лише у профілі/перевірці авто, не на картках списку.
+Картка авто має **Редагувати** (повна заповнена форма) та **Видалити**
+(із підтвердженням). `garage.vehicles.update` приймає поля додавання разом
+із `vehicle_id`, зберігає ID та активний вибір. `garage.vehicles.delete`
+приймає `vehicle_id` і повертає `active_vehicle_id`: перше авто, що залишилося,
+якщо видалено активне, або null для порожнього гаража. BLoC чекає підтвердження
+сервера; при помилці авто залишається й дію можна повторити. Форма зберігає
+попередні характеристики, VIN, кольори та додаткові поля знімка й завантажує
+каталог для зміни марки, моделі, року та комплектації. Скасування не змінює сервер.
+
+**Garage hero attribution / Авторство фото гаража:** “2018 Ford Mustang GT 5.0 Front”
+by / автор Vauxford, [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:2018_Ford_Mustang_GT_5.0_Front.jpg),
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+`garage_mustang_gt_hero.jpg` is a resized copy distributed under the same license;
+the UI crops the image and overlays a gradient.
+`garage_mustang_gt_hero.jpg` — зменшена копія під тією самою ліцензією;
+інтерфейс кадрує фото та накладає градієнт.
+
+VIN lookup also fills Equipment when the VIN identifies a unique catalog trim.
+Legacy VIN trim IDs are never sent to v2 endpoints: matching uses trim names and
+descriptions (and available displacement/door/seat constraints). VIN body, engine,
+transmission and mileage values are reused; missing sections/essential fields
+are fetched by the matched v2 trim ID. VIN-specific known values are retained.
+Ambiguous VINs show a manual trim-selection notice instead of guessing.
+VIN-пошук також заповнює комплектацію, якщо VIN однозначно визначає запис каталогу.
+Попередні ID з VIN не передаються у v2: зіставляються назви й описи, а за наявності
+також об'єм двигуна, двері та місця. Відомі дані кузова, двигуна, трансмісії й витрати
+використовуються повторно; відсутні розділи/основні поля завантажуються за v2 ID.
+Неоднозначний VIN показує повідомлення про ручний вибір комплектації, без здогадок.
+
+BRNavi stores structured vehicle snapshots in MongoDB collection `garage`.
+Ownership is taken only from the authenticated session, not from request parameters.
+`garage.vehicles.add` returns `{ "vehicle": { "id": "...", "name": "...",
+"category": "...", "verification": "none", "vehicle": { ... } } }`.
+`garage.vehicles.list` takes only session authorization and returns
+`{ "vehicles": [ ... ], "active_vehicle_id": null }` (or a saved vehicle ID).
+`garage.vehicles.set_active` takes `vehicle_id` and returns `active_vehicle_id`;
+only a vehicle owned by the authenticated user can be selected.
+
+BRNavi зберігає структуровані дані авто в колекції MongoDB `garage`.
+Власник визначається лише за авторизованою сесією, не за параметрами запиту.
+`garage.vehicles.add` повертає `{ "vehicle": { "id": "...", "name": "...",
+"category": "...", "verification": "none", "vehicle": { ... } } }`.
+`garage.vehicles.list` приймає лише авторизацію сесії й повертає
+`{ "vehicles": [ ... ], "active_vehicle_id": null }` або ID вибраного авто.
+`garage.vehicles.set_active` приймає `vehicle_id` і повертає `active_vehicle_id`;
+вибрати можна лише власне авто авторизованого користувача.
+
+Example requests / Приклади запитів:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "garage.vehicles.add",
+  "params": {
+    "access_token": "<session token>",
+    "class_id": "passenger",
+    "make_id": "22",
+    "model_id": "4779",
+    "year": 2020,
+    "trim_id": "8873",
+    "vehicle": {
+      "make": { "id": "22", "name": "Toyota", "raw_data": {} },
+      "model": { "id": "4779", "name": "Camry", "raw_data": {} },
+      "year": 2020,
+      "trim": { "id": "8873", "name": "LE", "raw_data": {} },
+      "bodies": [],
+      "engines": [],
+      "mileages": [],
+      "exterior_colors": [],
+      "interior_colors": [],
+      "selected_exterior_color": null,
+      "selected_interior_color": null,
+      "vin": null,
+      "vin_data": null,
+      "equipment_data": {}
+    }
+  }
+}
+```
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "garage.vehicles.list",
+  "params": { "access_token": "<session token>" }
+}
+```
+
+The example's empty objects/arrays stand for original catalogue records and
+technical data; the app sends actual loaded data. Tokens are never part of the
+stored vehicle snapshot. These code changes do not deploy BRNavi automatically.
+
+Порожні об'єкти/масиви прикладу позначають оригінальні записи каталогу та
+характеристики; застосунок надсилає фактично завантажені дані. Токени не входять
+до збереженого запису авто. Ці зміни коду не розгортають BRNavi автоматично.
+Dropdowns use a non-focusable standard popup with a scrollable height capped at
+240 dp, avoiding exposed-menu positioning failures during keyboard resizing.
+
+Під зображенням форми додавання авто розміщені вкладки «Загальне» та «Комплектація».
+Ідентифікація авто знаходиться в «Загальне», усі технічні дані — у «Комплектація».
+BLoC керує вибраною вкладкою та зберігає дані при перемиканні.
+
+На екрані додавання транспорту при отриманні фокуса полем марки без очікування вводу
+надсилається `car.makes_index2_get` без бізнес-параметрів через
+авторизоване RPC-з'єднання. BLoC зберігає отриманий список `data` на час відкритого
+майстра й фільтрує назви за входженням поточного тексту без урахування регістру.
+Під час завантаження можна продовжувати введення; подальші зміни використовують
+отриманий список без повторних запитів. Помилки показуються, зміна тексту повторює
+невдалий запит.
+Після вибору марки її назва залишається в полі, а безпосередньо під ним на тій самій
+формі з'являється окреме поле моделі. Зміна марки повертає підказки зі збереженого
+списку та скидає попередній вибір моделі.
+Обидва поля є редагованими випадаючими списками зі станами в BLoC. Вибір марки
+викликає `car.oemmakemodels_index_get` (`/api/models/v2`) з її назвою в `make`; отриманий `data` заповнює
+список моделей. Цей метод повертає ID та назви моделей, але не роки й комплектації.
+При виборі марки чи моделі BLoC зберігає весь початковий об'єкт із `data` у
+`rawData` вибраного елемента, включно з додатковими полями; список показує лише `name`.
+Фокус поля моделі відкриває завантажені підказки без введення тексту; втрата
+фокуса закриває список. Цими переходами фокуса керує BLoC.
+Вибір марки ставить курсор у кінець назви та залишає фокус на полі марки
+із закритими списками; фокус у поле моделі переводить лише користувач.
+Вибір моделі ставить курсор у кінець її назви
+та ховає клавіатуру. BLoC зберігає позиції курсорів і UI-ефекти з підтвердженням виконання.
+Після вибору моделі її назва залишається в полі та викликається
+`car.years_index2_get` із назвами вибраних `make` та `model`. Масив цілих чисел
+результату зберігається в `selectedModel.years` і показується кнопками вибору року
+під полем моделі. Завантаженням, помилками, повтором і вибором керує BLoC; зміна
+марки/моделі скидає рік та ігнорує застарілі відповіді.
+Якщо вибрані марка й модель, натискання доступного року зберігає його та
+автоматично відкриває вкладку «Комплектація», зберігаючи вибране авто.
+Комплектація завантажує всі сторінки `car.oemtrims_index_get` із маркою/моделлю/роком.
+Запити використовують `limit: 100`. Під заголовком марки/моделі/року список
+комплектацій показує `data[*].description` із роздільниками; BLoC зберігає повний
+вибраний запис. Поле не редагується, описи переносяться повністю, popup зростає
+до доступної висоти екрана з прокруткою за потреби.
+Вибір комплектації завантажує кузов через BRNavi методом
+`car.makemodeltrimbodies_index2_get` із `trim_id` вибраного запису комплектації v2.
+Запит використовує стандартну авторизацію сесії BRNavi без параметра `verbose`.
+RPC-помилки зберігають вихідну причину для діагностики.
+Замість вибору кузова показуються плашки з доступними характеристиками,
+габаритами та місткістю в метричних одиницях. BLoC керує завантаженням, повтором
+та відкидає застарілі відповіді.
+Вибір комплектації також завантажує двигуни через
+`car.makemodeltrimengines_index2_get` із тим самим `trim_id`. Плашки двигунів
+замінюють список вибору двигуна; BLoC окремо керує їх завантаженням, помилками
+та повтором. У всіх плашках комплектації кожна характеристика має окремий рядок,
+довгі значення переносяться без обрізання.
+Трансмісія та привід показуються в окремій плашці «Трансмісія» з тієї самої відповіді
+про двигун вибраної комплектації, без додаткового запиту й списку вибору трансмісії.
+Вони мають спільний із двигуном стан завантаження/помилки/повтору в BLoC
+та не дублюються в плашці двигуна.
+Витрата палива та запас ходу завантажуються окремо методом
+`car.makemodeltrimmileages_index2_get` із вибраним `trim_id`, з усіх сторінок.
+Витрата показується в л/100 км, кожна характеристика окремим рядком; BLoC окремо
+керує завантаженням, помилками, повтором та відкидає застарілі відповіді.
+До вибору комплектації технічні плашки, підказки характеристик і списки кольорів
+не показуються: залишаються лише ідентифікація авто та вибір комплектації.
+Зверху вкладки «Загальне» в одному рядку розташовані кнопки VIN, Scan та SmartCar
+з іконками (Scan та SmartCar активні, поки з порожніми обробниками натискання).
+VIN відкриває діалог із полем VIN та кнопкою «Пошук». Натискання «Пошук» одразу
+закриває діалог і показує лоадер на екрані до завершення визначення авто.
+Успішне декодування через
+BRNavi знаходить марку/модель і роки в каталозі, заповнює обидва поля й відмічає
+отриманий рік, закриває діалог та залишає вкладку «Загальне». Помилки лишаються
+у повторно відкритому діалозі без перезапису вибраного авто; закриття ігнорує запізнілі відповіді.
+Для кожної комплектації викликається `car.oemtrims_view_get` із її ID. Вкладка «Комплектація»
+показує таблиці кольору кузова та салону кругами RGB діаметром 50 dp замість
+текстових полів назв. Назви залишаються лише мітками доступності; вибіром керує
+BLoC, вибраний круг позначається рамкою. Відсутній/некоректний RGB явно позначається
+як недоступний, без вигаданого кольору. Варіанти без дублікатів взаємно фільтруються
+за спільними комплектаціями. Назви характеристик у всіх інформаційних плашках
+жирні, значення — звичайним зменшеним шрифтом у тому самому рядку.
+Кнопка «Зберегти авто» на вкладці «Комплектація» надсилає повні дані вибраного авто
+через `garage.vehicles.add`: оригінальні записи марки/моделі/комплектації,
+характеристики кузова/двигуна/витрати, доступні та вибрані кольори й успішну
+VIN-відповідь, якщо вона досі відповідає авто. Збереження чекає завершення технічних
+запитів і блокується при їх помилках; невдача залишає форму для повтору.
+Успіх відкриває перевірку й оновлює `garage.vehicles.list`. Повний запис із сервера
+зберігається в моделі авто. При виході з авторизованого акаунта локальні стани
+гаража та форми очищуються, щоб не показувати авто попереднього користувача.
+Показуються лише сумісні записи витрати/запасу ходу. Усі запити
+проходять через авторизоване RPC-з'єднання BRNavi, не напряму до CarAPI. Початкові
+об'єкти комплектації та характеристик зберігаються. Американські одиниці габаритів,
+маси, витрати та відстаней переводяться в метричні; відсутність даних позначається явно.
+BLoC керує завантаженням, помилками, повтором та ізоляцією запитів. Зміна авто/року
+очищує попередню конфігурацію та ігнорує застарілі відповіді.
+Списки використовують стандартний popup без перехоплення фокуса з прокруткою та
+висотою до 240 dp, без проблемного позиціонування exposed-menu при зміні розміру
+вікна клавіатурою.
+
 Каталог відкривається кнопкою додавання в гаражі; компанія, діагностика й офлайн-мапи —
 з налаштувань; завдання, історія, запрошення та приватність — з профілю. Довідка мапи
 відкриває приклад пояснення маршруту; довге натискання — **приклад** вибраної точки S35,
@@ -699,9 +1013,9 @@ identifies the checked artifacts and separates local Android evidence from unver
 
 Built with [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
 
-**EN.** Garage (authenticated Garage tab): `GarageBloc` (list/select active/details) and `AddVehicleBloc` (class → make → model → year+trim wizard, S10/S14/S15/S17) with separate ViewModels; `GarageService` is injected via `AppDependencies` (`RpcGarageService`). The JSON-RPC method names (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) and payloads are PROVISIONAL: the backend contract is not confirmed, so on failure the UI shows an error with retry (never an empty garage). Selection changes only after server confirmation. Not yet: S11 dimensions screen, S16 configurations, S03 integration.
+**EN.** Garage (authenticated Garage tab): `GarageBloc` (list/select active/details) and `AddVehicleBloc` (class → make → model → year+trim wizard, S10/S14/S15/S17) with separate ViewModels; `GarageService` is injected via `AppDependencies` (`RpcGarageService`). The JSON-RPC method names (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) and payloads are PROVISIONAL: the backend contract is not confirmed, so on failure the UI shows an error with retry (never an empty garage). Selection changes only after server confirmation. Configuration now displays CarAPI trim specifications through BRNavi as described above. Not yet: S11 dimensions screen, configuration persistence, S03 integration.
 
-**UK.** Гараж (вкладка «Гараж» в автентифікованому режимі): `GarageBloc` (список/вибір активного/деталі) та `AddVehicleBloc` (майстер клас → марка → модель → рік+комплектація, S10/S14/S15/S17) з окремими ViewModel; `GarageService` інжектується через `AppDependencies` (`RpcGarageService`). Назви JSON-RPC методів (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) і формати ПОПЕРЕДНІ: контракт бекенду не підтверджено, тому при збої UI показує помилку з повтором (ніколи не порожній гараж). Вибір змінюється лише після підтвердження сервером. Ще немає: екрана габаритів S11, конфігурацій S16, інтеграції з S03.
+**UK.** Гараж (вкладка «Гараж» в автентифікованому режимі): `GarageBloc` (список/вибір активного/деталі) та `AddVehicleBloc` (майстер клас → марка → модель → рік+комплектація, S10/S14/S15/S17) з окремими ViewModel; `GarageService` інжектується через `AppDependencies` (`RpcGarageService`). Назви JSON-RPC методів (`garage.vehicles.list/set_active/add`, `catalog.classes.list/makes.list/models.list`) і формати ПОПЕРЕДНІ: контракт бекенду не підтверджено, тому при збої UI показує помилку з повтором (ніколи не порожній гараж). Вибір змінюється лише після підтвердження сервером. Конфігурація тепер показує характеристики комплектацій CarAPI через BRNavi, як описано вище. Ще немає: екрана габаритів S11, збереження конфігурації, інтеграції з S03.
 
 ### File structure rule / Правило структури файлів
 

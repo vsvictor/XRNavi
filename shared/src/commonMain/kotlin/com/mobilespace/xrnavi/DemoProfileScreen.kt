@@ -26,7 +26,7 @@ internal fun ColumnScope.DemoProfileScreen(
     )
     val accountActions: @Composable ColumnScope.() -> Unit = {
         ProfileOrganization(profile, layout)
-        AccountAction("Збережені місця", savedPlacesSubtitle, onOpenSavedPlaces)
+        AccountAction("Збережені місця", savedPlacesSubtitle, onClick = onOpenSavedPlaces)
         ProfileSecondaryActions(
             horizontal = layout == AccountLayout.PhonePortrait ||
                 layout == AccountLayout.PhoneLandscape,
@@ -72,7 +72,7 @@ internal fun ColumnScope.DemoProfileScreen(
             identity()
             vehicle()
             if (layout == AccountLayout.TabletPortrait) {
-                AccountAction("Збережені місця", savedPlacesSubtitle, onOpenSavedPlaces)
+                AccountAction("Збережені місця", savedPlacesSubtitle, onClick = onOpenSavedPlaces)
                 ResponsiveSections(
                     columns = true,
                     first = { ProfileOrganization(profile, layout) },

@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +45,9 @@ internal fun SignInHero(
     onBack: (() -> Unit)? = null,
     backDescription: String = "Повернутися до входу",
     image: DrawableResource? = null,
+    showOverlayContent: Boolean = true,
+    reducedGradient: Boolean = false,
+    grayscale: Boolean = false,
 ) {
     BoxWithConstraints(modifier = modifier) {
         val heroWidth = maxWidth
@@ -50,6 +55,7 @@ internal fun SignInHero(
             painter = painterResource(image ?: if (dark) Res.drawable.mustang_hero_dark else Res.drawable.mustang_hero_light),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            colorFilter = if (grayscale) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null,
             modifier = Modifier.fillMaxSize()
         )
         Box(
@@ -77,20 +83,39 @@ internal fun SignInHero(
                     } else {
                         Brush.verticalGradient(
                             colorStops = if (dark) {
-                                arrayOf(
-                                    0f to Color(0x660B1220),
-                                    0.5f to Color.Transparent,
-                                    0.82f to Color(0xCC0B1220),
-                                    1f to Color(0xFF0B1220)
-                                )
+                                if (reducedGradient) {
+                                    arrayOf(
+                                        0f to Color(0x660B1220),
+                                        0.62f to Color.Transparent,
+                                        0.92f to Color(0xCC0B1220),
+                                        1f to Color(0xFF0B1220)
+                                    )
+                                } else {
+                                    arrayOf(
+                                        0f to Color(0x660B1220),
+                                        0.5f to Color.Transparent,
+                                        0.82f to Color(0xCC0B1220),
+                                        1f to Color(0xFF0B1220)
+                                    )
+                                }
                             } else {
-                                arrayOf(
-                                    0f to Color(0xDDF6F8FC),
-                                    0.23f to Color.Transparent,
-                                    0.56f to Color.Transparent,
-                                    0.78f to Color(0xF7FFFFFF),
-                                    1f to Color.White
-                                )
+                                if (reducedGradient) {
+                                    arrayOf(
+                                        0f to Color(0xDDF6F8FC),
+                                        0.23f to Color.Transparent,
+                                        0.76f to Color.Transparent,
+                                        0.94f to Color(0xF7FFFFFF),
+                                        1f to Color.White
+                                    )
+                                } else {
+                                    arrayOf(
+                                        0f to Color(0xDDF6F8FC),
+                                        0.23f to Color.Transparent,
+                                        0.56f to Color.Transparent,
+                                        0.78f to Color(0xF7FFFFFF),
+                                        1f to Color.White
+                                    )
+                                }
                             }
                         )
                     }
@@ -102,16 +127,18 @@ internal fun SignInHero(
                 .padding(start = 0.dp, top = 8.dp, end = 0.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                modifier = Modifier.padding(start = 8.dp, end = 24.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (onBack != null) {
-                    AuthBackButton(onBack, backDescription)
+            if (showOverlayContent) {
+                Row(
+                    modifier = Modifier.padding(start = 8.dp, end = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onBack != null) {
+                        AuthBackButton(onBack, backDescription)
+                    }
+                    ProductWordmark()
                 }
-                ProductWordmark()
             }
-            if (!horizontalLayout) {
+            if (!horizontalLayout && (showOverlayContent || title != null)) {
                 HeroTitle(
                     title = title,
                     horizontalLayout = false,

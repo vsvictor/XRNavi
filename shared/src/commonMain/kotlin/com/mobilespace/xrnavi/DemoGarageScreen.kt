@@ -21,36 +21,53 @@ internal fun DemoGarageScreen(
     unavailable: (String) -> Unit
 ) {
     val vehicles = garageVehicles(filter)
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        GarageFilterBar(filter, onFilterChange)
-        GarageSectionHeading(
-            text = if (filter == GarageFilter.All) "Доступні демопрофілі"
-            else "${filter.label} транспорт"
+    if (layout.landscape) {
+        DemoGarageLandscape(
+            layout = layout,
+            currentVehicleId = currentVehicleId,
+            filter = filter,
+            vehicles = vehicles,
+            onFilterChange = onFilterChange,
+            onSelectVehicle = onSelectVehicle,
+            onOpenVehicleProfile = onOpenVehicleProfile,
+            unavailable = unavailable,
         )
-        if (vehicles.isEmpty()) {
-            GarageEmptyState(filter)
-        } else {
-            vehicles.forEach { vehicle ->
-                GarageVehicleCard(
-                    vehicle = vehicle,
-                    layout = layout,
-                    selected = currentVehicleId == vehicle.id,
-                    onSelect = { onSelectVehicle(vehicle) },
-                    onDetails = { onOpenVehicleProfile(vehicle) }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            GarageFilterBar(filter, onFilterChange)
+            GarageSectionHeading(
+                text = if (filter == GarageFilter.All) "Доступні демопрофілі"
+                else "${filter.label} транспорт"
+            )
+            if (vehicles.isEmpty()) {
+                GarageEmptyState(filter)
+            } else {
+                vehicles.forEach { vehicle ->
+                    GarageVehicleCard(
+                        vehicle = vehicle,
+                        layout = layout,
+                        selected = currentVehicleId == vehicle.id,
+                        onSelect = { onSelectVehicle(vehicle) },
+                        onDetails = { onOpenVehicleProfile(vehicle) }
+                    )
+                }
+            }
+            Button(
+                onClick = { unavailable(garageAddUnavailableExplanation) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Text(
+                    "Додати транспорт · не підключено",
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
                 )
             }
+            AccountBody(garageCorporateUnavailableExplanation)
         }
-        Button(
-            onClick = { unavailable(garageAddUnavailableExplanation) },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            Text("Додати транспорт · не підключено", fontSize = 14.sp, textAlign = TextAlign.Center)
-        }
-        AccountBody(garageCorporateUnavailableExplanation)
     }
 }

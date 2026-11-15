@@ -1,21 +1,15 @@
 package com.mobilespace.xrnavi
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import xrnavi.shared.generated.resources.Res
+import xrnavi.shared.generated.resources.garage_mustang_gt_hero
 
 @Composable
 internal fun GarageScreen(
@@ -23,44 +17,37 @@ internal fun GarageScreen(
     dispatch: (GarageEvent) -> Unit,
     onAddVehicle: () -> Unit,
     onOpenDetails: (String) -> Unit,
+    onEditVehicle: (GarageVehicle) -> Unit,
+    landscape: Boolean = false,
 ) {
-    Column(Modifier.fillMaxWidth().testTag("garage-screen"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Гараж", style = MaterialTheme.typography.titleLarge)
-        if (state.loading) CircularProgressIndicator(Modifier.testTag("garage-loading"))
-        if (state.error.isNotEmpty()) {
-            Text(state.error, Modifier.testTag("garage-error"), color = MaterialTheme.colorScheme.error)
-            OutlinedButton(
-                onClick = { dispatch(GarageEvent.Load) },
-                modifier = Modifier.testTag("garage-retry"),
-            ) { Text("Повторити") }
+    val content: @Composable ColumnScope.() -> Unit = {
+        GarageListContent(
+            state = state,
+            dispatch = dispatch,
+            onAddVehicle = onAddVehicle,
+            onOpenDetails = onOpenDetails,
+            onEditVehicle = onEditVehicle,
+            showTitle = landscape,
+        )
+    }
+
+    if (landscape) {
+        GarageLandscapeLayout(content = content)
+    } else {
+        Column(
+            Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SignInHero(
+                modifier = Modifier.fillMaxWidth().height(196.dp),
+                dark = isDarkXrnaviTheme(),
+                horizontalLayout = false,
+                image = Res.drawable.garage_mustang_gt_hero,
+                grayscale = true,
+                title = "Мій гараж",
+                showOverlayContent = false,
+            )
+            content()
         }
-        if (state.loaded && state.vehicles.isEmpty() && !state.loadFailed) {
-            Text("У гаражі ще немає авто.", Modifier.testTag("garage-empty"))
-        }
-        state.vehicles.forEach { vehicle ->
-            val active = vehicle.id == state.activeVehicleId
-            Card(Modifier.fillMaxWidth().testTag("garage-vehicle-${vehicle.id}")) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(vehicle.name, style = MaterialTheme.typography.titleMedium)
-                    Text("${vehicle.category} · ${vehicle.verification.label()}")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (active) Text("Активне авто", Modifier.testTag("garage-active-${vehicle.id}"))
-                        else Button(
-                            onClick = { dispatch(GarageEvent.Select(vehicle.id)) },
-                            enabled = !state.loading,
-                            modifier = Modifier.testTag("garage-select-${vehicle.id}"),
-                        ) { Text("Вибрати") }
-                        OutlinedButton(
-                            onClick = { onOpenDetails(vehicle.id) },
-                            modifier = Modifier.testTag("garage-details-${vehicle.id}"),
-                        ) { Text("Деталі") }
-                    }
-                }
-            }
-        }
-        Button(
-            onClick = onAddVehicle,
-            modifier = Modifier.testTag("garage-add"),
-        ) { Text("Додати авто") }
     }
 }

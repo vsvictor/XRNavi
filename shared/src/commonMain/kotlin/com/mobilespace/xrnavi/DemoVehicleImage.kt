@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import org.jetbrains.compose.resources.painterResource
 import xrnavi.shared.generated.resources.*
@@ -13,7 +15,8 @@ internal fun DemoVehicleImage(
     vehicle: DemoVehicleProfile,
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
-    thumbnail: Boolean = false
+    thumbnail: Boolean = false,
+    grayscale: Boolean = false,
 ) {
     val dark = MaterialTheme.colorScheme.background.red < 0.5f
     val resource = when (vehicle.artwork) {
@@ -40,6 +43,11 @@ internal fun DemoVehicleImage(
             ContentScale.Crop
         } else {
             ContentScale.Fit
+        },
+        colorFilter = if (grayscale) {
+            ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+        } else {
+            null
         },
         modifier = modifier
     )

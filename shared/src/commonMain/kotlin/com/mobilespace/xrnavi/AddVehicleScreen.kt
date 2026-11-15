@@ -2,8 +2,12 @@ package com.mobilespace.xrnavi
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -11,61 +15,91 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun AddVehicleScreen(state: AddVehicleState, dispatch: (AddVehicleEvent) -> Unit) {
-    Column(Modifier.fillMaxWidth().testTag("add-vehicle"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            when (state.step) {
-                AddVehicleStep.Class -> "Клас транспорту"
-                AddVehicleStep.Make -> "Марка · ${state.selectedClass?.name.orEmpty()}"
-                AddVehicleStep.Model -> "Модель · ${state.selectedMake?.name.orEmpty()}"
-                AddVehicleStep.Details -> "${state.selectedMake?.name.orEmpty()} ${state.selectedModel?.name.orEmpty()}"
-            },
-            style = MaterialTheme.typography.titleLarge,
-        )
-        if (state.loading) CircularProgressIndicator(Modifier.testTag("add-vehicle-loading"))
-        if (state.error.isNotEmpty()) {
-            Text(state.error, Modifier.testTag("add-vehicle-error"), color = MaterialTheme.colorScheme.error)
-            OutlinedButton(
-                onClick = {
-                    dispatch(if (state.step == AddVehicleStep.Details) AddVehicleEvent.Submit else AddVehicleEvent.Retry)
-                },
-                modifier = Modifier.testTag("add-vehicle-retry"),
-            ) { Text("Повторити") }
-        }
-        when (state.step) {
-            AddVehicleStep.Class -> state.classes.forEach {
-                Choice(it.name, "add-class-${it.id}", false) { dispatch(AddVehicleEvent.SelectClass(it.id)) }
-            }
-            AddVehicleStep.Make -> state.makes.forEach {
-                Choice(it.name, "add-make-${it.id}", false) { dispatch(AddVehicleEvent.SelectMake(it.id)) }
-            }
-            AddVehicleStep.Model -> state.models.forEach {
-                Choice(it.name, "add-model-${it.id}", false) { dispatch(AddVehicleEvent.SelectModel(it.id)) }
-            }
-            AddVehicleStep.Details -> {
-                Text("Рік")
-                state.selectedModel?.years?.forEach {
-                    Choice("$it", "add-year-$it", state.year == it) { dispatch(AddVehicleEvent.SelectYear(it)) }
-                }
-                Text("Комплектація")
-                state.selectedModel?.trims?.forEach {
-                    Choice(it.name, "add-trim-${it.id}", state.trim?.id == it.id) {
-                        dispatch(AddVehicleEvent.SelectTrim(it.id))
-                    }
-                }
-                Button(
-                    onClick = { dispatch(AddVehicleEvent.Submit) },
-                    enabled = state.canSubmit,
-                    modifier = Modifier.testTag("add-vehicle-submit"),
-                ) { Text("Додати") }
+internal fun AddVehicleScreen(
+    state: AddVehicleState,
+    dispatch: (AddVehicleEvent) -> Unit,
+    landscape: Boolean = false,
+    compactLandscape: Boolean = false,
+) {
+    if (state.step == AddVehicleStep.Review) {
+        state.added?.let {
+            AddVehicleReviewScreen(it, updated = state.editingVehicle != null) {
+                dispatch(AddVehicleEvent.Close)
             }
         }
-        OutlinedButton(
-            onClick = { dispatch(AddVehicleEvent.Back) },
-            modifier = Modifier.testTag("add-vehicle-back"),
-        ) { Text("Назад") }
+        return
+    }
+    if (state.editCatalogError.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(state.editCatalogError, color = MaterialTheme.colorScheme.error)
+            if (state.selectedMake != null) {
+                OutlinedButton(onClick = { dispatch(AddVehicleEvent.RetryEditCatalog) }) {
+                    Text("Повторити")
+                }
+            }
+        }
+        return
+    }
+
+    if (landscape) {
+        Row(
+            Modifier.fillMaxWidth().fillMaxHeight().testTag("add-vehicle"),
+            horizontalArrangement = Arrangement.spacedBy(if (compactLandscape) 12.dp else 24.dp),
+        ) {
+            AddVehicleSidebar(
+                state = state,
+                modifier = Modifier.width(if (compactLandscape) 176.dp else 304.dp),
+                imageHeight = if (compactLandscape) 104.dp else 180.dp,
+                showScreenTitle = true,
+            )
+            Column(
+                Modifier.weight(1f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AddVehicleTabs(state.selectedTab) { dispatch(AddVehicleEvent.SelectTab(it)) }
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    AddVehicleTabContent(state, dispatch)
+                }
+                if (state.selectedTab == AddVehicleTab.Equipment && state.equipment.selectedTrim != null &&
+                    !state.equipment.loading && state.equipment.error.isEmpty()
+                ) {
+                    AddVehicleSaveButton(state) { dispatch(AddVehicleEvent.Submit) }
+                }
+            }
+        }
+    } else {
+        Column(
+            Modifier.fillMaxWidth().testTag("add-vehicle"),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                if (state.editingVehicle == null) "Додати авто" else "Редагування авто",
+                fontFamily = rememberRobotoCondensedFontFamily(),
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                lineHeight = 29.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            AddVehicleSidebar(
+                state = state,
+                modifier = Modifier.fillMaxWidth(),
+                imageHeight = 196.dp,
+            )
+            AddVehicleTabs(state.selectedTab) { dispatch(AddVehicleEvent.SelectTab(it)) }
+            AddVehicleTabContent(state, dispatch)
+            if (state.selectedTab == AddVehicleTab.Equipment && state.equipment.selectedTrim != null &&
+                !state.equipment.loading && state.equipment.error.isEmpty()
+            ) {
+                AddVehicleSaveButton(state) { dispatch(AddVehicleEvent.Submit) }
+            }
+        }
     }
 }
