@@ -24,6 +24,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import org.jetbrains.compose.resources.stringResource
+import xrnavi.shared.generated.resources.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -57,6 +60,27 @@ fun App(
     val connectionStatus by dependencies.connectionBloc.state.collectAsStateWithLifecycle()
     val connectionError by dependencies.connectionBloc.error.collectAsStateWithLifecycle()
     val connectionSnackbar = remember { SnackbarHostState() }
+    val trackerState by dependencies.trackerBloc.state.collectAsStateWithLifecycle()
+    val trackerRegistrationError = stringResource(Res.string.tracker_registration_failed)
+    val trackerRetry = stringResource(Res.string.tracker_retry)
+    val accountState by accountViewModel.bloc.state.collectAsStateWithLifecycle()
+    val sessionPersistenceError = stringResource(Res.string.session_persistence_failed)
+    LaunchedEffect(accountState.sessionPersistenceFailed) {
+        if (accountState.sessionPersistenceFailed) {
+            connectionSnackbar.showSnackbar(sessionPersistenceError, duration = SnackbarDuration.Indefinite)
+        }
+    }
+    LaunchedEffect(trackerState.problem) {
+        if (trackerState.problem != TrackerIntegrationProblem.Registration) return@LaunchedEffect
+        val result = connectionSnackbar.showSnackbar(
+            message = trackerRegistrationError,
+            actionLabel = trackerRetry,
+            duration = SnackbarDuration.Indefinite,
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            dependencies.trackerBloc.retry()
+        }
+    }
     LaunchedEffect(connectionError) {
         connectionError?.let {
             connectionSnackbar.showSnackbar(it, duration = SnackbarDuration.Indefinite)
@@ -72,31 +96,31 @@ fun App(
     XrnaviTheme(darkTheme = darkTheme) {
         if (!splashState.finished) {
             SplashScreen(splashState, darkTheme)
-            return@XrnaviTheme
-        }
-        Box(Modifier.fillMaxSize()) {
-            OrientationMorph {
-                XrnaviApplication(
-                    dependencies = dependencies,
-                    accountViewModel = accountViewModel,
-                    themeSettings = themeSettings,
-                    onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
-                )
-            }
-            Box(
-                Modifier.fillMaxSize().safeDrawingPadding()
-                    .testTag("connection_indicator_safe_area")
-            ) {
-                SnackbarHost(connectionSnackbar, Modifier.align(Alignment.BottomCenter))
-                ConnectionIndicator(
-                    status = connectionStatus,
-                    modifier = Modifier
-                        .align(AbsoluteAlignment.TopRight)
-                        .absolutePadding(
-                            top = ConnectionIndicatorEdgeOffset,
-                            right = ConnectionIndicatorEdgeOffset
-                        )
-                )
+        } else {
+            Box(Modifier.fillMaxSize()) {
+                OrientationMorph {
+                    XrnaviApplication(
+                        dependencies = dependencies,
+                        accountViewModel = accountViewModel,
+                        themeSettings = themeSettings,
+                        onToggleTheme = { themeSettings.toggle(systemDarkTheme) }
+                    )
+                }
+                Box(
+                    Modifier.fillMaxSize().safeDrawingPadding()
+                        .testTag("connection_indicator_safe_area")
+                ) {
+                    SnackbarHost(connectionSnackbar, Modifier.align(Alignment.BottomCenter))
+                    ConnectionIndicator(
+                        status = connectionStatus,
+                        modifier = Modifier
+                            .align(AbsoluteAlignment.TopRight)
+                            .absolutePadding(
+                                top = ConnectionIndicatorEdgeOffset,
+                                right = ConnectionIndicatorEdgeOffset
+                            )
+                    )
+                }
             }
         }
     }

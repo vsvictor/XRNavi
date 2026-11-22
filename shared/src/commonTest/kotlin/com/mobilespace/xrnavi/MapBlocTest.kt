@@ -45,4 +45,35 @@ class MapBlocTest {
         bloc.dispatch(MapEvent.DismissNotice)
         assertEquals("", bloc.state.value.notice)
     }
+
+    @Test
+    fun firstLocationIsAnimatedOnlyOnceAndAcknowledgedByMatchingCommand() {
+        val bloc = MapBloc()
+        val first = GeoPoint(49.0, 24.0)
+        bloc.dispatch(MapEvent.FirstLocationAvailable(first))
+        val id = bloc.state.value.commandId
+        assertEquals(MapCommand.InitialRecenter, bloc.state.value.command)
+        assertEquals(first, bloc.state.value.initialRecenterTarget)
+        bloc.dispatch(MapEvent.FirstLocationAvailable(GeoPoint(50.0, 25.0)))
+        assertEquals(id, bloc.state.value.commandId)
+        assertEquals(first, bloc.state.value.initialRecenterTarget)
+        bloc.dispatch(MapEvent.InitialRecenterHandled(id - 1))
+        assertEquals(MapCommand.InitialRecenter, bloc.state.value.command)
+        bloc.dispatch(MapEvent.InitialRecenterHandled(id))
+        assertEquals(MapCommand.None, bloc.state.value.command)
+        assertEquals(null, bloc.state.value.initialRecenterTarget)
+        bloc.dispatch(MapEvent.FirstLocationAvailable(first))
+        assertEquals(id, bloc.state.value.commandId)
+    }
+
+    @Test
+    fun manualControlSupersedesPendingAutomaticRecenter() {
+        val bloc = MapBloc()
+        bloc.dispatch(MapEvent.FirstLocationAvailable(GeoPoint(49.0, 24.0)))
+        val id = bloc.state.value.commandId
+        bloc.dispatch(MapEvent.Control(MapCommand.ZoomIn))
+        bloc.dispatch(MapEvent.InitialRecenterHandled(id))
+        assertEquals(MapCommand.ZoomIn, bloc.state.value.command)
+        assertEquals(null, bloc.state.value.initialRecenterTarget)
+    }
 }

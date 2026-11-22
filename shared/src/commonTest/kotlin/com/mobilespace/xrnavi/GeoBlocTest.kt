@@ -90,4 +90,27 @@ class GeoBlocTest {
         assertEquals(GeoPhase.Stale, geo.state.value.phase)
         geo.dispatch(GeoEvent.Stop)
     }
+
+    @Test
+    fun observeDoesNotPromptAndFutureFixIsNotReliable() = runTest {
+        val provider = FakeLocationProvider()
+        val geo = bloc(provider)
+        geo.dispatch(GeoEvent.Observe)
+        runCurrent()
+        assertEquals(0, provider.permissionRequests)
+        provider.permission.value = LocationPermission.Granted
+        runCurrent()
+        provider.fixFlow.tryEmit(DeviceFix(point, 100_000))
+        runCurrent()
+        assertNull(geo.state.value.reliableFix)
+        assertEquals(GeoPhase.Stale, geo.state.value.phase)
+        provider.fixFlow.tryEmit(null)
+        runCurrent()
+        assertNull(geo.state.value.fix)
+        provider.fixFlow.tryEmit(DeviceFix(point, 0))
+        runCurrent()
+        assertNotNull(geo.state.value.reliableFix)
+        geo.dispatch(GeoEvent.Stop)
+        assertNull(geo.state.value.fix)
+    }
 }

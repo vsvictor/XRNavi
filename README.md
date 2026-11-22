@@ -51,8 +51,8 @@ Login email remains independent from profile contacts. Legacy responses without
 contacts display the login email; an explicit empty array displays no contacts.
 Malformed contacts cause a profile-loading error, not a fabricated empty list.
 Profile email and the account-details heading fit on one line by adapting font size.
-The profile omits the garage-loading error banner but keeps the garage action;
-the garage screen retains operational error details and retry.
+The profile displays garage-loading errors with retry and keeps the garage action;
+the garage screen also provides error details and retry.
 Only security and saved places show a back arrow; profile is a root destination.
 Phone portrait uses a single column; landscape uses two
 columns, with bounded content on tablets. Both app themes are supported. Unavailable
@@ -100,8 +100,8 @@ Email для входу не залежить від контактів проф
 contacts показується email для входу; явний порожній масив означає відсутність
 контактів. Некоректні контакти спричиняють помилку завантаження профілю.
 Email профілю та заголовок даних акаунта вміщуються в один рядок завдяки
-адаптивному розміру шрифту. Попередження про помилку гаража в профілі прибрано,
-але дію переходу залишено; подробиці помилки й повтор доступні в гаражі.
+адаптивному розміру шрифту. Профіль показує помилку завантаження гаража та
+кнопку повтору, а також дію переходу до гаража.
 Стрілка назад є лише в безпеці та обраному; профіль — кореневий екран.
 У portrait телефона застосовано одну колонку, у landscape — дві, на планшетах ширину контенту обмежено.
 Підтримано обидві теми застосунку. Недоступні лічильники поїздок і неробочу кнопку
@@ -118,6 +118,111 @@ Email профілю та заголовок даних акаунта вміщ�
 | Connection indicator (QUIC / TLS / TCP) | Індикатор з'єднання (QUIC / TLS / TCP) |
 
 ## Architecture / Архітектура
+
+### Automatic vehicle tracker / Автоматичний автомобільний трекер
+
+**EN.** ExKMPTracker starts through an application-owned BLoC after password/Google login
+or restoration of a valid session, without waiting for the profile. Its permanent installation
+`trackerId` is the existing secure `deviceId` already registered during login, not a second UUID.
+The authenticated QUIC call `tracking.open({deviceId})` persists the user/device tracking grant
+in BRNavi's MongoDB and returns `{trackerId, sessionId, driverId, brandId}`. Only that confirmed
+identity starts native collection. The map consumes the same filtered estimates, retaining
+their observation times. Registration failures are visible and retried; they do not undo login.
+BRNavi grants only `tracking.ingest` and `tracking.server_time` through its dedicated tracking
+role. When `tracking.open` returns `refreshRequired: true`, the client refreshes and securely
+persists both tokens before starting collection, without changing the tracking generation.
+Logout, explicit demo mode, or rejected authentication stops tracking but retains the device ID.
+
+Android uses a location Foreground Service and a persistent notification. First start waits
+for a visible Activity and separately granted precise location, background location and
+notification permissions. iOS requests only When In Use authorization and tracks in the
+foreground; it does not request Always. If Always was already granted in system settings,
+the existing `location` background mode may be used. OS restrictions and permission denial
+still apply. XRNavi disables unverified Android sticky restoration: after process death, reopening
+the app restores authentication and confirms registration before restarting collection.
+Defaults remain `section(1, true)`, `section(2, false)`, `section(3, false)`.
+The library is pinned as the Git submodule `external/ExKMPTracker` from
+[vsvictor/ExKMPTracker](https://github.com/vsvictor/ExKMPTracker) and included as a Gradle
+composite build. Initialize it with `git submodule update --init --recursive`
+(or clone XRNavi with `--recurse-submodules`). No sibling checkout or local path override is needed.
+Set `ANDROID_HOME` to your Android SDK, or configure `sdk.dir` in the submodule's ignored
+`local.properties` as well as the root project's file.
+The corresponding BRNavi integration must be deployed separately; changing these sources
+does not update the running backend.
+
+**EN. Mapbox location rule (project-wide).** Every Mapbox map must use the shared
+`NativeMap` entry point and the application-injected `PlatformMapFactory`.
+`TrackerLocationBloc` is the only position source: the Android location plugin receives
+`TrackerMapboxLocationProvider`, and iOS receives its tracker-backed location signal
+with no native heading provider. Neither adapter requests GPS or compass updates.
+The map tab observes automatically; no Locate press is needed. The native location puck,
+accuracy ring, recenter action and current-location route origin use the same filtered fix.
+Estimate time, accuracy, course and speed come from ExKMPTracker. Logout, tracker stop,
+missing estimates, revoked permissions or disabled location services clear the position;
+an estimate older than 60 seconds is no longer displayed as current. Tracker v1.1.5
+refreshes the timestamp of a held stop, so it does not expose the age of the
+underlying measurement.
+There is no fallback to another GPS provider, including while registration is pending.
+The first reliable fix after opening the map animates the camera to that position once.
+Later fixes do not recenter the camera or rebuild route layers; camera movement remains
+controlled by gestures, explicit controls and route fitting.
+Tracker v1.1.5 keeps a precise stop fixed: after the anchor is set, its latitude and
+longitude do not move. A network anchor is still replaced once by the first GNSS or
+fused fix. Modelled uncertainty growth stays capped at 15 m. Neither that cap nor the
+calculated accuracy guarantees actual accuracy; a 5 m result depends on device signal
+conditions.
+
+**UK. Правило геолокації Mapbox (для всього проєкту).** Кожна мапа Mapbox має
+використовувати спільну точку входу `NativeMap` та передану застосунком `PlatformMapFactory`.
+Єдине джерело позиції — `TrackerLocationBloc`: Android-плагін геолокації отримує
+`TrackerMapboxLocationProvider`, iOS — сигнал позиції трекера без нативного постачальника
+напрямку компаса. Адаптери не запитують окремих оновлень GPS або компаса.
+Вкладка мапи підписується автоматично, без натискання кнопки позиціювання.
+Нативний індикатор місцезнаходження, коло точності, центрування та початок маршруту
+«Моє місце» використовують одну відфільтровану позицію.
+Час оцінки, точність, курс та швидкість надходять із ExKMPTracker.
+Вихід, зупинка трекера, відсутність оцінки, відкликання дозволу чи вимкнення геолокації
+прибирають позицію; оцінка віком понад 60 секунд більше не показується як поточна.
+Трекер v1.1.5 оновлює час утримуваної зупинки, тому вік вихідного вимірювання недоступний.
+Перемикання на інше GPS-джерело немає, зокрема під час очікування реєстрації.
+Перша достовірна позиція після відкриття мапи один раз анімовано центрує камеру.
+Подальші координати не центрують камеру й не перебудовують шари маршруту:
+камерою керують жести, явні команди та вписування маршруту.
+Трекер v1.1.5 тримає точну зупинку нерухомо: після встановлення якоря широта й
+довгота не змінюються. Мережевий якір і далі один раз замінюється першим GNSS-
+або fused-фіксом. Модельне зростання похибки лишається обмеженим 15 м. Ані це
+обмеження, ані розрахована похибка не гарантують фактичну точність; досягнення 5 м
+залежить від умов сигналу.
+
+**UK.** ExKMPTracker запускається через BLoC рівня застосунку після входу паролем/Google
+або відновлення чинної сесії, не очікуючи профілю. Постійний `trackerId` інсталяції —
+наявний захищений `deviceId`, який уже реєструється під час входу, а не другий UUID.
+Автентифікований QUIC-виклик `tracking.open({deviceId})` зберігає прив'язку користувача
+та пристрою в MongoDB BRNavi й повертає `{trackerId, sessionId, driverId, brandId}`.
+Лише підтверджена сервером ідентичність запускає нативний збір. Мапа використовує ті самі
+відфільтровані оцінки зі справжнім часом вимірювання. Помилки реєстрації показуються
+користувачу; повторні спроби не скасовують вхід. Вихід, явний деморежим або відхилення
+автентифікації зупиняють трекер, але не видаляють ID пристрою.
+BRNavi надає лише `tracking.ingest` і `tracking.server_time` через окрему роль трекера.
+Якщо `tracking.open` повертає `refreshRequired: true`, клієнт оновлює й безпечно зберігає
+обидва токени до запуску збору, не змінюючи покоління трекінгу.
+
+Android використовує location Foreground Service із постійним сповіщенням. Перший запуск
+очікує видимої Activity й окремого надання дозволів точної та фонової геолокації і сповіщень.
+iOS запитує лише дозвіл When In Use і відстежує позицію на передньому плані, не запитуючи
+Always. Якщо Always уже надано в системних налаштуваннях, може використовуватися наявний
+фоновий режим `location`. Системні обмеження та відмова в дозволах залишаються чинними.
+XRNavi вимикає неперевірене sticky-відновлення Android: після завершення процесу треба
+знову відкрити застосунок, щоб відновити авторизацію й підтвердити реєстрацію до збору даних.
+Типово: `section(1, true)`, `section(2, false)`, `section(3, false)`.
+Бібліотека зафіксована як Git submodule `external/ExKMPTracker` із
+[vsvictor/ExKMPTracker](https://github.com/vsvictor/ExKMPTracker) і підключена як Gradle
+composite build. Ініціалізація: `git submodule update --init --recursive`
+(або клонування XRNavi з `--recurse-submodules`). Сусідній checkout і локальне перевизначення шляху не потрібні.
+Задайте `ANDROID_HOME` зі шляхом до Android SDK або вкажіть `sdk.dir` також в ігнорованому
+`local.properties` submodule, окрім файлу кореневого проєкту.
+Відповідну інтеграцію BRNavi потрібно розгорнути окремо: зміни вихідного коду
+не оновлюють запущений сервер.
 
 **EN.** State management is BLoC everywhere: each screen has its own `XScreen`, `XViewModel` and
 `XBloc` (state/events in `XState`) in separate files; dependencies are injected via
@@ -138,7 +243,7 @@ submodule. Docs are kept in English and Ukrainian.
 * [/shared](./shared/src) — shared Compose UI, BLoCs, ViewModels and services (`commonMain`); platform code in `androidMain` and `iosMain`. / спільний UI, BLoC, ViewModel і сервіси; платформний код в `androidMain` та `iosMain`.
 * [/androidApp](./androidApp) — Android entry point and instrumented tests. / точка входу Android та інструментальні тести.
 * [/iosApp](./iosApp/iosApp) — iOS host app (SwiftUI wrapper, Mapbox view factory) and XCUITests. / iOS-хост (SwiftUI, фабрика Mapbox) та XCUITest.
-* [/external](./external) — `JSON-RPC-2-Client-KMP` submodule. / submodule клієнта JSON-RPC.
+* [/external](./external) — pinned `JSON-RPC-2-Client-KMP` and `ExKMPTracker` library submodules. / зафіксовані submodule бібліотек клієнта JSON-RPC та `ExKMPTracker`.
 * [/docs](./docs) — design, verification and screen reports. / звіти про дизайн, перевірки й екрани.
 
 ### Running the apps
@@ -220,6 +325,18 @@ unwinds the stack instead of accumulating navigation cycles.
 The add-vehicle form has General and Equipment tabs below its hero image.
 Vehicle identification is in General; all technical data is in Equipment.
 BLoC controls the selected tab and preserves form data across tab changes.
+After make, model and year are selected, the form and vehicle details show up to six
+Wikimedia Commons search results. Only CC0 and CC BY images with usable attribution
+and license links are included; matching is approximate, and results may be unavailable.
+The photo slider is the hero image on both screens, behind the title and back button.
+Searches go directly to Wikimedia, and results are cached in memory during the session.
+The first slide is always the default Mustang image for the current light or dark theme, including while searching in the background,
+when no photos are found, or if the search fails. Search errors and loading indicators
+are not shown.
+The photo selected in the slider is saved locally per account and vehicle, including
+selections made before adding the vehicle. It is restored in the slider and shown as
+the garage card's thumbnail and faint background. The slider provides attribution and license
+links. Photo selection is not synchronized across devices.
 
 On the garage's add-vehicle screen, focusing the make field immediately sends
 `car.makes_index2_get` without business parameters over
@@ -292,11 +409,12 @@ trim and detail objects are preserved. US dimensions, weights, fuel economy and
 range are converted to metric units; missing data is explicitly marked.
 Loading/errors/retry and request isolation are handled by BLoC. Changing the
 vehicle/year clears the previous configuration and ignores outdated responses.
-The Equipment tab's **Save vehicle** action sends the complete selected vehicle
-snapshot through `garage.vehicles.add`. It includes original make/model/trim records,
+The **Save vehicle** action appears outside the tabs and is enabled after selecting
+make, model and year. Trim is optional; available details are saved through
+`garage.vehicles.add`. The snapshot includes original make/model/trim records when available,
 body/engine/consumption records, available and selected colors, and a successfully
-decoded VIN response when it still matches the vehicle. Saving waits for technical
-requests to finish and blocks on their errors; failures keep the form for retry.
+decoded VIN response when it still matches the vehicle. Technical requests and their
+errors do not block saving; save failures keep the form for retry.
 Success opens the review and reloads `garage.vehicles.list`. The returned complete
 snapshot is retained with each garage vehicle. Local garage/form state is cleared
 when leaving the authenticated account to avoid leaking a previous user's cars.
@@ -322,8 +440,11 @@ reloading the catalog.
 The garage list uses its own grayscale Ford Mustang GT photo with the sign-in
 gradient and product wordmark; its header has no back or add icon.
 Garage operations show a loader centered on the full screen.
-The four card actions are blue with single-line auto-sized labels. Dimensions
-and weight are shown only in the vehicle profile/review, not on list cards.
+Tap a vehicle card to open its profile; long-press it to select the active vehicle.
+The add/edit and vehicle profile screens use the account profile's page layout
+and hero header with a back button; main navigation remains available.
+Edit and delete remain separate icon buttons. Dimensions and weight are shown only
+in the vehicle profile/review, not on list cards.
 Each vehicle card offers **Edit** (the complete prefilled vehicle form) and
 **Delete** (confirmation required). Updates keep the vehicle ID and active
 selection and use `garage.vehicles.update` with the add payload plus `vehicle_id`.
@@ -337,7 +458,10 @@ for changing make/model/year/trim. Cancelling editing does not write anything.
 Список гаража використовує окреме фото Ford Mustang GT у сірих тонах із градієнтом
 екрана входу та логотипом; у шапці немає стрілки назад та плюса.
 Індикатор операцій гаража розташовано в центрі всього екрана.
-Чотири кнопки картки сині, з однорядковим текстом та автоматичним розміром шрифту.
+Натискання картки відкриває профіль авто, а довге натискання обирає його основним.
+Екрани додавання, редагування та профілю транспорту використовують компонування
+профілю акаунта й шапку з кнопкою повернення; головна навігація залишається доступною.
+Редагування та видалення залишаються окремими кнопками з іконками.
 Габарити й маса показуються лише у профілі/перевірці авто, не на картках списку.
 Картка авто має **Редагувати** (повна заповнена форма) та **Видалити**
 (із підтвердженням). `garage.vehicles.update` приймає поля додавання разом
@@ -442,6 +566,18 @@ Dropdowns use a non-focusable standard popup with a scrollable height capped at
 Під зображенням форми додавання авто розміщені вкладки «Загальне» та «Комплектація».
 Ідентифікація авто знаходиться в «Загальне», усі технічні дані — у «Комплектація».
 BLoC керує вибраною вкладкою та зберігає дані при перемиканні.
+Після вибору марки, моделі й року форма та профіль авто показують до шести результатів
+пошуку Wikimedia Commons. Використовуються лише зображення CC0 і CC BY із доступними
+авторством та посиланням на ліцензію; відповідність приблизна, фото може не знайтися.
+На обох екранах слайдер фото є зображенням шапки під заголовком і кнопкою повернення.
+Пошук виконується безпосередньо у Wikimedia, результати кешуються в пам'яті сесії.
+Перший слайд завжди містить початкове зображення Mustang для поточної світлої або темної теми, зокрема під час фонового пошуку,
+коли фото не знайдено або пошук завершився помилкою. Помилки та індикатор пошуку
+не показуються.
+Вибране у слайдері фото зберігається локально для кожного акаунта й авто, зокрема
+коли його вибрано до додавання авто. Воно відновлюється у слайдері та показується
+мініатюрою і напівпрозорим фоном картки гаража. Авторство та посилання на ліцензію
+доступні у слайдері. Вибір фото не синхронізується між пристроями.
 
 На екрані додавання транспорту при отриманні фокуса полем марки без очікування вводу
 надсилається `car.makes_index2_get` без бізнес-параметрів через
@@ -513,11 +649,12 @@ BLoC, вибраний круг позначається рамкою. Відс�
 як недоступний, без вигаданого кольору. Варіанти без дублікатів взаємно фільтруються
 за спільними комплектаціями. Назви характеристик у всіх інформаційних плашках
 жирні, значення — звичайним зменшеним шрифтом у тому самому рядку.
-Кнопка «Зберегти авто» на вкладці «Комплектація» надсилає повні дані вибраного авто
-через `garage.vehicles.add`: оригінальні записи марки/моделі/комплектації,
+Кнопка «Зберегти авто» розташована поза вкладками та активується після вибору
+марки, моделі й року. Комплектація необов'язкова; наявні дані надсилаються через
+`garage.vehicles.add`: оригінальні записи марки/моделі/комплектації за наявності,
 характеристики кузова/двигуна/витрати, доступні та вибрані кольори й успішну
-VIN-відповідь, якщо вона досі відповідає авто. Збереження чекає завершення технічних
-запитів і блокується при їх помилках; невдача залишає форму для повтору.
+VIN-відповідь, якщо вона досі відповідає авто. Технічні запити та їхні помилки
+не блокують збереження; невдача збереження залишає форму для повтору.
 Успіх відкриває перевірку й оновлює `garage.vehicles.list`. Повний запис із сервера
 зберігається в моделі авто. При виході з авторизованого акаунта локальні стани
 гаража та форми очищуються, щоб не показувати авто попереднього користувача.
@@ -845,8 +982,11 @@ and personal data,” not on the main profile screen. The profile identity summa
 name and email; an unconfirmed email is labeled accordingly. Company geolocation policy is not
 inferred. The type selector is informational. Personal accounts do not display the organization
 section. Its garage preview uses the authenticated garage service and opens
-active-vehicle details; on request failure its preview shows “There are no vehicles in the garage.”
-The full garage reports load errors and supports retry. The security and
+active-vehicle details. The first visit loads `garage.vehicles.list`; subsequent visits reuse
+the session cache, updated after the server confirms a new active vehicle. Garage state is cleared
+on logout, and changes made on another device appear after a new session or explicit reload.
+Failures are shown in the preview with a retry action.
+The full garage also reports load errors and supports retry. The security and
 personal-data action opens personal/contact and account details without logout; favorites opens locally stored
 places. Organization pages are not routed without verified membership data from the backend;
 the corporate account type alone does not establish membership. The current API has no active-trip
@@ -892,9 +1032,12 @@ The original backend contract was verified against BRNavi `src/auth.rs` and its 
 пошта; непідтверджена пошта позначається як «e-mail не підтверджено». Політика доступу компанії
 до геолокації не виводиться без даних сервера. Селектор не змінює серверний акаунт.
 Для особистого типу блок організації приховано. Прев’ю гаража використовує авторизований сервіс
-і відкриває деталі активного авто; у разі помилки запиту показується порожній візуальний
-стан із текстом «У гаражі немає авто». Повний гараж показує помилку завантаження та дозволяє
-повторити запит.
+і відкриває деталі активного авто. При першому відвідуванні завантажується
+`garage.vehicles.list`; надалі використовується кеш сесії, який оновлюється після
+підтвердження сервером зміни основного авто. При виході кеш очищується; зміни з
+іншого пристрою з'являться після нової сесії або явного оновлення.
+У разі помилки профіль показує повідомлення й кнопку повтору. Повний гараж також
+показує помилку завантаження та дозволяє повторити запит.
 Безпека та особисті дані відкривають особисті/контактні дані та дані акаунта без виходу; «Обране» відкриває
 збережені локально місця. Екрани організації не відкриваються без підтверджених сервером даних
 про членство: корпоративний тип акаунта сам по собі не підтверджує членство. Поточний API не

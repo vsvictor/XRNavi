@@ -2,7 +2,6 @@ package com.mobilespace.xrnavi
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,7 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -81,10 +81,7 @@ internal fun DemoAccountScreen(
     }
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         BoxWithConstraints(
-            Modifier.fillMaxSize().horizontalSwipeGesture { swipe ->
-                val target = primarySectionAfterSwipe(section, swipe.direction())
-                if (target != null) onSectionChange(target) else handleBack()
-            }
+            Modifier.fillMaxSize()
         ) {
             if (accountState.notice != null || accountState.themePickerVisible) {
                 val dismiss = { account.dispatch(DemoAccountEvent.DismissDialog) }
@@ -92,9 +89,7 @@ internal fun DemoAccountScreen(
                     onDismissRequest = dismiss,
                     // Keep the layer's measurement in host coordinates, including after rotation.
                     modifier = Modifier.requiredSize(maxWidth, maxHeight)
-                        .pointerInput(Unit) { detectTapGestures { dismiss() } }
-                        .wrapContentSize()
-                        .pointerInput(Unit) { detectTapGestures {} },
+                        .wrapContentSize(),
                     properties = DialogProperties(usePlatformDefaultWidth = false),
                     title = {
                         Text(
@@ -119,9 +114,13 @@ internal fun DemoAccountScreen(
             }
             val layout = AccountLayout.forWindow(maxWidth.value, maxHeight.value)
             val unavailable = { text: String -> account.dispatch(DemoAccountEvent.Unavailable(text)) }
-            Column(Modifier.fillMaxSize().testTag("account-layout-${layout.name}")) {
+            var headerHeightPx by remember { mutableIntStateOf(0) }
+            val headerHeight = with(LocalDensity.current) { headerHeightPx.toDp() }
+            val garageOverlay = section == DemoSection.Garage
+            val header: @Composable () -> Unit = {
                 Row(
                     Modifier.fillMaxWidth().testTag("account-header")
+                        .onSizeChanged { headerHeightPx = it.height }
                         .heightIn(
                             min = when (layout) {
                                 AccountLayout.PhoneLandscape -> 58.dp
@@ -194,12 +193,17 @@ internal fun DemoAccountScreen(
                     }
                     if (layout == AccountLayout.PhoneLandscape) ProductWordmark(Modifier.padding(end = 16.dp))
                 }
-                if (layout.tablet) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(Modifier.weight(1f)) {
+            }
+            Column(Modifier.fillMaxSize().testTag("account-layout-${layout.name}")) {
+                if (!garageOverlay) header()
+                if (layout.tablet && !garageOverlay) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                Row(Modifier.fillMaxSize()) {
                     if (layout.landscape) BottomNavigation(
                         navigationSection, onSectionChange, rail = true,
                         compactRail = layout == AccountLayout.PhoneLandscape,
-                        accountStyle = true
+                        accountStyle = true,
+                        topPadding = if (garageOverlay) headerHeight else 0.dp,
                     )
                     sectionStateHolder.SaveableStateProvider(section.name) {
                         Column(
@@ -213,7 +217,7 @@ internal fun DemoAccountScreen(
                                     }
                                 )
                                 .padding(
-                                    top = when (layout) {
+                                    top = (if (garageOverlay) headerHeight else 0.dp) + when (layout) {
                                         AccountLayout.TabletLandscape -> 24.dp
                                         AccountLayout.TabletPortrait -> 20.dp
                                         else -> 10.dp
@@ -297,6 +301,8 @@ internal fun DemoAccountScreen(
                             }
                         }
                     }
+                }
+                if (garageOverlay) header()
                 }
                 if (!layout.landscape) BottomNavigation(
                     navigationSection, onSectionChange

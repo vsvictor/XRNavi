@@ -83,14 +83,8 @@ internal data class AddVehicleState(
     val editCatalogError: String = "",
 ) {
     val canSubmit: Boolean
-        get() = open && step != AddVehicleStep.Review && !loading && !vinLoading && editCatalogError.isEmpty() &&
-                selectedMake != null && selectedModel != null && year != null &&
-                !yearsLoading && yearsError.isEmpty() &&
-                !equipment.loading && equipment.error.isEmpty() &&
-                !equipment.bodiesLoading && equipment.bodiesError.isEmpty() &&
-                !equipment.enginesLoading && equipment.enginesError.isEmpty() &&
-                !equipment.mileagesLoading && equipment.mileagesError.isEmpty() &&
-                (equipment.selectedTrim != null || trim != null)
+        get() = open && step != AddVehicleStep.Review && !loading && !vinLoading &&
+                selectedMake != null && selectedModel != null && year != null
     val canSearchVin: Boolean
         get() = open && step != AddVehicleStep.Review && !loading && !vinLoading &&
                 vinQuery.length == 17 && vinQuery.all { it in "0123456789ABCDEFGHJKLMNPRSTUVWXYZ" }
@@ -666,7 +660,7 @@ internal class AddVehicleBloc(
         val request = NewVehicle(
             s.selectedClass?.id ?: "passenger", s.selectedMake?.id ?: return,
             s.selectedModel?.id ?: return, s.year ?: return,
-            s.equipment.selectedTrim?.id ?: s.trim?.id ?: return,
+            s.equipment.selectedTrim?.id ?: s.trim?.id,
             s.vehicleSnapshot(),
         )
         val identity = Any()
@@ -674,11 +668,7 @@ internal class AddVehicleBloc(
         mutableState.value = s.copy(loading = true, error = "")
         scope.launch {
             fun isCurrent(): Boolean {
-                val latest = mutableState.value
-                return submitRequest === identity && latest.open &&
-                        latest.selectedMake == s.selectedMake && latest.selectedModel == s.selectedModel &&
-                        latest.year == s.year && latest.equipment.selectedTrim === s.equipment.selectedTrim &&
-                        latest.trim == s.trim
+                return submitRequest === identity && mutableState.value.open
             }
             try {
                 val vehicle =
@@ -704,7 +694,7 @@ internal class AddVehicleBloc(
     private fun loadEditCatalog() {
         val s = mutableState.value
         if (!s.open || s.editingVehicle == null || s.selectedMake == null ||
-            s.selectedModel == null || s.year == null || s.equipment.selectedTrim == null
+            s.selectedModel == null || s.year == null
         ) return
         val session = sessionProvider()
         if (session == null) {
@@ -725,11 +715,12 @@ internal class AddVehicleBloc(
                     s.year
                 )
                 val savedTrim = s.equipment.selectedTrim
-                val available = listOf(savedTrim) + trims.filterNot { it.id == savedTrim.id }
-                val configurations = mutableListOf(s.equipment.configurations.single())
-                for (trim in available.drop(1)) {
+                val available = listOfNotNull(savedTrim) + trims.filterNot { it.id == savedTrim?.id }
+                val configurations = mutableListOf<VehicleEquipmentDetails>()
+                for (trim in available) {
                     if (editRequest !== identity) return@launch
-                    configurations += service.equipmentDetails(session, trim.id)
+                    configurations += if (trim.id == savedTrim?.id)
+                        s.equipment.configurations.single() else service.equipmentDetails(session, trim.id)
                 }
                 if (editRequest !== identity || !mutableState.value.open) return@launch
                 val model = s.selectedModel.copy(years = (years + s.year).distinct().sorted())

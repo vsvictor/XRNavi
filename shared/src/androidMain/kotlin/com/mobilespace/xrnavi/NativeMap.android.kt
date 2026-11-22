@@ -26,11 +26,21 @@ import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
+import com.mapbox.maps.plugin.animation.flyTo
+import com.mapbox.maps.plugin.animation.MapAnimationOptions
+import com.mapbox.maps.plugin.PuckBearing
+import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
+import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.maps.plugin.scalebar.scalebar
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
-actual class PlatformMapFactory actual constructor()
+actual class PlatformMapFactory actual constructor() {
+    internal actual var locations: StateFlow<DeviceFix?> = MutableStateFlow(null)
+}
 
 @Composable
-internal actual fun NativeMap(
+internal actual fun PlatformNativeMap(
     factory: PlatformMapFactory,
     state: MapState,
     overlay: MapOverlay,
@@ -42,9 +52,10 @@ internal actual fun NativeMap(
     val owner = LocalLifecycleOwner.current
     val latestDispatch = rememberUpdatedState(dispatch)
     val mapView = remember(factory, context) { MapView(context) }
-    val bridge = remember(mapView) { AndroidMapBridge(mapView) }
+    val bridge = remember(mapView) { AndroidMapBridge(mapView) { latestDispatch.value(it) } }
     DisposableEffect(mapView, owner) {
         val loaded = mapView.mapboxMap.subscribeMapLoaded {
+            bridge.onMapLoaded()
             latestDispatch.value(MapEvent.NativeStatus(bridge.revision, MapLoadStatus.Ready))
         }
         val error = mapView.mapboxMap.subscribeMapLoadingError {
@@ -80,25 +91,48 @@ internal actual fun NativeMap(
     })
 }
 
-private class AndroidMapBridge(private val view: MapView) {
+private class AndroidMapBridge(private val view: MapView, private val dispatch: (MapEvent) -> Unit) {
+    private val trackerLocations = TrackerMapboxLocationProvider()
+
+    init {
+        view.scalebar.enabled = false
+        view.location.setLocationProvider(trackerLocations)
+        view.location.updateSettings {
+            enabled = false
+            puckBearing = PuckBearing.COURSE
+            showAccuracyRing = true
+        }
+    }
     var revision = -1
         private set
     private var commandId = -1
     private var initialized = false
 
     private var styleReady = false
+    private var mapLoaded = false
+    private var pendingInitialRecenter: Pair<Int, GeoPoint>? = null
     private var overlay = MapOverlay()
     private var fittedRoute: List<GeoPoint> = emptyList()
 
     fun update(state: MapState, overlay: MapOverlay, dark: Boolean) {
+        if (this.overlay.location != overlay.location) {
+            trackerLocations.update(overlay.location)
+            view.location.updateSettings {
+                enabled = overlay.location != null
+                puckBearingEnabled = overlay.location?.bearingDegrees != null
+                showAccuracyRing = overlay.location?.accuracyMeters != null
+                locationPuck = createDefault2DPuck(withBearing = overlay.location?.bearingDegrees != null)
+            }
+        }
         if (!initialized) {
             view.mapboxMap.setCamera(state.camera.options())
-            commandId = state.commandId
+            commandId = if (state.command == MapCommand.InitialRecenter) -1 else state.commandId
             initialized = true
         }
         if (revision != state.revision) {
             revision = state.revision
             styleReady = false
+            mapLoaded = false
             val style = when {
                 state.satellite -> Style.SATELLITE_STREETS
                 dark -> Style.DARK
@@ -113,11 +147,14 @@ private class AndroidMapBridge(private val view: MapView) {
             }
         }
         if (this.overlay != overlay) {
+            val geometryChanged = this.overlay.route != overlay.route ||
+                this.overlay.origin != overlay.origin || this.overlay.destination != overlay.destination
             this.overlay = overlay
-            drawOverlay()
+            if (geometryChanged) drawOverlay()
         }
         if (commandId != state.commandId) {
             commandId = state.commandId
+            pendingInitialRecenter = null
             val camera = view.mapboxMap.cameraState
             when (state.command) {
                 MapCommand.ZoomIn -> view.mapboxMap.setCamera(
@@ -130,10 +167,32 @@ private class AndroidMapBridge(private val view: MapView) {
                     overlay.user?.let { MapCamera(it.latitude, it.longitude, 14.0).options() }
                         ?: MapCamera().options(),
                 )
+                MapCommand.InitialRecenter -> {
+                    pendingInitialRecenter = state.commandId to checkNotNull(state.initialRecenterTarget)
+                    runPendingInitialRecenter()
+                }
                 MapCommand.None -> Unit
             }
         }
+
     }
+
+    fun onMapLoaded() {
+        mapLoaded = true
+        runPendingInitialRecenter()
+    }
+
+    private fun runPendingInitialRecenter() {
+        if (!mapLoaded) return
+        val (id, target) = pendingInitialRecenter ?: return
+        pendingInitialRecenter = null
+        view.mapboxMap.flyTo(
+            MapCamera(target.latitude, target.longitude, 14.0).options(),
+            MapAnimationOptions.Builder().duration(1200L).build(),
+        )
+        dispatch(MapEvent.InitialRecenterHandled(id))
+    }
+
     private fun drawOverlay() {
         if (!styleReady) return
         val style = view.mapboxMap.style ?: return
@@ -152,7 +211,6 @@ private class AndroidMapBridge(private val view: MapView) {
         val pins = listOfNotNull(
             overlay.origin?.let { it to "#FFFFFF" },
             overlay.destination?.let { it to "#E5484D" },
-            overlay.user?.let { it to "#2F7BFF" },
         )
         if (pins.isNotEmpty()) {
             val features = FeatureCollection.fromFeatures(pins.map { (point, color) ->

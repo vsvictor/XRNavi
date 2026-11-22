@@ -12,6 +12,7 @@ kotlin {
 }
 dependencies {
     implementation(project(":shared"))
+    implementation("com.exkmptracker:tracker:1.0.0")
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
@@ -32,7 +33,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val tokenFile = rootProject.file("tokens.dat")
         val publicToken = if (tokenFile.isFile) {
@@ -43,6 +44,9 @@ android {
             "Mapbox public token missing. Configure local tokens.dat; see tools/mapbox-setup.en.md."
         }
         resValue("string", "mapbox_access_token", publicToken)
+        val googleClientId = (project.findProperty("googleWebClientId") as String?)
+            ?: System.getenv("GOOGLE_WEB_CLIENT_ID").orEmpty()
+        manifestPlaceholders["googleWebClientId"] = googleClientId
     }
     packaging {
         jniLibs.pickFirsts += "**/libc++_shared.so"

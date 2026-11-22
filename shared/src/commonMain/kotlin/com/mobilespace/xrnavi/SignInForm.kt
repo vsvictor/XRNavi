@@ -49,6 +49,7 @@ internal fun SignInForm(
     passwordVisible: Boolean,
     onTogglePasswordVisibility: () -> Unit,
     onSelectAccount: () -> Unit,
+    onGoogleSignIn: () -> Unit = {},
     submitting: Boolean,
     notice: String,
     onSignIn: () -> Unit,
@@ -148,7 +149,8 @@ internal fun SignInForm(
                 containerColor = Color(0xFFDB4437),
                 contentColor = Color.White,
                 borderColor = Color(0xFFDB4437),
-                iconTint = Color.White
+                iconTint = Color.White,
+                onClick = { if (!submitting) onGoogleSignIn() }
             )
         }
         var registerFontSize by remember { mutableStateOf(13f) }

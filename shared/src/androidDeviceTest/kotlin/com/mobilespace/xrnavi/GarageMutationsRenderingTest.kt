@@ -35,7 +35,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class GarageMutationsRenderingTest {
     @Test
-    fun narrowCardHasBlueSingleLineActionsAndNoBodyMeasures() {
+    fun cardUsesClickAndLongClickWithoutInterferingWithIconButtons() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val automation = instrumentation.uiAutomation
         val originalFlags = automation.serviceInfo.flags
@@ -47,6 +47,10 @@ class GarageMutationsRenderingTest {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         var density = 1f
+        var profiles = 0
+        var selections = 0
+        var edits = 0
+        var deletes = 0
         try {
             scenario.onActivity { activity ->
                 activity.setContent {
@@ -58,40 +62,37 @@ class GarageMutationsRenderingTest {
                                 AuthenticatedGarageVehicleCard(
                                     GarageVehicle("test", "Ford Mustang GT", "passenger", VerificationStatus.None,
                                         heightMeters = 1.4, widthMeters = 1.9, lengthMeters = 4.8, weightKg = 1700),
-                                    active = true, enabled = true, onSelect = {}, onDetails = {}, onEdit = {}, onDelete = {},
+                                    active = false, enabled = true,
+                                    onSelect = { selections++ }, onDetails = { profiles++ },
+                                    onEdit = { edits++ }, onDelete = { deletes++ },
                                 )
                             }
                         }
                     }
                 }
             }
-            awaitText("Редагувати", scroll = false)
-            for (label in listOf("Профіль", "Обрано", "Редагувати", "Видалити")) {
-                val text = awaitText(label, scroll = false)
-                val length = label.length
-                val args = android.os.Bundle().apply {
-                    putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0)
-                    putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, length)
-                }
-                text.refreshWithExtraData(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, args)
-                val locations = text.extras.getParcelableArray(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY)
-                    ?.map { it as android.graphics.RectF }
-                assertTrue("Character bounds missing for $label", locations?.size == length)
-                val bounds = requireNotNull(locations)
-                assertTrue("Wrapped or clipped label $label", bounds.all {
-                    it.width() > 0 && kotlin.math.abs(it.top - bounds.first().top) < density
-                })
-                var button = text
+            val positions = mutableMapOf<String, android.graphics.Rect>()
+            for (label in listOf("Редагувати", "Видалити")) {
+                var button = awaitText(label, scroll = false)
                 while (!button.isClickable) button = requireNotNull(button.parent)
-                val rect = android.graphics.Rect().also { button.getBoundsInScreen(it) }
-                val screenshot = requireNotNull(automation.takeScreenshot())
-                try {
-                    val pixel = screenshot.getPixel(rect.centerX(), rect.top + (8 * density).toInt())
-                    if (label != "Обрано") assertEquals("Button must be blue: $label", android.graphics.Color.rgb(51, 92, 255), pixel)
-                } finally {
-                    screenshot.recycle()
-                }
+                positions[label] = android.graphics.Rect().also { button.getBoundsInScreen(it) }
+                assertEquals("Action must be icon-only", null, button.text)
+                assertTrue("Action must have a 48dp touch target", positions.getValue(label).width() >= 48 * density)
             }
+            val edit = positions.getValue("Редагувати")
+            val delete = positions.getValue("Видалити")
+            assertTrue("Edit and delete must be aligned", edit.right < delete.left && edit.centerY() == delete.centerY())
+            val name = awaitText("Ford Mustang GT", scroll = false)
+            var card = name
+            while (!card.isClickable || !card.isLongClickable) card = requireNotNull(card.parent)
+            assertTrue(card.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            assertTrue(card.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK))
+            click("Редагувати", scroll = false)
+            click("Видалити", scroll = false)
+            assertEquals(1, profiles)
+            assertEquals(1, selections)
+            assertEquals(1, edits)
+            assertEquals(1, deletes)
             for (window in automation.windows) {
                 assertEquals(null, findText(window.root, "+"))
                 assertEquals(null, findText(window.root, "Назад до мапи"))

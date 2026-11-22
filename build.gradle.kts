@@ -30,13 +30,15 @@ val buildJsonRpcIosNativeArtifacts = tasks.register<org.gradle.api.tasks.Exec>(
 }
 
 val jsonRpcClient = project(":jsonRpcClient")
-jsonRpcClient.afterEvaluate {
-    listOf(
-        "cinteropJsonrpcBridgeIosArm64",
-        "cinteropJsonrpcBridgeIosSimulatorArm64",
-    ).forEach { taskName ->
-        tasks.named(taskName) {
-            dependsOn(buildJsonRpcIosNativeArtifacts)
+if (providers.systemProperty("idea.sync.active").orNull != "true") {
+    jsonRpcClient.afterEvaluate {
+        listOf(
+            "cinteropJsonrpcBridgeIosArm64",
+            "cinteropJsonrpcBridgeIosSimulatorArm64",
+        ).forEach { taskName ->
+            tasks.named(taskName) {
+                dependsOn(buildJsonRpcIosNativeArtifacts)
+            }
         }
     }
 }

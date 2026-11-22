@@ -12,7 +12,9 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun GarageListHeader() {
     Row(
-        Modifier.fillMaxWidth().padding(8.dp).testTag("garage-header"),
+        Modifier.fillMaxWidth().headerSafeTop()
+            .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+            .testTag("garage-header"),
         verticalAlignment = Alignment.CenterVertically
     ) {
         ProductWordmark()

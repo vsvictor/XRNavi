@@ -162,7 +162,7 @@ internal class RpcGarageService(
             put("make_id", vehicle.makeId)
             put("model_id", vehicle.modelId)
             put("year", vehicle.year)
-            put("trim_id", vehicle.trimId)
+            vehicle.trimId?.let { put("trim_id", it) }
             put("vehicle", vehicle.vehicleData)
         }.let { result -> (result["vehicle"] as? JsonObject ?: result).parseVehicle() }
 

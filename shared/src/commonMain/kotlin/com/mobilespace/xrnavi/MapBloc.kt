@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class MapLoadStatus { Loading, Ready, Failed }
-enum class MapCommand { None, ZoomIn, ZoomOut, Recenter }
+enum class MapCommand { None, ZoomIn, ZoomOut, Recenter, InitialRecenter }
 
 data class MapCamera(
     val latitude: Double = 50.4501,
@@ -19,9 +19,12 @@ data class MapOverlay(
     val origin: GeoPoint? = null,
     val destination: GeoPoint? = null,
     val user: GeoPoint? = null,
+    val location: DeviceFix? = null,
 ) {
     val routeCoordinates: List<Double> get() = route.flatMap { listOf(it.latitude, it.longitude) }
 }
+
+internal fun MapOverlay.withTrackerLocation(fix: DeviceFix?) = copy(user = fix?.point, location = fix)
 
 internal data class MapState(
     val satellite: Boolean = false,
@@ -29,6 +32,8 @@ internal data class MapState(
     val revision: Int = 0,
     val command: MapCommand = MapCommand.None,
     val commandId: Int = 0,
+    val initialRecenterTarget: GeoPoint? = null,
+    val initialRecenterRequested: Boolean = false,
     val camera: MapCamera = MapCamera(),
     val notice: String = "",
 )
@@ -39,6 +44,8 @@ internal sealed interface MapEvent {
     data object ToggleLayer : MapEvent
     data class NativeStatus(val revision: Int, val status: MapLoadStatus) : MapEvent
     data class CameraChanged(val camera: MapCamera) : MapEvent
+    data class FirstLocationAvailable(val point: GeoPoint) : MapEvent
+    data class InitialRecenterHandled(val commandId: Int) : MapEvent
     data class Control(val command: MapCommand, val reliableUser: Boolean = false) : MapEvent
     data object SearchRequested : MapEvent
     data object PlacesRequested : MapEvent
@@ -62,8 +69,20 @@ internal class MapBloc {
                 current.copy(status = event.status)
             } else current
             is MapEvent.CameraChanged -> current.copy(camera = event.camera)
+            is MapEvent.FirstLocationAvailable -> if (current.initialRecenterRequested) current else current.copy(
+                initialRecenterRequested = true,
+                initialRecenterTarget = event.point,
+                command = MapCommand.InitialRecenter,
+                commandId = current.commandId + 1,
+                notice = "",
+            )
+            is MapEvent.InitialRecenterHandled ->
+                if (current.command == MapCommand.InitialRecenter && current.commandId == event.commandId) {
+                    current.copy(command = MapCommand.None, initialRecenterTarget = null)
+                } else current
             is MapEvent.Control -> current.copy(
                 command = event.command, commandId = current.commandId + 1,
+                initialRecenterTarget = null,
                 notice = if (event.command == MapCommand.Recenter && !event.reliableUser) {
                     "Центр: Київ. Це не ваша поточна позиція: надійного визначення місцезнаходження немає."
                 } else if (event.command == MapCommand.Recenter) "" else current.notice,

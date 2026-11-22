@@ -20,6 +20,7 @@ internal data class SignInState(
     val submitting: Boolean = false,
     val notice: String = "",
     val accountPickerRequested: Boolean = false,
+    val googleRequested: Boolean = false,
     val signedIn: Boolean = false,
     val openMap: Boolean = false,
 ) {
@@ -34,6 +35,10 @@ internal sealed interface SignInEvent {
     data object AccountPickerLaunched : SignInEvent
     class AccountSelected(val email: String) : SignInEvent
     class AccountSelectionFailed(val message: String) : SignInEvent
+    data object GoogleSignIn : SignInEvent
+    data object GoogleLaunched : SignInEvent
+    class GoogleTokenReceived(val idToken: String) : SignInEvent
+    class GoogleFailed(val message: String) : SignInEvent
     data object Submit : SignInEvent
     data object MapOpened : SignInEvent
     data object Cancel : SignInEvent
@@ -80,6 +85,13 @@ internal class SignInBloc(
                     accountPickerRequested = false,
                     notice = event.message,
                 )
+            SignInEvent.GoogleSignIn -> if (!current.submitting && !current.signedIn) {
+                mutableState.value = current.copy(googleRequested = true, notice = "")
+            }
+            SignInEvent.GoogleLaunched -> mutableState.value = current.copy(googleRequested = false)
+            is SignInEvent.GoogleTokenReceived -> googleLogin(event.idToken)
+            is SignInEvent.GoogleFailed ->
+                mutableState.value = current.copy(googleRequested = false, notice = event.message)
             SignInEvent.Submit -> submit()
             SignInEvent.MapOpened -> mutableState.value = current.copy(openMap = false)
             SignInEvent.Cancel -> {
@@ -99,12 +111,24 @@ internal class SignInBloc(
             mutableState.value = current.copy(notice = validation)
             return
         }
-        mutableState.value = current.copy(submitting = true, notice = "")
+        authenticate("Не вдалося увійти. Перевірте пошту, пароль і з'єднання із сервером.") {
+            auth.login(current.email.trim(), current.password)
+        }
+    }
+
+    private fun googleLogin(idToken: String) {
+        val current = mutableState.value
+        if (current.submitting || current.signedIn) return
+        authenticate("Не вдалося увійти через Google. Спробуйте ще раз.") {
+            auth.loginWithGoogle(idToken)
+        }
+    }
+
+    private fun authenticate(failureMessage: String, login: suspend () -> AuthSession) {
+        mutableState.value = mutableState.value.copy(submitting = true, notice = "")
         request = scope.launch {
             try {
-                val authenticated = withTimeout(signInTimeoutMillis) {
-                    auth.login(current.email.trim(), current.password)
-                }
+                val authenticated = withTimeout(signInTimeoutMillis) { login() }
                 currentCoroutineContext().ensureActive()
                 onAuthenticated(authenticated)
                 mutableState.value = mutableState.value.copy(
@@ -125,7 +149,7 @@ internal class SignInBloc(
             } catch (_: Exception) {
                 currentCoroutineContext().ensureActive()
                 // Native errors may contain sensitive server data; never render them verbatim.
-                fail("Не вдалося увійти. Перевірте пошту, пароль і з'єднання із сервером.")
+                fail(failureMessage)
             }
         }
     }

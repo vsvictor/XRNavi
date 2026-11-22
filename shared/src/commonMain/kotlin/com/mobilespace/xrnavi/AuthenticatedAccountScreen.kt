@@ -1,13 +1,13 @@
 package com.mobilespace.xrnavi
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -16,12 +16,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -34,36 +38,34 @@ internal fun AuthenticatedAccountScreen(
     mapFactory: PlatformMapFactory,
     routeService: RoutePlanningService,
     garageService: GarageService,
+    vehiclePhotoService: VehiclePhotoService,
+    vehiclePhotoSelections: VehiclePhotoSelections,
     sessionProvider: () -> AuthSession?,
+    garageViewModel: GarageViewModel,
     locationProvider: LocationProvider,
     onToggleTheme: () -> Unit,
     onOpenSavedPlaces: () -> Unit,
-    onRequestExit: () -> Unit,
 ) {
     val mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
     val mapState by mapViewModel.bloc.state.collectAsStateWithLifecycle()
     val routeViewModel: RouteViewModel = viewModel(factory = routeViewModelFactory(routeService))
     val routeState by routeViewModel.bloc.state.collectAsStateWithLifecycle()
-    val garageViewModel: GarageViewModel =
-        viewModel(factory = garageViewModelFactory(garageService, sessionProvider))
     val garageState by garageViewModel.bloc.state.collectAsStateWithLifecycle()
     val addViewModel: AddVehicleViewModel =
         viewModel(factory = addVehicleViewModelFactory(garageService, sessionProvider))
     val addState by addViewModel.bloc.state.collectAsStateWithLifecycle()
-    androidx.compose.runtime.DisposableEffect(garageViewModel, addViewModel) {
+    androidx.compose.runtime.DisposableEffect(addViewModel) {
         onDispose {
-            garageViewModel.bloc.dispatch(GarageEvent.Clear)
             addViewModel.bloc.dispatch(AddVehicleEvent.Close)
         }
     }
-    androidx.compose.runtime.LaunchedEffect(
-        state.section, garageState.loaded, garageState.loading, garageState.error,
-    ) {
-        if (
-            state.section in listOf(DemoSection.Garage, DemoSection.Profile) &&
-            !garageState.loaded && !garageState.loading && garageState.error.isEmpty()
-        ) {
-            garageViewModel.bloc.dispatch(GarageEvent.Load)
+    androidx.compose.runtime.LaunchedEffect(state.section) {
+        when (state.section) {
+            DemoSection.Profile -> garageViewModel.bloc.dispatch(GarageEvent.ProfileOpened)
+            DemoSection.Garage -> if (
+                !garageViewModel.bloc.state.value.loaded && !garageViewModel.bloc.state.value.loading
+            ) garageViewModel.bloc.dispatch(GarageEvent.Load)
+            else -> Unit
         }
     }
     androidx.compose.runtime.LaunchedEffect(addState.added) {
@@ -72,9 +74,33 @@ internal fun AuthenticatedAccountScreen(
     val detailsViewModel: VehicleDetailsViewModel =
         viewModel(factory = VehicleDetailsViewModelFactory)
     val detailsState by detailsViewModel.bloc.state.collectAsStateWithLifecycle()
+    val photosViewModel: VehiclePhotosViewModel =
+        viewModel(factory = remember(vehiclePhotoService, vehiclePhotoSelections) {
+            vehiclePhotosViewModelFactory(vehiclePhotoService, vehiclePhotoSelections)
+        })
+    val photosState by photosViewModel.bloc.state.collectAsStateWithLifecycle()
+    val photoQuery = if (state.section != DemoSection.Garage) null else if (addState.open) {
+        val make = addState.selectedMake?.name
+        val model = addState.selectedModel?.name
+        val year = addState.year
+        if (make != null && model != null && year != null) VehiclePhotoQuery(make, model, year) else null
+    } else garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }?.photoQuery()
+    val photoVehicleId = if (state.section != DemoSection.Garage) null
+        else if (addState.open) addState.added?.id ?: addState.editingVehicle?.id
+        else detailsState.vehicleId
+    val photoDraft = state.section == DemoSection.Garage && addState.open &&
+        addState.added == null && addState.editingVehicle == null
+    val photoAccountId = state.profile?.id
+    androidx.compose.runtime.LaunchedEffect(photoQuery, photoVehicleId, photoDraft, photoAccountId) {
+        photosViewModel.bloc.dispatch(VehiclePhotosEvent.Open(photoQuery, photoAccountId, photoVehicleId, photoDraft))
+    }
+    val photoSelectionKey = if (photoDraft) "draft" else photoVehicleId
+    val photosContextMatches = photosState.query == photoQuery &&
+        photosState.selectionKey == photoSelectionKey && photosState.accountId == photoAccountId
+    val visiblePhotosState = if (photosContextMatches) photosState
+        else VehiclePhotosState(query = photoQuery, selectionKey = "pending:$photoSelectionKey", accountId = photoAccountId)
     val geoViewModel: GeoViewModel = viewModel(factory = geoViewModelFactory(locationProvider))
     val geoState by geoViewModel.bloc.state.collectAsStateWithLifecycle()
-    val swipeEdgeSize = with(LocalDensity.current) { 32.dp.toPx() }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         geoViewModel.bloc.dispatch(GeoEvent.Refresh)
         onPauseOrDispose {}
@@ -92,53 +118,20 @@ internal fun AuthenticatedAccountScreen(
     }
     BoxWithConstraints(
         Modifier.fillMaxSize().testTag("authenticated-account")
-            .horizontalSwipeGesture { swipe ->
-                val target = primarySectionAfterSwipe(state.section, swipe.direction())
-                val mapEdgeExit = state.section == DemoSection.Map &&
-                        swipe.startedAtEdge(swipeEdgeSize)
-                when {
-                    state.section == DemoSection.Map && routeState.editing != null ->
-                        routeViewModel.bloc.handleBack()
-
-                    state.section == DemoSection.Garage && addState.open ->
-                        addViewModel.bloc.handleBack()
-
-                    state.section == DemoSection.Garage && detailsState.vehicleId != null ->
-                        detailsViewModel.bloc.handleBack()
-
-                    mapEdgeExit -> onRequestExit()
-                    state.section == DemoSection.AccountSecurity ->
-                        dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Profile))
-
-                    target != null ->
-                        dispatch(AuthenticatedAccountEvent.OpenSection(target))
-                }
-            }
     ) {
         val layout = AccountLayout.forWindow(maxWidth.value, maxHeight.value)
         val detailVehicle = garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }
-        val boundedGarageScreen = layout.landscape && state.section == DemoSection.Garage &&
-                (addState.open || detailVehicle != null)
         val navigate: (DemoSection) -> Unit = {
             dispatch(AuthenticatedAccountEvent.OpenSection(it))
         }
-        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-            if (state.section == DemoSection.Garage) {
-                val vehicle = garageState.vehicles.firstOrNull { it.id == detailsState.vehicleId }
-                when {
-                    addState.open -> AddVehicleHeader(
-                        onBack = { addViewModel.bloc.handleBack() },
-                    )
-
-                    vehicle != null -> GarageHeader(
-                        title = "Профіль транспорту",
-                        subtitle = garageCategoryLabel(vehicle.category),
-                        onBack = { detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Close) },
-                    )
-
-                    else -> GarageListHeader()
-                }
-            } else if (state.section != DemoSection.Profile && state.section != DemoSection.AccountSecurity) {
+        var headerHeightPx by remember { mutableIntStateOf(0) }
+        val garageList = state.section == DemoSection.Garage && !addState.open && detailVehicle == null
+        val overlayHeader = state.section == DemoSection.Map || (garageList && layout.landscape)
+        val headerHeight = with(LocalDensity.current) { headerHeightPx.toDp() }
+        Column(Modifier.fillMaxSize()) {
+            if (state.section != DemoSection.Garage &&
+                !overlayHeader && state.section != DemoSection.Profile && state.section != DemoSection.AccountSecurity
+            ) {
                 MapTopBar(
                     demoMode = false,
                     preview = false,
@@ -151,13 +144,15 @@ internal fun AuthenticatedAccountScreen(
                     onToggleTheme = onToggleTheme,
                 )
             }
-            Row(Modifier.weight(1f).fillMaxWidth()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+            Row(Modifier.fillMaxSize()) {
                 if (layout.landscape) BottomNavigation(
                     selectedSection = state.section,
                     onSectionChange = navigate,
                     rail = true,
                     compactRail = !layout.tablet,
                     accountStyle = true,
+                    topPadding = if (overlayHeader) headerHeight else 0.dp,
                 )
                 if (state.section == DemoSection.Map) {
                     AuthenticatedMapScreen(
@@ -171,6 +166,7 @@ internal fun AuthenticatedAccountScreen(
                         expired = state.expired,
                         onProfile = { navigate(DemoSection.Profile) },
                         modifier = Modifier.weight(1f).fillMaxSize(),
+                        headerHeight = headerHeight,
                     )
                 } else if (state.section == DemoSection.Profile) Column(
                     Modifier.weight(1f).fillMaxWidth()
@@ -200,6 +196,7 @@ internal fun AuthenticatedAccountScreen(
                             layout = layout,
                             garageState = garageState,
                             onOpenGarage = { navigate(DemoSection.Garage) },
+                            onRetryGarage = { garageViewModel.bloc.dispatch(GarageEvent.Load) },
                             onOpenVehicleDetails = { vehicleId ->
                                 detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Open(vehicleId))
                                 navigate(DemoSection.Garage)
@@ -229,29 +226,56 @@ internal fun AuthenticatedAccountScreen(
                         )
                     }
                 } else if (state.section == DemoSection.Garage) Column(
-                    Modifier.weight(1f).fillMaxWidth()
-                        .then(
-                            if (boundedGarageScreen) Modifier else Modifier.verticalScroll(
-                                rememberScrollState()
-                            )
-                        )
+                    Modifier.weight(1f).fillMaxWidth().testTag("authenticated-garage")
+                        .verticalScroll(rememberScrollState())
                         .accountPageBackground()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                        .padding(
+                            start = if (garageList && layout.landscape) 20.dp else 0.dp,
+                            end = if (garageList && layout.landscape) 20.dp else 0.dp,
+                            top = if (garageList && layout.landscape) 16.dp else 0.dp,
+                            bottom = 16.dp,
+                        ),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     if (addState.open) {
-                        AddVehicleScreen(
-                            addState,
-                            addViewModel.bloc::dispatch,
-                            landscape = layout.landscape,
-                            compactLandscape = !layout.tablet,
-                        )
+                        AccountPageLayout(
+                            title = if (addState.editingVehicle == null) "Додати авто" else "Редагування авто",
+                            onBack = { addViewModel.bloc.handleBack() },
+                            hero = {
+                                VehiclePhotoHero(
+                                    title = if (addState.editingVehicle == null) "Додати авто" else "Редагування авто",
+                                    onBack = { addViewModel.bloc.handleBack() },
+                                    state = visiblePhotosState,
+                                    dispatch = { if (photosContextMatches) photosViewModel.bloc.dispatch(it) },
+                                )
+                            },
+                        ) {
+                            AddVehicleScreen(
+                                addState,
+                                addViewModel.bloc::dispatch,
+                                landscape = layout.landscape,
+                                compactLandscape = !layout.tablet,
+                            )
+                        }
                     } else if (detailVehicle != null) {
-                        VehicleDetailsScreen(
-                            detailVehicle,
-                            landscape = layout.landscape,
-                            compactLandscape = !layout.tablet,
-                        )
+                        AccountPageLayout(
+                            title = "Профіль транспорту",
+                            onBack = { detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Close) },
+                            hero = {
+                                VehiclePhotoHero(
+                                    title = "Профіль транспорту",
+                                    onBack = { detailsViewModel.bloc.dispatch(VehicleDetailsEvent.Close) },
+                                    state = visiblePhotosState,
+                                    dispatch = { if (photosContextMatches) photosViewModel.bloc.dispatch(it) },
+                                )
+                            },
+                        ) {
+                            VehicleDetailsScreen(
+                                detailVehicle,
+                                landscape = layout.landscape,
+                                compactLandscape = !layout.tablet,
+                            )
+                        }
                     } else {
                         GarageScreen(
                             garageState,
@@ -262,6 +286,8 @@ internal fun AuthenticatedAccountScreen(
                             },
                             onEditVehicle = { addViewModel.bloc.dispatch(AddVehicleEvent.Edit(it)) },
                             landscape = layout.landscape,
+                            headerHeight = headerHeight,
+                            vehiclePhotos = vehiclePhotoSelections.selections.collectAsStateWithLifecycle().value[photoAccountId].orEmpty(),
                         )
                     }
                 } else Column(
@@ -282,6 +308,30 @@ internal fun AuthenticatedAccountScreen(
 
                         else -> Unit
                     }
+                }
+            }
+                if (overlayHeader) {
+                    Box(
+                        Modifier.fillMaxWidth().align(Alignment.TopCenter)
+                            .onSizeChanged { headerHeightPx = it.height }
+                    ) {
+                        if (state.section == DemoSection.Garage) {
+                            GarageListHeader()
+                        } else {
+                            MapTopBar(
+                                demoMode = false,
+                                preview = false,
+                                vehicleMode = "Аккаунт",
+                                onBack = {},
+                                onOpenStopPlaces = {
+                                    dispatch(AuthenticatedAccountEvent.OpenSection(DemoSection.Map))
+                                    mapViewModel.bloc.dispatch(MapEvent.PlacesRequested)
+                                },
+                                onToggleTheme = onToggleTheme,
+                                overlay = true,
+                            )
+                    }
+                }
                 }
             }
             if (!layout.landscape) BottomNavigation(

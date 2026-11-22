@@ -5,8 +5,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,7 +21,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -44,9 +41,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,15 +52,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -87,16 +77,15 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
-import kotlin.math.abs
 import xrnavi.shared.generated.resources.Res
 import xrnavi.shared.generated.resources.*
 import org.jetbrains.compose.resources.DrawableResource
@@ -120,7 +109,6 @@ internal fun MapScreen(
     onOpenRouteStops: () -> Unit,
     onOpenStopPlaces: () -> Unit,
     onUseLocation: () -> Unit,
-    onSheetLevelChange: (SheetLevel) -> Unit,
     onPreview: () -> Unit,
     onStartRoute: () -> Unit,
     onOpenRouteSettings: () -> Unit,
@@ -135,25 +123,18 @@ internal fun MapScreen(
     val window = LocalWindowInfo.current.containerSize
     val landscape = window.width > window.height
     val tablet = with(LocalDensity.current) { minOf(window.width, window.height).toDp() >= 600.dp }
+    var headerHeightPx by remember { mutableStateOf(0) }
+    val headerHeight = with(LocalDensity.current) { headerHeightPx.toDp() }
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
-        MapTopBar(
-            demoMode = demoMode,
-            preview = effectivePreview,
-            vehicleMode = vehicleMode,
-            onBack = onBack,
-            onOpenStopPlaces = onOpenStopPlaces,
-            onToggleTheme = onToggleTheme,
-            onOpenExplanation = onOpenAdditional?.let { open ->
-                { open(AdditionalScreen.RouteExplanation) }
-            }
-        )
-        Row(Modifier.weight(1f)) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Row(Modifier.fillMaxSize()) {
             if (landscape) BottomNavigation(
                 DemoSection.Map,
                 onSectionChange,
                 rail = true,
                 compactRail = !tablet,
-                accountStyle = true
+                accountStyle = true,
+                topPadding = headerHeight,
             )
             BoxWithConstraints(
                 modifier = Modifier
@@ -165,7 +146,9 @@ internal fun MapScreen(
                 val splitMap = landscape && layoutWidth >= 600.dp
                 val showInlineAttribution =
                     layoutHeight < 500.dp && sheetLevel != SheetLevel.Collapsed
-                val mapHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
+                val mapHeightPx = with(LocalDensity.current) {
+                    (maxHeight - headerHeight).coerceAtLeast(1.dp).toPx()
+                }
                 val density = LocalDensity.current
                 val anchors = calculateMapSheetAnchors(
                     mapHeightPx = mapHeightPx,
@@ -173,91 +156,16 @@ internal fun MapScreen(
                     fontScale = density.fontScale,
                     inlineAttribution = showInlineAttribution
                 )
-                val minHeightPx = anchors.collapsed
-                val partialHeightPx = anchors.partial
-                val maxHeightPx = anchors.expanded
-                var sheetHeightPx by remember(mapHeightPx) {
-                    mutableFloatStateOf(anchors.heightFor(sheetLevel))
-                }
                 val sheetHeightDp =
-                    if (splitMap) layoutHeight else with(density) { sheetHeightPx.toDp() }
+                    if (splitMap) (layoutHeight - headerHeight).coerceAtLeast(1.dp)
+                    else with(density) { anchors.heightFor(sheetLevel).toDp() }
                 val sheetScrollState = rememberScrollState()
-
-                LaunchedEffect(sheetLevel, minHeightPx, partialHeightPx, maxHeightPx) {
-                    sheetHeightPx = anchors.heightFor(sheetLevel)
-                }
-
-                val scrollConnection =
-                    remember(mapHeightPx, minHeightPx, partialHeightPx, maxHeightPx) {
-                        object : NestedScrollConnection {
-                            override fun onPreScroll(
-                                available: Offset,
-                                source: NestedScrollSource
-                            ): Offset {
-                                if (available.y >= 0f || sheetHeightPx >= maxHeightPx) {
-                                    return Offset.Zero
-                                }
-                                val consumed = minOf(-available.y, maxHeightPx - sheetHeightPx)
-                                sheetHeightPx += consumed
-                                return Offset(0f, -consumed)
-                            }
-
-                            override fun onPostScroll(
-                                consumed: Offset,
-                                available: Offset,
-                                source: NestedScrollSource
-                            ): Offset {
-                                if (
-                                    available.y <= 0f ||
-                                    sheetScrollState.value != 0 ||
-                                    sheetHeightPx <= minHeightPx
-                                ) {
-                                    return Offset.Zero
-                                }
-                                val used = minOf(available.y, sheetHeightPx - minHeightPx)
-                                sheetHeightPx -= used
-                                return Offset(0f, used)
-                            }
-
-                            override suspend fun onPreFling(available: Velocity): Velocity {
-                                val anchors = listOf(
-                                    SheetLevel.Collapsed to minHeightPx,
-                                    SheetLevel.Partial to partialHeightPx,
-                                    SheetLevel.Expanded to maxHeightPx
-                                )
-                                val target = when {
-                                    available.y < -500f -> anchors.firstOrNull {
-                                        it.second > sheetHeightPx + 1f
-                                    }?.first
-
-                                    available.y > 500f && sheetScrollState.value == 0 -> anchors
-                                        .lastOrNull { it.second < sheetHeightPx - 1f }
-                                        ?.first
-
-                                    else -> anchors.minByOrNull {
-                                        abs(it.second - sheetHeightPx)
-                                    }?.first
-                                }
-                                if (target != null) {
-                                    onSheetLevelChange(target)
-                                    return Velocity(0f, available.y)
-                                }
-                                return Velocity.Zero
-                            }
-                        }
-                    }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     MapCanvas(
                         modifier = Modifier.fillMaxWidth(
                             if (splitMap) 0.54f else 1f
-                        ).fillMaxHeight().then(
-                            if (onOpenAdditional != null) Modifier.pointerInput(onOpenAdditional) {
-                                detectTapGestures(onLongPress = {
-                                    onOpenAdditional(AdditionalScreen.SelectedPoint)
-                                })
-                            } else Modifier
-                        ),
+                        ).fillMaxHeight(),
                         preview = effectivePreview,
                         compact = splitMap
                     )
@@ -271,7 +179,7 @@ internal fun MapScreen(
                         onRouteStopsClick = onOpenRouteStops,
                         modifier = Modifier
                             .align(if (splitMap) Alignment.TopStart else Alignment.TopCenter)
-                            .padding(top = 10.dp)
+                            .padding(top = headerHeight + 10.dp)
                             .widthIn(max = if (splitMap) layoutWidth * 0.54f else 620.dp)
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
@@ -341,14 +249,7 @@ internal fun MapScreen(
                         selectedVehicle = selectedVehicle,
                         onVehicleClassChange = onVehicleClassChange,
                         sheetHeightDp = sheetHeightDp,
-                        scrollConnection = scrollConnection,
                         scrollState = sheetScrollState,
-                        minHeightPx = minHeightPx,
-                        partialHeightPx = partialHeightPx,
-                        maxHeightPx = maxHeightPx,
-                        currentHeightPx = { sheetHeightPx },
-                        updateHeight = { sheetHeightPx = it },
-                        onLevelChange = onSheetLevelChange,
                         onOpenSearch = onOpenSearch,
                         onOpenRouteStops = onOpenRouteStops,
                         onPreview = onPreview,
@@ -358,6 +259,7 @@ internal fun MapScreen(
                         fixedPane = splitMap,
                         modifier = Modifier
                             .align(if (splitMap) Alignment.CenterEnd else Alignment.BottomCenter)
+                            .then(if (splitMap) Modifier.padding(top = headerHeight) else Modifier)
                             .widthIn(
                                 max = if (splitMap) layoutWidth * 0.46f
                                 else if (layoutWidth >= 600.dp && layoutHeight >= 600.dp) {
@@ -368,6 +270,26 @@ internal fun MapScreen(
                             )
                     )
                 }
+            }
+        }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .onSizeChanged { headerHeightPx = it.height }
+            ) {
+                MapTopBar(
+                    demoMode = demoMode,
+                    preview = effectivePreview,
+                    vehicleMode = vehicleMode,
+                    onBack = onBack,
+                    onOpenStopPlaces = onOpenStopPlaces,
+                    onToggleTheme = onToggleTheme,
+                    onOpenExplanation = onOpenAdditional?.let { open ->
+                        { open(AdditionalScreen.RouteExplanation) }
+                    },
+                    overlay = true,
+                )
             }
         }
         if (!landscape) {

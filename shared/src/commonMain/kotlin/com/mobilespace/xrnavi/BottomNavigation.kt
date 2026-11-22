@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
 import xrnavi.shared.generated.resources.Res
 import xrnavi.shared.generated.resources.*
 
@@ -38,7 +39,8 @@ internal fun BottomNavigation(
     onSectionChange: (DemoSection) -> Unit,
     rail: Boolean = false,
     compactRail: Boolean = false,
-    accountStyle: Boolean = false
+    accountStyle: Boolean = false,
+    topPadding: Dp = 0.dp,
 ) {
     val styledRail = rail && accountStyle
     val tabs = listOf(
@@ -108,6 +110,7 @@ internal fun BottomNavigation(
         Column(
             Modifier.width(if (compactRail) 56.dp else 88.dp)
                 .fillMaxHeight().background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(top = topPadding)
                 .then(if (accountStyle && !compactRail) Modifier.padding(horizontal = 8.dp, vertical = 24.dp) else Modifier)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(if (accountStyle && !compactRail) 22.dp else 12.dp)

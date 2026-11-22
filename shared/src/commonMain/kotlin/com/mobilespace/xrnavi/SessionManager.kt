@@ -4,6 +4,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -30,12 +32,21 @@ internal class SessionManager(
 
     /** Emits when the session was rejected by the server and removed. */
     val expirations: SharedFlow<Unit> = mutableExpirations.asSharedFlow()
+    private val mutableTrackingGeneration = MutableStateFlow<Long?>(null)
+    private var loginGeneration = 0L
+    val trackingGeneration = mutableTrackingGeneration.asStateFlow()
 
     fun current(): AuthSession? = session
 
     suspend fun start(newSession: AuthSession) = lock.withLock {
+        try {
+            persist(newSession)
+        } catch (failure: Exception) {
+            drop()
+            throw failure
+        }
         session = newSession
-        persist(newSession)
+        mutableTrackingGeneration.value = ++loginGeneration
     }
 
     suspend fun clear() = lock.withLock { drop() }
@@ -43,13 +54,20 @@ internal class SessionManager(
     suspend fun restore(): SessionRestoreResult = lock.withLock {
         val stored = decode(storage.read())
         if (stored == null) {
+            session = null
+            mutableTrackingGeneration.value = null
             storage.clear()
             return SessionRestoreResult.None
         }
         session = stored
-        if (isValid(stored)) return SessionRestoreResult.Ready(stored)
+        if (isValid(stored)) {
+            mutableTrackingGeneration.value = ++loginGeneration
+            return SessionRestoreResult.Ready(stored)
+        }
         try {
-            SessionRestoreResult.Ready(refreshLocked(stored))
+            val renewed = refreshLocked(stored)
+            mutableTrackingGeneration.value = ++loginGeneration
+            SessionRestoreResult.Ready(renewed)
         } catch (_: SessionExpiredException) {
             SessionRestoreResult.Rejected
         } catch (cancelled: CancellationException) {
@@ -91,24 +109,31 @@ internal class SessionManager(
             }
             throw failure
         }
+        try {
+            persist(renewed)
+        } catch (failure: Exception) {
+            drop()
+            mutableExpirations.tryEmit(Unit)
+            throw failure
+        }
         session = renewed
-        persist(renewed)
         return renewed
     }
 
     private fun drop() {
         session = null
+        mutableTrackingGeneration.value = null
         storage.clear()
     }
 
     private fun persist(value: AuthSession) {
-        storage.write(buildJsonObject {
+        check(storage.write(buildJsonObject {
             put("access_token", value.accessToken)
             put("refresh_token", value.refreshToken)
             put("token_type", value.tokenType)
             put("expires_in", value.expiresInSeconds.toLong())
             put("expires_at", value.expiresAtMillis)
-        }.toString())
+        }.toString())) { "Could not persist the authenticated session" }
     }
 
     private fun decode(raw: String?): AuthSession? {

@@ -11,7 +11,7 @@ class ExistingScreensRenderingTest {
     fun rendersExistingScreensInEightDesignVariants() {
         val cases = mutableListOf(
             DesignCase("S01-SignIn") {
-                SignInScreen("", {}, "", {}, false, {}, {}, false, "", {}, {}, {}, {})
+                SignInScreen("", {}, "", {}, false, {}, {}, {}, false, "", {}, {}, {}, {})
             },
             DesignCase("S02-Registration") {
                 RegistrationScreen(remember { RegistrationViewModel() }, {})

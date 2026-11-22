@@ -17,6 +17,52 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GaragePersistenceTest {
+    @Test
+    fun savesAndEditsVehicleWithoutTrim() = runTest {
+        val service = FakeGarageService()
+        val bloc = AddVehicleBloc(service, ::testSession, backgroundScope)
+        prepare(bloc)
+        runCurrent()
+        assertFalse(bloc.state.value.canSubmit)
+        bloc.dispatch(AddVehicleEvent.SelectMake("1"))
+        runCurrent()
+        assertFalse(bloc.state.value.canSubmit)
+        bloc.dispatch(AddVehicleEvent.SelectModel("mo"))
+        runCurrent()
+        assertFalse(bloc.state.value.canSubmit)
+        bloc.dispatch(AddVehicleEvent.SelectYear(2021))
+        assertTrue(bloc.state.value.canSubmit)
+        bloc.dispatch(AddVehicleEvent.Submit)
+        runCurrent()
+        val request = assertNotNull(service.submittedVehicle)
+        assertNull(request.trimId)
+        assertEquals(kotlinx.serialization.json.JsonNull, request.vehicleData["trim"])
+        val added = assertNotNull(bloc.state.value.added)
+        bloc.dispatch(AddVehicleEvent.Close)
+        bloc.dispatch(AddVehicleEvent.Edit(added))
+        runCurrent()
+        assertNull(bloc.state.value.equipment.selectedTrim)
+        assertTrue(bloc.state.value.canSubmit)
+        bloc.dispatch(AddVehicleEvent.Submit)
+        runCurrent()
+        assertEquals(added.id, service.updatedVehicleId)
+        assertNull(service.submittedVehicle?.trimId)
+    }
+
+    @Test
+    fun rpcOmitsTrimIdForVehicleWithoutTrim() = runTest {
+        val snapshot = raw("""{"make":{"id":"1","name":"Toyota"},"model":{"id":"mo","name":"Focus"},"year":2021,"trim":null,"bodies":[]}""")
+        val service = RpcGarageService { method, paramsJson ->
+            assertEquals("garage.vehicles.add", method)
+            val params = raw(paramsJson)
+            assertFalse("trim_id" in params)
+            assertEquals(snapshot, params["vehicle"])
+            """{"vehicle":{"id":"saved","name":"Toyota Focus · 2021","category":"passenger","vehicle":$snapshot}}"""
+        }
+        val result = service.addVehicle(testSession(), NewVehicle("passenger", "1", "mo", 2021, null, snapshot))
+        assertEquals(snapshot, result.vehicleData)
+    }
+
     private fun raw(value: String) = Json.parseToJsonElement(value).jsonObject
 
     private fun prepare(bloc: AddVehicleBloc) {
@@ -154,9 +200,9 @@ class GaragePersistenceTest {
         runCurrent()
         bloc.dispatch(AddVehicleEvent.SelectYear(2021))
         runCurrent()
-        assertFalse(bloc.state.value.canSubmit)
+        assertTrue(bloc.state.value.canSubmit)
         bloc.dispatch(AddVehicleEvent.SelectEquipmentTrim("10"))
-        assertFalse(bloc.state.value.canSubmit)
+        assertTrue(bloc.state.value.canSubmit)
         runCurrent()
         assertTrue(bloc.state.value.canSubmit)
         service.failAddVehicle = true

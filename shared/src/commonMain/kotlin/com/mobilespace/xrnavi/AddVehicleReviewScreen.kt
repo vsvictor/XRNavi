@@ -12,7 +12,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun AddVehicleReviewScreen(vehicle: GarageVehicle, updated: Boolean = false, onDone: () -> Unit) {
+internal fun AddVehicleReviewScreen(
+    vehicle: GarageVehicle,
+    updated: Boolean = false,
+    onDone: () -> Unit,
+) {
     Column(
         Modifier.fillMaxWidth().testTag("add-vehicle-review"),
         verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -24,6 +24,7 @@ internal data class AuthenticatedAccountState(
     val expired: Boolean = false,
     val restoring: Boolean = false,
     val profileTab: ProfileAccountTab = ProfileAccountTab.Personal,
+    val sessionPersistenceFailed: Boolean = false,
 ) {
     override fun toString(): String = "AuthenticatedAccountState(mode=$mode, loading=$loading)"
 }
@@ -56,6 +57,7 @@ internal class AuthenticatedAccountBloc(
     fun currentSession(): AuthSession? = sessions.current() ?: session
     private var request: Job? = null
     private var expiry: Job? = null
+    private var sessionTransition: Job? = null
 
     init {
         scope.launch { sessions.expirations.collect { expireSession() } }
@@ -65,13 +67,23 @@ internal class AuthenticatedAccountBloc(
         when (event) {
             is AuthenticatedAccountEvent.LoginCompleted -> {
                 clearSession()
-                session = event.session
-                mutableState.value = AuthenticatedAccountState(mode = AccountMode.Authenticated)
-                scope.launch { sessions.start(event.session) }
-                scheduleRefresh(event.session.expiresInSeconds.coerceAtMost(
-                    (Long.MAX_VALUE / 1000).toULong()
-                ).toLong() * 1000)
-                loadProfile()
+                sessionTransition?.cancel()
+                sessionTransition = scope.launch {
+                    try {
+                        sessions.start(event.session)
+                        currentCoroutineContext().ensureActive()
+                        session = event.session
+                        mutableState.value = AuthenticatedAccountState(mode = AccountMode.Authenticated)
+                        scheduleRefresh(event.session.expiresInSeconds.coerceAtMost(
+                            (Long.MAX_VALUE / 1000).toULong()
+                        ).toLong() * 1000)
+                        loadProfile()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        mutableState.value = AuthenticatedAccountState(sessionPersistenceFailed = true)
+                    }
+                }
             }
             is AuthenticatedAccountEvent.OpenSection -> {
                 val current = mutableState.value
@@ -111,11 +123,14 @@ internal class AuthenticatedAccountBloc(
             AuthenticatedAccountEvent.RetryProfile -> loadProfile()
             AuthenticatedAccountEvent.ContinueWithoutLogin -> {
                 clearSession()
+                sessionTransition?.cancel()
+                sessionTransition = scope.launch { sessions.clear() }
                 mutableState.value = AuthenticatedAccountState(mode = AccountMode.Demo)
             }
             AuthenticatedAccountEvent.Logout -> {
                 clearSession()
-                scope.launch { sessions.clear() }
+                sessionTransition?.cancel()
+                sessionTransition = scope.launch { sessions.clear() }
                 mutableState.value = AuthenticatedAccountState()
             }
             AuthenticatedAccountEvent.Restore -> restore()

@@ -16,6 +16,7 @@ internal fun AccountPageLayout(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    hero: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -26,7 +27,7 @@ internal fun AccountPageLayout(
             Modifier.widthIn(max = 1120.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            AccountPageHero(title, onBack)
+            if (hero == null) AccountPageHero(title, onBack) else hero()
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),

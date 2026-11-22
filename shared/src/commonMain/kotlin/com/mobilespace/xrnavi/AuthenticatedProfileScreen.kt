@@ -23,6 +23,7 @@ internal fun AuthenticatedProfileScreen(
     selectedTab: ProfileAccountTab,
     onSelectTab: (ProfileAccountTab) -> Unit,
     onLogout: () -> Unit,
+    onRetryGarage: () -> Unit = onOpenGarage,
 ) {
     val identity: @Composable ColumnScope.() -> Unit = {
         AuthenticatedProfileIdentity(profile, layout)
@@ -32,6 +33,7 @@ internal fun AuthenticatedProfileScreen(
             garageState,
             onOpenGarage,
             onOpenVehicleDetails,
+            onRetryGarage,
         )
     }
     val statistics: @Composable ColumnScope.() -> Unit = {

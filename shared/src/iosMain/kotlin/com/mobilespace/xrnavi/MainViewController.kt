@@ -9,6 +9,8 @@ fun MainViewController(mapFactory: IosMapViewFactory, mapboxToken: String) = run
         locationProvider = IosLocationProvider(),
         sessionStorage = IosKeychainSessionStorage(),
         deviceIdStorage = IosKeychainSessionStorage(account = "device-id"),
+        vehiclePhotoStorage = IosKeychainSessionStorage(account = "vehicle-photos"),
+        trackingRuntimeFactory = { IosAppTrackingRuntime(it) },
     )
     ComposeUIViewController { App(dependencies) }
 }

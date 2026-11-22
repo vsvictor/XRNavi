@@ -15,12 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import xrnavi.shared.generated.resources.Res
 import xrnavi.shared.generated.resources.garage_mustang_gt_hero
 
 @Composable
 internal fun GarageLandscapeLayout(
+    headerHeight: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Row(
@@ -50,7 +52,7 @@ internal fun GarageLandscapeLayout(
             )
         }
         Column(
-            Modifier.weight(1.6f),
+            Modifier.weight(1.6f).padding(top = headerHeight),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )

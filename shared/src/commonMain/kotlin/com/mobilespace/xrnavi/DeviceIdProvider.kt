@@ -14,7 +14,7 @@ internal class StoredDeviceIdProvider(private val storage: SecureSessionStorage)
     override fun deviceId(): String {
         storage.read()?.takeIf { it.isNotBlank() }?.let { return it }
         val created = Uuid.random().toString()
-        storage.write(created)
+        check(storage.write(created)) { "Could not persist the installation ID" }
         return created
     }
 }

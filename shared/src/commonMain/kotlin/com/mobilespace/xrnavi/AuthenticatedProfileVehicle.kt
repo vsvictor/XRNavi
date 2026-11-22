@@ -32,6 +32,7 @@ internal fun AuthenticatedProfileVehicle(
     state: GarageState,
     onOpenGarage: () -> Unit,
     onOpenVehicleDetails: (String) -> Unit,
+    onRetryGarage: () -> Unit = onOpenGarage,
 ) {
     val activeVehicle = state.active
     Column(
@@ -123,6 +124,12 @@ internal fun AuthenticatedProfileVehicle(
                         }
 
                         state.loadFailed || state.error.isNotEmpty() -> {
+                            Text(
+                                state.error.ifEmpty { "Не вдалося завантажити гараж. Спробуйте ще раз." },
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.testTag("profile-garage-error"),
+                            )
+                            TextButton(onClick = onRetryGarage) { Text("Повторити") }
                             TextButton(onClick = onOpenGarage) { Text("Перейти до гаража") }
                         }
 

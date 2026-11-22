@@ -9,6 +9,9 @@ import kotlin.time.Clock
 
 internal class GeoViewModel(provider: LocationProvider) : ViewModel() {
     val bloc = GeoBloc(provider, viewModelScope, { Clock.System.now().toEpochMilliseconds() })
+    init {
+        bloc.dispatch(GeoEvent.Observe)
+    }
 }
 
 internal fun geoViewModelFactory(provider: LocationProvider): ViewModelProvider.Factory =

@@ -26,19 +26,10 @@ internal data class GeoCardContent(
 )
 
 internal fun geoCardContent(state: GeoState): GeoCardContent? = when (state.phase) {
-    GeoPhase.Reliable -> null
+    GeoPhase.Reliable, GeoPhase.Acquiring, GeoPhase.TimedOut -> null
     GeoPhase.Unknown -> if (!state.active) null else GeoCardContent(
         "Очікуємо дозвіл",
         "Підтвердьте запит системи на доступ до геолокації або вкажіть початок вручну.",
-    )
-    GeoPhase.Acquiring -> GeoCardContent(
-        "Очікуємо позицію",
-        "Визначаємо місцезнаходження… Зачекайте на надійну позицію або вкажіть початок вручну.",
-    )
-    GeoPhase.TimedOut -> GeoCardContent(
-        "Позицію не визначено",
-        "Надійної позиції поки немає. Спробуйте ще раз або вкажіть початок вручну.",
-        "Повторити", GeoEvent.Locate,
     )
     GeoPhase.Denied -> GeoCardContent(
         "Немає доступу до геолокації",

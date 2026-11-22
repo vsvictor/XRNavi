@@ -30,6 +30,16 @@ class SignInAuthServiceTest {
     }
 
     @Test
+    fun sendsGoogleIdTokenToLoginWithGoogle() = runTest {
+        val service = RpcSignInAuthService { method, params ->
+            assertEquals("auth.loginWithGoogle", method)
+            assertEquals(buildJsonObject { put("id_token", "google.jwt") }, Json.parseToJsonElement(params))
+            """{"access_token":"a","refresh_token":"r","token_type":"Bearer","expires_in":60}"""
+        }
+        assertEquals("a", service.loginWithGoogle("google.jwt").accessToken)
+    }
+
+    @Test
     fun rejectsMalformedMissingAndWronglyTypedTokenFields() = runTest {
         val valid = """{"access_token":"a","refresh_token":"r","token_type":"Bearer","expires_in":3600}"""
         val invalid = listOf(

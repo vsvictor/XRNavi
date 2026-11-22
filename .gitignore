@@ -28,3 +28,9 @@ tokens.dat
 mapbox.local.properties
 iosApp/Mapbox.local.xcconfig
 /.test-account.json
+
+# CoopNav dataset artifacts
+/tools/coopnav-dataset/data/
+/tools/coopnav-dataset/.cache/
+/tools/coopnav-dataset/.venv/
+/tools/coopnav-dataset/__pycache__/

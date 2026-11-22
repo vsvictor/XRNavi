@@ -4,7 +4,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +24,14 @@ internal fun XrnaviApplication(
 ) {
     val accountBloc = accountViewModel.bloc
     val accountState by accountBloc.state.collectAsStateWithLifecycle()
+    val garageViewModel: GarageViewModel = viewModel(
+        factory = remember(dependencies, accountBloc) {
+            garageViewModelFactory(dependencies.garageService, accountBloc::currentSession)
+        }
+    )
+    LaunchedEffect(accountState.mode, garageViewModel) {
+        if (accountState.mode != AccountMode.Authenticated) garageViewModel.bloc.dispatch(GarageEvent.Clear)
+    }
     val signInViewModel: SignInViewModel = viewModel(
         factory = remember(dependencies, accountBloc) {
             signInViewModelFactory(dependencies.signInAuthService) {
@@ -34,6 +41,9 @@ internal fun XrnaviApplication(
     )
     val signInBloc = signInViewModel.bloc
     val signInState by signInBloc.state.collectAsStateWithLifecycle()
+    LaunchedEffect(accountState.sessionPersistenceFailed) {
+        if (accountState.sessionPersistenceFailed) signInBloc.dispatch(SignInEvent.Cancel)
+    }
     val selectEmailAccount = rememberEmailAccountPicker(
         onSelected = { signInBloc.dispatch(SignInEvent.AccountSelected(it)) },
         onFailure = { signInBloc.dispatch(SignInEvent.AccountSelectionFailed(it)) },
@@ -42,6 +52,16 @@ internal fun XrnaviApplication(
         if (signInState.accountPickerRequested) {
             signInBloc.dispatch(SignInEvent.AccountPickerLaunched)
             selectEmailAccount()
+        }
+    }
+    val requestGoogleIdToken = rememberGoogleIdTokenProvider(
+        onToken = { signInBloc.dispatch(SignInEvent.GoogleTokenReceived(it)) },
+        onFailure = { signInBloc.dispatch(SignInEvent.GoogleFailed(it)) },
+    )
+    LaunchedEffect(signInState.googleRequested) {
+        if (signInState.googleRequested) {
+            signInBloc.dispatch(SignInEvent.GoogleLaunched)
+            requestGoogleIdToken()
         }
     }
     val registrationViewModel: RegistrationViewModel = viewModel(
@@ -133,62 +153,11 @@ internal fun XrnaviApplication(
         )
     }
 
-    val rootSwipeEdgeSize = with(androidx.compose.ui.platform.LocalDensity.current) { 32.dp.toPx() }
     val exitApplication = rememberExitApplication()
-    val rootSwipeEnabled = accountState.mode == AccountMode.SignedOut ||
-        accountState.mode == AccountMode.Authenticated && screen == AppScreen.SavedPlaces ||
-        demoMode && (
-            additionalState.screen != null ||
-                app.sectionNavigation.section == DemoSection.Map ||
-                screen == AppScreen.SavedPlaces
-            )
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .safeDrawingPadding()
-            .then(
-                if (rootSwipeEnabled) Modifier.horizontalSwipeGesture { swipe ->
-                    val sectionTarget = if (
-                        screen == AppScreen.Map &&
-                        demoMode &&
-                        app.sectionNavigation.section == DemoSection.Map &&
-                        additionalState.screen == null
-                    ) primarySectionAfterSwipe(DemoSection.Map, swipe.direction()) else null
-                    when {
-                        additionalState.screen != null -> additionalBloc.dispatch(AdditionalNavigationEvent.Back)
-                        accountState.mode == AccountMode.Authenticated &&
-                            screen == AppScreen.SavedPlaces -> dispatch(DemoAppEvent.SavedPlacesClosed)
-                        screen == AppScreen.SignIn -> dispatch(DemoAppEvent.ExitConfirmationRequested)
-                        screen == AppScreen.Map && demoMode &&
-                            app.sectionNavigation.section == DemoSection.Map &&
-                            additionalState.screen == null &&
-                            swipe.startedAtEdge(rootSwipeEdgeSize) ->
-                            dispatch(DemoAppEvent.ExitConfirmationRequested)
-                        sectionTarget != null -> dispatch(DemoAppEvent.SectionOpened(sectionTarget))
-                        screen == AppScreen.Preview -> dispatch(DemoAppEvent.PreviewClosed)
-                        screen == AppScreen.Registration -> {
-                            registrationViewModel.cancel()
-                            dispatch(DemoAppEvent.ScreenChanged(AppScreen.SignIn))
-                        }
-                        screen == AppScreen.Recovery -> {
-                            recoveryViewModel.cancel()
-                            dispatch(DemoAppEvent.ScreenChanged(AppScreen.SignIn))
-                        }
-                        screen == AppScreen.RouteStops ->
-                            dispatch(DemoAppEvent.RouteStopsEditingCancelled)
-                        screen == AppScreen.RouteStopSearch ->
-                            dispatch(DemoAppEvent.RouteStopSearchCancelled)
-                        screen == AppScreen.RouteSettings ->
-                            dispatch(DemoAppEvent.RouteSettingsClosed)
-                        screen == AppScreen.Search -> dispatch(DemoAppEvent.SearchClosed)
-                        screen == AppScreen.StopPlaces ->
-                            dispatch(DemoAppEvent.StopPlacesDispatched(StopPlacesEvent.Back))
-                        screen == AppScreen.SavedPlaces ->
-                            dispatch(DemoAppEvent.SavedPlacesClosed)
-                    }
-                } else Modifier
-            )
     ) {
         val exitDemo = {
             signInViewModel.clearPassword()
@@ -221,13 +190,15 @@ internal fun XrnaviApplication(
                 mapFactory = dependencies.mapFactory,
                 routeService = dependencies.routePlanningService,
                 garageService = dependencies.garageService,
+                vehiclePhotoService = dependencies.vehiclePhotoService,
+                vehiclePhotoSelections = dependencies.vehiclePhotoSelections,
                 sessionProvider = accountBloc::currentSession,
+                garageViewModel = garageViewModel,
                 locationProvider = dependencies.locationProvider,
                 onToggleTheme = onToggleTheme,
                 onOpenSavedPlaces = {
                     dispatch(DemoAppEvent.SavedPlacesOpened(SavedPlacesOrigin.Profile, null))
                 },
-                onRequestExit = { dispatch(DemoAppEvent.ExitConfirmationRequested) },
             )
         } else if (additionalState.screen != null && demoMode) {
             AdditionalScreens(additionalState, additionalBloc::dispatch)
@@ -273,6 +244,7 @@ internal fun XrnaviApplication(
                     signInBloc.dispatch(SignInEvent.TogglePasswordVisibility)
                 },
                 onSelectAccount = { signInBloc.dispatch(SignInEvent.SelectAccount) },
+                onGoogleSignIn = { signInBloc.dispatch(SignInEvent.GoogleSignIn) },
                 submitting = signInState.submitting,
                 notice = signInState.notice,
                 onSignIn = { signInBloc.dispatch(SignInEvent.Submit) },
@@ -330,7 +302,6 @@ internal fun XrnaviApplication(
                 onUseLocation = {
                     additionalBloc.dispatch(AdditionalNavigationEvent.Open(AdditionalScreen.LocationEducation))
                 },
-                onSheetLevelChange = { dispatch(DemoAppEvent.SheetLevelChanged(it)) },
                 onPreview = { dispatch(DemoAppEvent.PreviewRequested) },
                 onStartRoute = { dispatch(DemoAppEvent.RouteStarted) },
                 onOpenRouteSettings = { dispatch(DemoAppEvent.RouteSettingsOpened) },

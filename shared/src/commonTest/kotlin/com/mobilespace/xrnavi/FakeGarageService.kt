@@ -54,9 +54,21 @@ internal class FakeGarageService : GarageService {
         GarageVehicle("t", "Volvo FH", "truck", VerificationStatus.Pending),
     )
     var active: String? = "a"
+    var vehicleListCalls = 0
+    var setActiveCalls = 0
+    var vehicleListResponse: kotlinx.coroutines.CompletableDeferred<GarageSnapshot>? = null
     private fun check() { if (fail) throw GarageException(GarageException.Kind.Failed) }
-    override suspend fun vehicles(session: AuthSession): GarageSnapshot { check(); return GarageSnapshot(vehicles, active) }
-    override suspend fun setActive(session: AuthSession, vehicleId: String): String { check(); active = vehicleId; return vehicleId }
+    override suspend fun vehicles(session: AuthSession): GarageSnapshot {
+        vehicleListCalls++
+        check()
+        return vehicleListResponse?.await() ?: GarageSnapshot(vehicles, active)
+    }
+    override suspend fun setActive(session: AuthSession, vehicleId: String): String {
+        setActiveCalls++
+        check()
+        active = vehicleId
+        return vehicleId
+    }
     override suspend fun classes(session: AuthSession): List<VehicleClassItem> { check(); return catalogClasses }
     override suspend fun makes(session: AuthSession, classId: String): List<VehicleMake> {
         check()

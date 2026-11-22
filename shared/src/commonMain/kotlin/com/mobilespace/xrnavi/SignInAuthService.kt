@@ -20,6 +20,9 @@ internal class InvalidAuthResponseException : Exception("Invalid auth.login resp
 
 internal fun interface SignInAuthService {
     suspend fun login(email: String, password: String): AuthSession
+
+    suspend fun loginWithGoogle(idToken: String): AuthSession =
+        throw UnsupportedOperationException("Google sign-in is not supported")
 }
 
 internal fun interface SessionRefreshService {
@@ -49,6 +52,23 @@ internal class RpcSignInAuthService(
             }
         }
         return parse(call("auth.login", params.toString()))
+    }
+
+    override suspend fun loginWithGoogle(idToken: String): AuthSession {
+        val params = buildJsonObject {
+            put("id_token", idToken)
+            deviceIdProvider?.let { provider ->
+                put("device", buildJsonObject {
+                    put("deviceId", provider.deviceId())
+                    val os = osInfoProvider.osInfo()
+                    put("os", buildJsonObject {
+                        put("name", os.name)
+                        put("version", os.version)
+                    })
+                })
+            }
+        }
+        return parse(call("auth.loginWithGoogle", params.toString()))
     }
 
     override suspend fun refresh(refreshToken: String): AuthSession =

@@ -5,8 +5,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -62,10 +60,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -111,6 +105,7 @@ internal fun SignInScreen(
     passwordVisible: Boolean,
     onTogglePasswordVisibility: () -> Unit,
     onSelectAccount: () -> Unit,
+    onGoogleSignIn: () -> Unit,
     submitting: Boolean,
     notice: String,
     onSignIn: () -> Unit,
@@ -182,6 +177,7 @@ internal fun SignInScreen(
                     passwordVisible = passwordVisible,
                     onTogglePasswordVisibility = onTogglePasswordVisibility,
                     onSelectAccount = onSelectAccount,
+                    onGoogleSignIn = onGoogleSignIn,
                     submitting = submitting,
                     notice = notice,
                     onSignIn = onSignIn,
@@ -225,6 +221,7 @@ internal fun SignInScreen(
                     passwordVisible = passwordVisible,
                     onTogglePasswordVisibility = onTogglePasswordVisibility,
                     onSelectAccount = onSelectAccount,
+                    onGoogleSignIn = onGoogleSignIn,
                     submitting = submitting,
                     notice = notice,
                     onSignIn = onSignIn,

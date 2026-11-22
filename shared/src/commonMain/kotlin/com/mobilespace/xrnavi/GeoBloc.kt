@@ -33,7 +33,7 @@ internal data class GeoState(
             permission == LocationPermission.PermanentlyDenied -> GeoPhase.PermanentlyDenied
             permission == LocationPermission.NotDetermined -> GeoPhase.Unknown
             !serviceEnabled -> GeoPhase.ServiceOff
-            fix != null -> if (now - fix.timestampMillis <= staleAfterMillis) GeoPhase.Reliable else GeoPhase.Stale
+            fix != null -> if (now - fix.timestampMillis in 0..staleAfterMillis) GeoPhase.Reliable else GeoPhase.Stale
             !active -> GeoPhase.Unknown
             now - acquiringSince > acquireTimeoutMillis -> GeoPhase.TimedOut
             else -> GeoPhase.Acquiring
@@ -44,6 +44,8 @@ internal data class GeoState(
 }
 
 internal sealed interface GeoEvent {
+    /** Observe the app's shared tracker without triggering another permission prompt. */
+    data object Observe : GeoEvent
     /** The user asked for the current place (locate button or "my location" origin). */
     data object Locate : GeoEvent
     data object Refresh : GeoEvent
@@ -82,6 +84,10 @@ internal class GeoBloc(
 
     fun dispatch(event: GeoEvent) {
         when (event) {
+            GeoEvent.Observe -> {
+                mutableState.value = mutableState.value.copy(active = true, acquiringSince = clock(), now = clock())
+                reconcile()
+            }
             GeoEvent.Locate -> {
                 val current = mutableState.value
                 if (current.permission == LocationPermission.NotDetermined) provider.requestPermission()
@@ -105,6 +111,7 @@ internal class GeoBloc(
         val collecting = current.active &&
             current.permission == LocationPermission.Granted && current.serviceEnabled
         if (!collecting) {
+            mutableState.value = current.copy(fix = null)
             fixJob?.cancel(); fixJob = null
             tickJob?.cancel(); tickJob = null
             return
@@ -112,7 +119,7 @@ internal class GeoBloc(
         if (fixJob == null) fixJob = scope.launch {
             provider.fixes().collect { fix ->
                 val latest = mutableState.value
-                if (latest.fix == null || fix.timestampMillis >= latest.fix.timestampMillis) {
+                if (fix == null || latest.fix == null || fix.timestampMillis >= latest.fix.timestampMillis) {
                     mutableState.value = latest.copy(fix = fix, now = clock())
                 }
             }

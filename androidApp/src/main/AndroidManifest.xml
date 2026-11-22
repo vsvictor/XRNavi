@@ -8,12 +8,15 @@
 
     <application
         android:name=".XrnaviAndroidApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Xrnavi.Starting">
+        <meta-data
+            android:name="com.mobilespace.xrnavi.GOOGLE_WEB_CLIENT_ID"
+            android:value="${googleWebClientId}" />
         <activity
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"

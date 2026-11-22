@@ -461,6 +461,7 @@ class ProfileRedesignRenderingTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.context
         val opened = AtomicBoolean(false)
+        val retried = AtomicBoolean(false)
         val scenario = ActivityScenario.launch<DesignCaptureActivity>(
             Intent(
                 context,
@@ -477,6 +478,7 @@ class ProfileRedesignRenderingTest {
                                 garage,
                                 onOpenGarage = { opened.set(true) },
                                 onOpenVehicleDetails = {},
+                                onRetryGarage = { retried.set(true) },
                             )
                         }
                     }
@@ -493,8 +495,15 @@ class ProfileRedesignRenderingTest {
                 root = instrumentation.uiAutomation.rootInActiveWindow
             }
             root = requireNotNull(root) { "Profile preview must be in the foreground" }
-            assertFalse(find(root) { it.text?.toString() == "Гараж недоступний" } != null)
+            assertNotNull(find(root) { it.text?.toString() == "Гараж недоступний" })
             assertFalse(find(root) { it.text?.toString() == "Ваш гараж ще порожній" } != null)
+            val retry = find(root) {
+                it.isClickable && find(it) { child -> child.text?.toString() == "Повторити" } != null
+            }
+            assertNotNull(retry)
+            assertTrue(retry!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            instrumentation.waitForIdleSync()
+            assertTrue(retried.get())
             val button = find(root) {
                 it.isClickable && find(it) { child -> child.text?.toString() == "Перейти до гаража" } != null
             }

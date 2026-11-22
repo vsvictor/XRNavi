@@ -30,7 +30,6 @@ internal fun AdditionalMapPreview(
         onOpenRouteStops = { unavailable("Зупинки у прикладі") },
         onOpenStopPlaces = { unavailable("Місця зупинки у прикладі") },
         onUseLocation = { open(AdditionalScreen.LocationEducation) },
-        onSheetLevelChange = {},
         onPreview = { open(AdditionalScreen.RouteBuilding) },
         onStartRoute = { unavailable("Навігація") },
         onOpenRouteSettings = { unavailable("Параметри у прикладі") },

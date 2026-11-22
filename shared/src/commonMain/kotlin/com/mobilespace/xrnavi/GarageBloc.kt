@@ -36,6 +36,7 @@ internal data class GarageState(
 
 internal sealed interface GarageEvent {
     data object Load : GarageEvent
+    data object ProfileOpened : GarageEvent
     data object Clear : GarageEvent
     data class Select(val vehicleId: String) : GarageEvent
     data class FilterChanged(val category: String?) : GarageEvent
@@ -53,12 +54,17 @@ internal class GarageBloc(
     val state = mutableState.asStateFlow()
     private var job: Job? = null
     private var request: Any? = null
+    private var pendingLoad = false
 
     fun dispatch(event: GarageEvent) {
         when (event) {
             GarageEvent.Load -> load()
+            GarageEvent.ProfileOpened -> {
+                if (!mutableState.value.loaded && !mutableState.value.loading) load()
+            }
             GarageEvent.Clear -> {
                 request = null
+                pendingLoad = false
                 job?.cancel()
                 job = null
                 mutableState.value = GarageState()
@@ -85,8 +91,11 @@ internal class GarageBloc(
     }
 
     private fun load() {
+        if (mutableState.value.loading) {
+            pendingLoad = true
+            return
+        }
         val session = sessionProvider() ?: return fail("Сесія завершилась. Увійдіть знову.")
-        if (mutableState.value.loading) return
         val identity = Any()
         request = identity
         mutableState.value = mutableState.value.copy(loading = true, error = "", loadFailed = false)
@@ -107,6 +116,7 @@ internal class GarageBloc(
                 fail("Не вдалося завантажити гараж. Перевірте з'єднання та повторіть.")
                 mutableState.value = mutableState.value.copy(loadFailed = true)
             }
+            loadPending(identity)
         }
     }
 
@@ -128,6 +138,7 @@ internal class GarageBloc(
                 if (request !== identity) return@launch
                 fail("Не вдалося вибрати авто. Попередній вибір збережено.")
             }
+            loadPending(identity)
         }
     }
 
@@ -156,6 +167,14 @@ internal class GarageBloc(
             } catch (_: Exception) {
                 if (request === identity) fail("Не вдалося видалити авто. Повторіть.")
             }
+            loadPending(identity)
+        }
+    }
+
+    private fun loadPending(identity: Any) {
+        if (request === identity && pendingLoad) {
+            pendingLoad = false
+            load()
         }
     }
 }

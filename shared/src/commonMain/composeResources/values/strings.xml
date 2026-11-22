@@ -1,0 +1,5 @@
+<resources>
+    <string name="session_persistence_failed">Could not securely save the session. Please sign in again.</string>
+    <string name="tracker_registration_failed">Tracking could not be registered. Your account remains signed in; registration will retry.</string>
+    <string name="tracker_retry">Retry</string>
+</resources>

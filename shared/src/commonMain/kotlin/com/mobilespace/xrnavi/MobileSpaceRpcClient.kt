@@ -69,6 +69,11 @@ internal class MobileSpaceRpcClient(
         return active.filterNotNull().first().client
     }
 
+    suspend fun awaitQuicClient(): JsonRpcClient {
+        start()
+        return active.filterNotNull().first { it.transport == RpcTransport.QUIC }.client
+    }
+
     private suspend fun runConnections() {
         var nextTransport = 0
         var owned: RpcConnection? = null

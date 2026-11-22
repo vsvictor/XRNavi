@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import xrnavi.shared.generated.resources.Res
 import xrnavi.shared.generated.resources.map_layers_dark
 import xrnavi.shared.generated.resources.map_layers_light
@@ -30,11 +31,15 @@ internal fun AuthenticatedMapScreen(
     expired: Boolean,
     onProfile: () -> Unit,
     modifier: Modifier = Modifier,
+    headerHeight: Dp = 0.dp,
 ) {
     val dark = isDarkXrnaviTheme()
     LaunchedEffect(dark) { dispatch(MapEvent.StyleChanged) }
     val ready = routeState.status as? RouteStatus.Ready
     val userPoint = geoState.reliableFix?.point
+    LaunchedEffect(userPoint) {
+        if (userPoint != null) dispatch(MapEvent.FirstLocationAvailable(userPoint))
+    }
     val overlay = remember(routeState.origin, routeState.destination, ready, userPoint) {
         MapOverlay(
             user = userPoint,
@@ -47,7 +52,7 @@ internal fun AuthenticatedMapScreen(
     Box(modifier.testTag("authenticated-map")) {
         NativeMap(factory, state, overlay, dark, dispatch, Modifier.fillMaxSize())
         Column(
-            Modifier.align(Alignment.TopCenter).padding(12.dp),
+            Modifier.align(Alignment.TopCenter).padding(start = 12.dp, end = 12.dp, top = headerHeight + 12.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (routeState.editing == null) {
@@ -78,7 +83,7 @@ internal fun AuthenticatedMapScreen(
         }
         RouteSheet(
             routeState, routeDispatch, geoState.reliableFix != null,
-            Modifier.align(Alignment.BottomCenter),
+            Modifier.align(Alignment.BottomCenter).padding(top = headerHeight),
         )
     }
 }

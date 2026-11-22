@@ -108,12 +108,12 @@ class VehicleVinEquipmentTest {
         runCurrent()
         assertNull(bloc.state.value.equipment.selectedTrim)
         assertTrue(bloc.state.value.equipment.vinNotice.isNotEmpty())
-        assertFalse(bloc.state.value.canSubmit)
+        assertTrue(bloc.state.value.canSubmit)
         assertNull(service.requestedBodyTrim)
     }
 
     @Test
-    fun failedVinTechnicalFetchKeepsRetryAndCannotSave() = runTest {
+    fun failedVinTechnicalFetchKeepsRetryAndCanSaveBasicData() = runTest {
         val service = FakeGarageService().apply {
             equipmentTrimsResult = listOf(trim)
             failBodies = true
@@ -124,7 +124,7 @@ class VehicleVinEquipmentTest {
         bloc.dispatch(AddVehicleEvent.VinChanged("1GTG6CEN0L1139305"))
         bloc.dispatch(AddVehicleEvent.SearchVin)
         runCurrent()
-        assertFalse(bloc.state.value.canSubmit)
+        assertTrue(bloc.state.value.canSubmit)
         assertTrue(bloc.state.value.equipment.bodiesError.isNotEmpty())
         service.failBodies = false
         bloc.dispatch(AddVehicleEvent.RetryEquipmentBodies)

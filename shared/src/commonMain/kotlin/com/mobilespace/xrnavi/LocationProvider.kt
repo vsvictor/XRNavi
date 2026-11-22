@@ -7,7 +7,13 @@ import kotlinx.coroutines.flow.emptyFlow
 
 enum class LocationPermission { NotDetermined, Granted, Denied, PermanentlyDenied }
 
-data class DeviceFix(val point: GeoPoint, val timestampMillis: Long)
+data class DeviceFix(
+    val point: GeoPoint,
+    val timestampMillis: Long,
+    val accuracyMeters: Double? = null,
+    val bearingDegrees: Double? = null,
+    val speedMps: Double? = null,
+)
 
 /** Platform geolocation. Implemented natively on Android and iOS and injected through [AppDependencies]. */
 interface LocationProvider {
@@ -22,8 +28,8 @@ interface LocationProvider {
     fun openAppSettings()
     fun openLocationSettings()
 
-    /** Emits fixes (the last known one first, with its original timestamp) while collected. */
-    fun fixes(): Flow<DeviceFix>
+    /** Emits fixes with their original timestamps; null invalidates a previously delivered fix. */
+    fun fixes(): Flow<DeviceFix?>
 }
 
 /** Used when no native provider is injected (previews, tests): the state stays honestly unknown. */

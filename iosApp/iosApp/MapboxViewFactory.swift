@@ -1,4 +1,5 @@
 import UIKit
+import Combine
 import MapboxMaps
 import Shared
 
@@ -6,9 +7,10 @@ final class MapboxViewFactory: IosMapViewFactory {
     func create(
         camera: MapCamera,
         status: @escaping (KotlinInt, MapLoadStatus) -> Void,
-        cameraChanged: @escaping (MapCamera) -> Void
+        cameraChanged: @escaping (MapCamera) -> Void,
+        initialRecenterHandled: @escaping (KotlinInt) -> Void
     ) -> IosMapView {
-        MapboxNativeView(camera: camera, status: status, cameraChanged: cameraChanged)
+        MapboxNativeView(camera: camera, status: status, cameraChanged: cameraChanged, initialRecenterHandled: initialRecenterHandled)
     }
 }
 
@@ -20,24 +22,40 @@ private final class MapboxNativeView: IosMapView {
     private var subscriptions: [AnyCancelable] = []
     private var active = true
     private var styleReady = false
-    private var overlay = MapOverlay(route: [], origin: nil, destination: nil, user: nil)
+    private var mapLoaded = false
+    private var pendingInitialRecenter: (id: Int32, target: GeoPoint)?
+    private var overlay = MapOverlay(route: [], origin: nil, destination: nil, user: nil, location: nil)
+    private let trackerLocations = TrackerMapboxLocationProvider()
     private var fittedRoute: [GeoPoint] = []
     private let status: (KotlinInt, MapLoadStatus) -> Void
+    private let initialRecenterHandled: (KotlinInt) -> Void
 
     init(
         camera: MapCamera,
         status: @escaping (KotlinInt, MapLoadStatus) -> Void,
-        cameraChanged: @escaping (MapCamera) -> Void
+        cameraChanged: @escaping (MapCamera) -> Void,
+        initialRecenterHandled: @escaping (KotlinInt) -> Void
     ) {
         self.status = status
+        self.initialRecenterHandled = initialRecenterHandled
         mapView = MapView(frame: .zero, mapInitOptions: MapInitOptions(
             cameraOptions: CameraOptions(
                 center: CLLocationCoordinate2D(latitude: camera.latitude, longitude: camera.longitude),
                 zoom: camera.zoom, bearing: camera.bearing, pitch: camera.pitch
             )
         ))
+        var ornamentOptions = mapView.ornaments.options
+        ornamentOptions.scaleBar.visibility = .hidden
+        mapView.ornaments.options = ornamentOptions
+        mapView.location.dataModel = LocationDataModel(
+            location: trackerLocations.publisher,
+            heading: Empty().eraseToAnyPublisher()
+        )
+        mapView.location.options = LocationOptions(puckBearing: .course)
         subscriptions.append(mapView.mapboxMap.onMapLoaded.observe { [weak self] _ in
             guard let self, self.active else { return }
+            self.mapLoaded = true
+            self.runPendingInitialRecenter()
             self.status(KotlinInt(int: self.revision), .ready)
         })
         subscriptions.append(mapView.mapboxMap.onStyleLoaded.observe { [weak self] _ in
@@ -60,19 +78,36 @@ private final class MapboxNativeView: IosMapView {
     }
 
     func update(
-        dark: Bool, satellite: Bool, revision: Int32, command: MapCommand, commandId: Int32, overlay: MapOverlay
+        dark: Bool, satellite: Bool, revision: Int32, command: MapCommand, commandId: Int32,
+        initialRecenterTarget: GeoPoint?, overlay: MapOverlay
     ) {
         guard active else { return }
+        if self.overlay.location != overlay.location {
+            trackerLocations.update(overlay.location)
+            if overlay.location != nil {
+                var puck = Puck2DConfiguration.makeDefault(showBearing: overlay.location?.bearingDegrees != nil)
+                puck.showsAccuracyRing = overlay.location?.accuracyMeters != nil
+                mapView.location.options.puckType = .puck2D(puck)
+            } else {
+                mapView.location.options.puckType = nil
+            }
+            mapView.location.options.puckBearingEnabled = overlay.location?.bearingDegrees != nil
+        }
         if self.revision != revision {
             self.revision = revision
             styleReady = false
+            mapLoaded = false
             mapView.mapboxMap.loadStyle(satellite ? .satelliteStreets : (dark ? .dark : .light))
         }
         if self.overlay != overlay {
+            let geometryChanged = self.overlay.route != overlay.route ||
+                self.overlay.origin != overlay.origin || self.overlay.destination != overlay.destination
             self.overlay = overlay
-            drawOverlay()
+            if geometryChanged { drawOverlay() }
         }
-        if let previous = self.commandId, previous != commandId {
+        if self.commandId != commandId && (self.commandId != nil || command.name == "InitialRecenter") {
+            self.commandId = commandId
+            pendingInitialRecenter = nil
             let zoom = mapView.mapboxMap.cameraState.zoom
             if command.name == "ZoomIn" {
                 mapView.mapboxMap.setCamera(to: CameraOptions(zoom: min(22, zoom + 1)))
@@ -86,9 +121,25 @@ private final class MapboxNativeView: IosMapView {
                     ),
                     zoom: target == nil ? 11 : 14, bearing: 0, pitch: 0
                 ))
+            } else if command.name == "InitialRecenter" {
+                guard let target = initialRecenterTarget else {
+                    preconditionFailure("Initial recenter requires a target")
+                }
+                pendingInitialRecenter = (commandId, target)
+                runPendingInitialRecenter()
             }
         }
         self.commandId = commandId
+    }
+
+    private func runPendingInitialRecenter() {
+        guard mapLoaded, let pending = pendingInitialRecenter else { return }
+        pendingInitialRecenter = nil
+        mapView.camera.fly(to: CameraOptions(
+            center: CLLocationCoordinate2D(latitude: pending.target.latitude, longitude: pending.target.longitude),
+            zoom: 14, bearing: 0, pitch: 0
+        ), duration: 1.2)
+        initialRecenterHandled(KotlinInt(int: pending.id))
     }
 
     private func drawOverlay() {
@@ -124,11 +175,6 @@ private final class MapboxNativeView: IosMapView {
             feature.properties = ["pin-color": .string("#E5484D")]
             features.append(feature)
         }
-        if let user = overlay.user {
-            var feature = Feature(geometry: .point(Point(CLLocationCoordinate2D(latitude: user.latitude, longitude: user.longitude))))
-            feature.properties = ["pin-color": .string("#2F7BFF")]
-            features.append(feature)
-        }
         if !features.isEmpty {
             var source = GeoJSONSource(id: "xrnavi-pins-source")
             source.data = .featureCollection(FeatureCollection(features: features))
@@ -156,6 +202,8 @@ private final class MapboxNativeView: IosMapView {
 
     func dispose() {
         active = false
+        trackerLocations.update(nil)
+        mapView.location.options.puckType = nil
         subscriptions.forEach { $0.cancel() }
         subscriptions.removeAll()
         mapView.removeFromSuperview()

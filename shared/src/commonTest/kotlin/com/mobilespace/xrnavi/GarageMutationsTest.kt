@@ -79,7 +79,7 @@ class GarageMutationsTest {
         val bloc = AddVehicleBloc(service, ::testSession, backgroundScope)
         bloc.dispatch(AddVehicleEvent.Edit(savedVehicle()))
         runCurrent()
-        assertFalse(bloc.state.value.canSubmit)
+        assertTrue(bloc.state.value.canSubmit)
         assertTrue(bloc.state.value.editCatalogError.isNotEmpty())
         service.failModels = false
         val deferred = CompletableDeferred<List<VehicleEquipmentTrim>>()

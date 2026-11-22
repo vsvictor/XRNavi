@@ -23,7 +23,11 @@ internal fun GarageVehicle.editState(): AddVehicleState {
 
     val makeRecord = objectField("make")
     val modelRecord = objectField("model")
-    val trimRecord = objectField("trim")
+    val trimRecord = when (val value = snapshot["trim"]) {
+        null, JsonNull -> null
+        is JsonObject -> value
+        else -> throw GarageException(GarageException.Kind.InvalidResponse)
+    }
     val make = VehicleMake(
         makeRecord.text("id"),
         makeRecord.text("name"),
@@ -38,20 +42,27 @@ internal fun GarageVehicle.editState(): AddVehicleState {
         emptyList(),
         modelRecord["raw_data"] as? JsonObject
     )
-    val trim = VehicleEquipmentTrim(
-        trimRecord.text("id"),
-        trimRecord.text("name"),
-        trimRecord["raw_data"] as? JsonObject ?: JsonObject(emptyMap())
-    )
+    val trim = trimRecord?.let {
+        VehicleEquipmentTrim(
+            it.text("id"),
+            it.text("name"),
+            it["raw_data"] as? JsonObject ?: JsonObject(emptyMap())
+        )
+    }
     val details = VehicleEquipmentDetails(
         records("bodies"), records("engines"), records("mileages"),
         records("exterior_colors"), records("interior_colors"),
         snapshot["equipment_data"] as? JsonObject ?: JsonObject(emptyMap()),
     )
     var equipment = VehicleEquipmentState(
-        trims = listOf(trim), selectedTrim = trim, trimQuery = trim.name,
-        trimCursor = TextRange(trim.name.length), configurations = listOf(details),
-        bodies = details.bodies, engines = details.engines, mileages = details.mileages,
+        trims = listOfNotNull(trim),
+        selectedTrim = trim,
+        trimQuery = trim?.name.orEmpty(),
+        trimCursor = TextRange(trim?.name?.length ?: 0),
+        configurations = if (trim != null) listOf(details) else emptyList(),
+        bodies = details.bodies,
+        engines = details.engines,
+        mileages = details.mileages,
     )
     val colors = listOf(
         VehicleConfigurationField.ExteriorColor to "selected_exterior_color",

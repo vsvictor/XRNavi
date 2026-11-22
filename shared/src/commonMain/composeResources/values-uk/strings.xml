@@ -1,0 +1,5 @@
+<resources>
+    <string name="session_persistence_failed">Не вдалося безпечно зберегти сесію. Увійдіть знову.</string>
+    <string name="tracker_registration_failed">Не вдалося зареєструвати трекінг. Вхід збережено; реєстрація повториться.</string>
+    <string name="tracker_retry">Повторити</string>
+</resources>

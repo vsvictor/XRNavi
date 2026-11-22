@@ -37,3 +37,9 @@ include(":androidApp")
 include(":shared")
 include(":jsonRpcClient")
 project(":jsonRpcClient").projectDir = file("external/JSON-RPC-2-Client-KMP")
+
+val trackerBuild = "external/ExKMPTracker"
+require(file(trackerBuild).resolve("settings.gradle.kts").isFile) {
+    "ExKMPTracker submodule not initialized. Run: git submodule update --init --recursive"
+}
+includeBuild(trackerBuild)

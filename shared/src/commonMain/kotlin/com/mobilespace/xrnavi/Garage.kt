@@ -49,7 +49,7 @@ internal data class NewVehicle(
     val makeId: String,
     val modelId: String,
     val year: Int,
-    val trimId: String,
+    val trimId: String?,
     val vehicleData: JsonObject,
 )
 

@@ -21,16 +21,27 @@ internal fun GarageListContent(
     onOpenDetails: (String) -> Unit,
     onEditVehicle: (GarageVehicle) -> Unit,
     showTitle: Boolean,
+    vehiclePhotos: Map<String, VehiclePhoto> = emptyMap(),
 ) {
     GarageDeleteDialog(state, dispatch)
     if (showTitle) {
         Text("Мій гараж", style = MaterialTheme.typography.titleLarge)
     }
-    GarageCategoryFilterBar(
-        categories = state.categories,
-        selectedCategory = state.selectedCategory,
-        onSelected = { dispatch(GarageEvent.FilterChanged(it)) },
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (state.loaded && (state.vehicles.isNotEmpty() || !state.loadFailed)) {
+            OutlinedButton(
+                onClick = onAddVehicle,
+                modifier = Modifier.fillMaxWidth().testTag(
+                    if (state.vehicles.isEmpty()) "garage-empty-add" else "garage-add"
+                ),
+            ) { Text("Додати транспорт") }
+        }
+        GarageCategoryFilterBar(
+            categories = state.categories,
+            selectedCategory = state.selectedCategory,
+            onSelected = { dispatch(GarageEvent.FilterChanged(it)) },
+        )
+    }
     Row(
         Modifier.fillMaxWidth().padding(top = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -63,12 +74,6 @@ internal fun GarageListContent(
                 "Додайте транспорт із каталогу, щоб він з’явився тут.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedButton(
-                onClick = onAddVehicle,
-                modifier = Modifier.testTag("garage-empty-add")
-            ) {
-                Text("Додати транспорт")
-            }
         }
     }
     if (state.loaded && state.vehicles.isNotEmpty() && state.visibleVehicles.isEmpty()) {
@@ -81,6 +86,7 @@ internal fun GarageListContent(
     state.visibleVehicles.forEach { vehicle ->
         AuthenticatedGarageVehicleCard(
             vehicle = vehicle,
+            photo = vehiclePhotos[vehicle.id],
             active = vehicle.id == state.activeVehicleId,
             enabled = !state.loading,
             onSelect = { dispatch(GarageEvent.Select(vehicle.id)) },
@@ -88,11 +94,5 @@ internal fun GarageListContent(
             onEdit = { onEditVehicle(vehicle) },
             onDelete = { dispatch(GarageEvent.RequestDelete(vehicle.id)) },
         )
-    }
-    if (state.loaded && state.vehicles.isNotEmpty()) {
-        OutlinedButton(
-            onClick = onAddVehicle,
-            modifier = Modifier.fillMaxWidth().testTag("garage-add"),
-        ) { Text("Додати транспорт") }
     }
 }
