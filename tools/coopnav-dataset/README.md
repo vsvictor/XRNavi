@@ -67,9 +67,10 @@ masks and notes require visual verification before use.
 from displayed images; these do not represent completed reviews.
 `train_yolo.py` uses Ultralytics: verify its code and weight licenses, including
 commercial terms, before installation or use.
-An ordinary four-class YOLO export does not satisfy the current tracker-vision
-contract, which expects an 80-class output; model integration needs a compatible
-export or a separately implemented and tested adapter.
+A four-class YOLO export with channels `[xywh, car, truck, bus, trolleybus]`
+matches `YoloConfig.ukrainianVehicles`. An 80-class COCO export still uses
+`YoloConfig.cocoVehicles` and does not label trolleybuses. Draft boxes in
+this directory are not an approved training set.
 
 **UK.** `initial-review.json` містить попередній огляд контактних аркушів
 177 кандидатів, кілька можливих груп однакових сцен і чернеткові записи
@@ -93,9 +94,10 @@ export or a separately implemented and tested adapter.
 `train_yolo.py`
 використовує Ultralytics: перед встановленням чи використанням перевірте
 ліцензії коду й ваг, зокрема комерційні умови.
-Звичайний експорт YOLO з чотирма класами не відповідає поточному контракту
-tracker-vision, який очікує 80 класів; інтеграція потребує сумісного експорту
-або окремо реалізованого й перевіреного адаптера.
+Експорт YOLO з каналами `[xywh, car, truck, bus, trolleybus]` відповідає
+`YoloConfig.ukrainianVehicles`. Експорт COCO на 80 класів лишається на
+`YoloConfig.cocoVehicles` і тролейбус не позначає. Чернеткові рамки в цій
+теці не є схваленим навчальним набором.
 
 ## Reviewed split manifest / Маніфест перевіреної вибірки
 
