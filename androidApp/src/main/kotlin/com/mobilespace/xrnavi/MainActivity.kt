@@ -13,7 +13,15 @@ import android.app.Application
 import com.mobilespace.xrnavi.AppDependencies
 
 class XrnaviAndroidApplication : Application() {
-    val dependencies by lazy { AppDependencies() }
+    val locationProvider by lazy { AndroidLocationProvider(this) }
+    val dependencies by lazy {
+        AppDependencies(
+            mapboxToken = { getString(R.string.mapbox_access_token) },
+            locationProvider = locationProvider,
+            sessionStorage = AndroidKeystoreSessionStorage(this),
+            deviceIdStorage = AndroidKeystoreSessionStorage(this, entry = "device_id"),
+        )
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -21,6 +29,14 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.attributes = window.attributes.apply {
+            rotationAnimation = android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_CROSSFADE
+        }
+        val provider = (application as XrnaviAndroidApplication).locationProvider
+        val launcher = registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
+        ) { provider.onPermissionResult() }
+        provider.attach(this) { launcher.launch(it) }
 
         setContent {
             App(
@@ -28,6 +44,11 @@ class MainActivity : ComponentActivity() {
                 onThemeChanged = ::applySystemBarTheme,
             )
         }
+    }
+
+    override fun onDestroy() {
+        (application as XrnaviAndroidApplication).locationProvider.detach(this)
+        super.onDestroy()
     }
 
     private fun applySystemBarTheme(darkTheme: Boolean) {

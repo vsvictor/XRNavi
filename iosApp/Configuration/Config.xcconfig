@@ -1,4 +1,5 @@
 TEAM_ID=X9VB8434PD
+#include? "../Mapbox.local.xcconfig"
 
 PRODUCT_NAME=XRNavi
 PRODUCT_BUNDLE_IDENTIFIER=com.mobilespace.xrnavi.XRNavi$(TEAM_ID)

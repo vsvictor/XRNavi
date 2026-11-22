@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>MBXAccessToken</key>
+	<string>$(MAPBOX_PUBLIC_TOKEN)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>XRNavi використовує ваше місцезнаходження, щоб підставити початок маршруту. Маршрут можна спланувати й вручну. / XRNavi uses your location to fill in the route start. You can also plan a route manually.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 </dict>

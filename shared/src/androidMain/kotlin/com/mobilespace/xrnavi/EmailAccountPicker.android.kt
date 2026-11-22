@@ -18,12 +18,12 @@ internal actual fun rememberEmailAccountPicker(
         if (result.resultCode == Activity.RESULT_OK) {
             val name = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
             if (name.isNullOrBlank()) {
-                onFailure("Системний вибір акаунта не повернув електронної адреси.")
+                onFailure("Системний вибір аккаунта не повернув електронної адреси.")
             } else {
                 onSelected(name)
             }
         } else if (result.resultCode != Activity.RESULT_CANCELED) {
-            onFailure("Не вдалося отримати акаунт із системного списку.")
+            onFailure("Не вдалося отримати аккаунт із системного списку.")
         }
     }
     return {
@@ -34,9 +34,9 @@ internal actual fun rememberEmailAccountPicker(
                 )
             )
         } catch (_: ActivityNotFoundException) {
-            onFailure("На цьому пристрої немає системного вибору акаунтів. Введіть пошту вручну.")
+            onFailure("На цьому пристрої немає системного вибору аккаунтів. Введіть пошту вручну.")
         } catch (_: SecurityException) {
-            onFailure("Система заборонила вибір акаунта. Введіть пошту вручну.")
+            onFailure("Система заборонила вибір аккаунта. Введіть пошту вручну.")
         }
     }
 }

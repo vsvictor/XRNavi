@@ -4,158 +4,94 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.launch
 
-internal enum class RecoveryStage(val code: String, val title: String) {
-    Request("S41", "Відновити пароль"),
-    CheckEmail("S42", "Перевірте пошту"),
-    NewPassword("S43", "Новий пароль"),
-    Changed("S44", "Пароль змінено"),
-    InvalidLink("S45", "Посилання недійсне")
-}
+/** Compose-facing host of [RecoveryBloc]: mirrors its state and forwards intents as events. */
+internal class RecoveryViewModel(
+    previewEnabled: Boolean = false,
+    service: RecoveryService? = null,
+    private val progress: RecoveryProgressStore? = null,
+) : ViewModel() {
+    private val bloc = RecoveryBloc(previewEnabled, service, if (service != null) viewModelScope else null)
+    private var current by mutableStateOf(bloc.state.value)
 
-internal const val recoveryUnavailableMessage =
-    "Відновлення пароля ще не підключено. Дані не надіслано"
-internal const val passwordResetUnavailableMessage =
-    "Зміну пароля ще не підключено. Пароль не змінено. Дані не надіслано"
-internal const val recoveryPreviewMessage =
-    "Внутрішній preview · демо. Листи не надсилалися, токен не перевірявся, пароль не змінювався."
-
-internal class RecoveryViewModel(private val previewEnabled: Boolean = false) : ViewModel() {
-    var stage by mutableStateOf(RecoveryStage.Request)
-        private set
-    var email by mutableStateOf("")
-        private set
-    var password by mutableStateOf("")
-        private set
-    var confirmation by mutableStateOf("")
-        private set
-    var passwordVisible by mutableStateOf(false)
-        private set
-    var confirmationVisible by mutableStateOf(false)
-        private set
-    var notice by mutableStateOf("")
-        private set
-    private var emailTouched by mutableStateOf(false)
-    private var passwordTouched by mutableStateOf(false)
-    private var confirmationTouched by mutableStateOf(false)
-
-    val emailError: String?
-        get() = emailValidationError(email).takeIf { emailTouched }
-    val passwordError: String?
-        get() = passwordValidationError(password).takeIf { passwordTouched }
-    val confirmationError: String?
-        get() = passwordConfirmationError(password, confirmation).takeIf { confirmationTouched }
-    val canRequest: Boolean
-        get() = stage == RecoveryStage.Request && emailValidationError(email) == null
-    val canReset: Boolean
-        get() = previewEnabled && stage == RecoveryStage.NewPassword &&
-                passwordValidationError(password) == null &&
-                passwordConfirmationError(password, confirmation) == null
-
-    fun updateEmail(value: String) {
-        email = value
-        touchEmail()
-        notice = ""
+    init {
+        progress?.read()?.let { bloc.dispatch(RecoveryEvent.Restored(it)); current = bloc.state.value }
+        if (service != null) viewModelScope.launch {
+            bloc.state.collect {
+                current = it
+                saveProgress(it)
+            }
+        }
     }
 
-    fun touchEmail() {
-        emailTouched = true
+    private fun dispatch(event: RecoveryEvent) {
+        bloc.dispatch(event)
+        current = bloc.state.value
+        saveProgress(current)
     }
 
-    fun touchPassword() {
-        passwordTouched = true
+    private fun saveProgress(state: RecoveryState) {
+        if (progress == null || notLive(state)) return
+        progress.write(if (state.stage == RecoveryStage.CheckEmail) state.email.trim() else null)
     }
 
-    fun touchConfirmation() {
-        confirmationTouched = true
-    }
+    private fun notLive(state: RecoveryState) = !state.serviceAvailable
 
-    fun requestReset() {
-        if (stage != RecoveryStage.Request) return
-        touchEmail()
-        if (!canRequest) return
-        notice = recoveryUnavailableMessage
-    }
+    val stage get() = current.stage
+    val email get() = current.email
+    val password get() = current.password
+    val confirmation get() = current.confirmation
+    val passwordVisible get() = current.passwordVisible
+    val confirmationVisible get() = current.confirmationVisible
+    val notice get() = current.notice
+    val emailError get() = current.emailError
+    val passwordError get() = current.passwordError
+    val confirmationError get() = current.confirmationError
+    val canRequest get() = current.canRequest
+    val canReset get() = current.canReset
+    val busy get() = current.busy
+    val live get() = current.serviceAvailable
+    val tokenInput get() = current.tokenInput
+    val canSubmitToken get() = current.canSubmitToken
+
+    fun updateEmail(value: String) = dispatch(RecoveryEvent.EmailChanged(value))
+    fun touchEmail() = dispatch(RecoveryEvent.EmailTouched)
+    fun touchPassword() = dispatch(RecoveryEvent.PasswordTouched)
+    fun touchConfirmation() = dispatch(RecoveryEvent.ConfirmationTouched)
+    fun requestReset() = dispatch(RecoveryEvent.ResetRequested)
 
     fun openPreview(next: RecoveryStage): Boolean {
-        if (!previewEnabled) return false
-        clearSecrets()
-        notice = ""
-        stage = next
-        return true
+        dispatch(RecoveryEvent.PreviewOpened(next))
+        return current.previewEnabled
     }
 
-    fun returnToRequest() {
-        clearSecrets()
-        notice = ""
-        stage = RecoveryStage.Request
-    }
-
-    fun resend() {
-        if (!previewEnabled || stage != RecoveryStage.CheckEmail) return
-        notice = recoveryUnavailableMessage
-    }
-
-    fun openMailPreview() {
-        if (!previewEnabled || stage != RecoveryStage.CheckEmail) return
-        notice = "Відкриття пошти не підключено. Жодного листа не надсилали; це лише preview."
-    }
-
-    fun updatePassword(value: String) {
-        if (!previewEnabled || stage != RecoveryStage.NewPassword) return
-        password = value
-        touchPassword()
-        notice = ""
-    }
-
-    fun updateConfirmation(value: String) {
-        if (!previewEnabled || stage != RecoveryStage.NewPassword) return
-        confirmation = value
-        touchConfirmation()
-        notice = ""
-    }
-
-    fun togglePasswordVisibility() {
-        if (previewEnabled && stage == RecoveryStage.NewPassword) passwordVisible = !passwordVisible
-    }
-
-    fun toggleConfirmationVisibility() {
-        if (previewEnabled && stage == RecoveryStage.NewPassword) confirmationVisible =
-            !confirmationVisible
-    }
-
-    fun submitNewPassword() {
-        if (!previewEnabled || stage != RecoveryStage.NewPassword) return
-        touchPassword()
-        touchConfirmation()
-        if (!canReset) return
-        clearSecrets()
-        notice = passwordResetUnavailableMessage
-    }
-
-    fun cancel() {
-        returnToRequest()
-        email = ""
-        emailTouched = false
-    }
-
-    private fun clearSecrets() {
-        password = ""
-        confirmation = ""
-        passwordVisible = false
-        confirmationVisible = false
-        passwordTouched = false
-        confirmationTouched = false
-    }
+    fun returnToRequest() = dispatch(RecoveryEvent.ReturnedToRequest)
+    fun resend() = dispatch(RecoveryEvent.Resent)
+    fun openMailPreview() = dispatch(RecoveryEvent.MailOpened)
+    fun updatePassword(value: String) = dispatch(RecoveryEvent.PasswordChanged(value))
+    fun updateConfirmation(value: String) = dispatch(RecoveryEvent.ConfirmationChanged(value))
+    fun togglePasswordVisibility() = dispatch(RecoveryEvent.PasswordVisibilityToggled)
+    fun toggleConfirmationVisibility() = dispatch(RecoveryEvent.ConfirmationVisibilityToggled)
+    fun submitNewPassword() = dispatch(RecoveryEvent.NewPasswordSubmitted)
+    fun updateTokenInput(value: String) = dispatch(RecoveryEvent.TokenInputChanged(value))
+    fun submitToken() = dispatch(RecoveryEvent.TokenSubmitted)
+    fun cancel() = dispatch(RecoveryEvent.Cancelled)
+    fun receiveResetToken(token: String) = dispatch(RecoveryEvent.TokenReceived(token))
 
     override fun onCleared() {
-        clearSecrets()
+        dispatch(RecoveryEvent.Cleared)
         super.onCleared()
     }
 }
 
-internal fun recoveryViewModelFactory(previewEnabled: Boolean) = viewModelFactory {
-    initializer { RecoveryViewModel(previewEnabled) }
+internal fun recoveryViewModelFactory(
+    previewEnabled: Boolean,
+    service: RecoveryService? = null,
+    progress: RecoveryProgressStore? = null,
+) = viewModelFactory {
+    initializer { RecoveryViewModel(previewEnabled, service, progress) }
 }

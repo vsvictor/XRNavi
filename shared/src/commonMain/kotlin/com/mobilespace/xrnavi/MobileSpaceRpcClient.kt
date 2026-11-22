@@ -14,7 +14,10 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -57,6 +60,9 @@ internal class MobileSpaceRpcClient(
             connectionJob = scope.launch { runConnections() }
         }
     }
+
+    /** Emits every newly active connection's client, so per-connection state can be re-established. */
+    val clients: Flow<JsonRpcClient> = active.filterNotNull().map { it.client }.distinctUntilChanged()
 
     suspend fun awaitClient(): JsonRpcClient {
         start()
