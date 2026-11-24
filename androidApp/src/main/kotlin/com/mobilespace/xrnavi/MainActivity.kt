@@ -15,6 +15,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import android.app.Application
 import com.mobilespace.xrnavi.AppDependencies
 import com.exkmptracker.android.AndroidTrackerProvider
+import com.exkmptracker.cooperative.EdgeVisionController
+import com.exkmptracker.cooperative.VehicleClass
 import com.exkmptracker.ports.TrackingTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -35,8 +37,18 @@ class XrnaviAndroidApplication : Application(), AndroidTrackerProvider {
             trackingRuntimeFactory = { trackingRuntime },
         )
     }
+    @Volatile
+    var edgeVisionAttached: Boolean = false
+        private set
+
     override fun createTrackingTransport(context: Context): TrackingTransport = dependencies.trackingTransport
     override fun allowsStickyRestore(context: Context): Boolean = false
+    override fun createEdgeVisionController(context: Context): EdgeVisionController? {
+        val controller = xrnaviEdgeVision(context)
+        edgeVisionAttached = controller != null
+        return controller
+    }
+    override fun vehicleClass(context: Context): VehicleClass? = xrnaviCooperativeVehicleClass()
 }
 
 class MainActivity : ComponentActivity() {

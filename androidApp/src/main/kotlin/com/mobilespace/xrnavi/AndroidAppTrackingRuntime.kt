@@ -33,11 +33,13 @@ class AndroidAppTrackingRuntime(
     fun attach(activity: Activity, requester: (Array<String>) -> Unit) {
         request = requester
         foreground.value = activity
+        xrnaviCameraForeground(true)
         permissionsChanged.value++
     }
 
     fun detach(activity: Activity) {
         if (foreground.value === activity) {
+            xrnaviCameraForeground(false)
             foreground.value = null
             request = null
         }
@@ -53,6 +55,7 @@ class AndroidAppTrackingRuntime(
                 ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
             }
             if (missing.isEmpty()) {
+                if (xrnaviCooperativeVehicleClass() != null) requestCameraOnce()
                 mutableState.value = TrackerState(identity = session.identity)
                 AndroidTracker.startConfirmedShift(activity, session)
                 observeService()
@@ -97,7 +100,25 @@ class AndroidAppTrackingRuntime(
             connected.await()
         }
         serviceBinder = binder
+        withTimeoutOrNull(10_000) {
+            binder.state.first { it.running || it.error != null }
+        }
+        val vision = (context.applicationContext as? XrnaviAndroidApplication)?.edgeVisionAttached == true
+        if (binder.state.value.running && vision) {
+            binder.section(2, true)
+        }
         observer = scope.launch { binder.state.collect { mutableState.value = it } }
+    }
+
+    private var cameraAsked = false
+
+    private suspend fun requestCameraOnce() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) return
+        if (cameraAsked) return
+        cameraAsked = true
+        val revision = permissionsChanged.value
+        request?.invoke(arrayOf(Manifest.permission.CAMERA))
+        withTimeoutOrNull(60_000) { permissionsChanged.first { it != revision } }
     }
 
     override suspend fun stop() = withContext(Dispatchers.Main.immediate) {

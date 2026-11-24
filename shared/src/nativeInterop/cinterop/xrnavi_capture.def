@@ -1,0 +1,6 @@
+language = Objective-C
+headers = xrnavi_capture.h
+headerFilter = xrnavi_capture.*
+package = xrnavi.capture
+compilerOpts = -framework AVFoundation
+linkerOpts = -framework AVFoundation

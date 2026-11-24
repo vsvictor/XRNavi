@@ -72,6 +72,7 @@
 			explicitFileTypes = {
 			};
 			explicitFolders = (
+				uk4.mlmodelc,
 			);
 			path = iosApp;
 			sourceTree = "<group>";

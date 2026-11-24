@@ -7,8 +7,13 @@ internal class DemoAppBloc(initial: DemoAppState = DemoAppState()) {
     private val mutableState = MutableStateFlow(initial)
     val state = mutableState.asStateFlow()
 
+    init {
+        EgoVehicle.noteProfile(initial.vehicleClass)
+    }
+
     fun dispatch(event: DemoAppEvent) {
         mutableState.value = transition(mutableState.value, event)
+        EgoVehicle.noteProfile(mutableState.value.vehicleClass)
     }
 
     companion object {

@@ -8,6 +8,8 @@
 	<string>XRNavi використовує геолокацію для навігації та запису поїздки після входу. / XRNavi uses location for navigation and trip recording after sign-in.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>XRNavi записує поїздку після входу, навіть коли застосунок у фоні. Вихід з акаунта зупиняє трекер. / XRNavi records your trip after sign-in, including in the background. Signing out stops tracking.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>XRNavi використовує камеру, щоб бачити сусідні автомобілі під час поїздки. Без неї лишається звичайна геолокація. / XRNavi uses the camera to see nearby vehicles during a trip. Location tracking continues without it.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Дані руху уточнюють позицію автомобіля та визначають зупинки. / Motion data improves vehicle positioning and detects stops.</string>
 	<key>UIBackgroundModes</key>

@@ -11,9 +11,25 @@ import kotlinx.coroutines.flow.*
 import platform.CoreLocation.*
 import platform.darwin.NSObject
 
-internal class IosAppTrackingRuntime(transport: RpcTrackingTransport) : AppTrackingRuntime {
+internal class IosAppTrackingRuntime(private val transport: RpcTrackingTransport) : AppTrackingRuntime {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val runtime = IosTrackerRuntime(transport)
+    private var runtime: IosTrackerRuntime? = null
+    private var cooperative = false
+
+    private suspend fun tracker(): IosTrackerRuntime {
+        runtime?.let { return it }
+        val ego = xrnaviCooperativeVehicleClass()
+        val vision = if (ego != null && iosCameraAuthorized()) iosCooperativeVision(ego) else null
+        val created = if (vision != null && ego != null) {
+            cooperative = true
+            IosTrackerRuntime(transport, vision, ego)
+        } else {
+            IosTrackerRuntime(transport)
+        }
+        if (cooperative) created.section(2, true)
+        runtime = created
+        return created
+    }
     private val manager = CLLocationManager()
     private val authorization = MutableStateFlow(manager.authorizationStatus)
     private val mutableState = MutableStateFlow(TrackerState())
@@ -29,6 +45,7 @@ internal class IosAppTrackingRuntime(transport: RpcTrackingTransport) : AppTrack
     init { manager.delegate = delegate }
 
     override suspend fun start(session: TrackingSession) = withContext(Dispatchers.Main.immediate) {
+        val active = tracker()
         permissionObserver = scope.launch {
             try {
                 authorization.collectLatest { status ->
@@ -39,11 +56,11 @@ internal class IosAppTrackingRuntime(transport: RpcTrackingTransport) : AppTrack
                             manager.requestWhenInUseAuthorization()
                         }
                         IosTrackingAuthorization.Foreground, IosTrackingAuthorization.Background -> {
-                            runtime.startConfirmedSession(session,
+                            active.startConfirmedSession(session,
                                 backgroundLocationConfigured = permission == IosTrackingAuthorization.Background)
                         }
                         IosTrackingAuthorization.Denied -> {
-                            runtime.stop()
+                            active.stop()
                             mutableState.value = TrackerState(error = "Location permission was denied or restricted")
                         }
                     }
@@ -55,7 +72,7 @@ internal class IosAppTrackingRuntime(transport: RpcTrackingTransport) : AppTrack
             }
         }
         observer = scope.launch {
-            runtime.state.collect {
+            active.state.collect {
                 if (it.running || it.error != null) {
                     mutableState.value = it
                 }
@@ -68,7 +85,7 @@ internal class IosAppTrackingRuntime(transport: RpcTrackingTransport) : AppTrack
         permissionObserver = null
         observer?.cancelAndJoin()
         observer = null
-        runtime.stop()
+        runtime?.stop()
         mutableState.value = TrackerState()
     }
 }

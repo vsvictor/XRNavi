@@ -15,6 +15,10 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
+        iosTarget.compilations.getByName("main").cinterops.create("xrnaviCapture") {
+            defFile(project.file("src/nativeInterop/cinterop/xrnavi_capture.def"))
+            includeDirs(project.file("src/nativeInterop/cinterop"))
+        }
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
@@ -65,7 +69,15 @@ kotlin {
     }
     
     sourceSets {
+        // The platform stubs omit these selectors. The leaf file calls the cinterop header.
+        val captureLeaf = project.file("src/iosLeafMain/kotlin")
+        getByName("iosArm64Main").kotlin.srcDir(captureLeaf)
+        getByName("iosSimulatorArm64Main").kotlin.srcDir(captureLeaf)
         androidMain.dependencies {
+            implementation("com.exkmptracker:tracker-vision:1.1.6")
+            implementation(libs.androidx.camera.core)
+            implementation(libs.androidx.camera.camera2)
+            implementation(libs.androidx.camera.lifecycle)
             implementation(libs.mapbox.maps)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.activity.compose)
@@ -76,6 +88,7 @@ kotlin {
             implementation(libs.compose.uiTooling)
         }
         iosMain.dependencies {
+            implementation("com.exkmptracker:tracker-vision:1.1.6")
             implementation(libs.ktor.client.darwin)
         }
         commonMain.dependencies {

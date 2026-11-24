@@ -68,6 +68,7 @@ internal class GarageBloc(
                 job?.cancel()
                 job = null
                 mutableState.value = GarageState()
+                EgoVehicle.clearGarage()
             }
             is GarageEvent.Select -> select(event.vehicleId)
             is GarageEvent.RequestDelete -> if (!mutableState.value.loading &&
@@ -109,6 +110,7 @@ internal class GarageBloc(
                     selectedCategory = mutableState.value.selectedCategory
                         ?.takeIf { category -> snapshot.vehicles.any { it.category.trim() == category } },
                 )
+                rememberEgo()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -132,6 +134,7 @@ internal class GarageBloc(
                 val confirmed = service.setActive(session, vehicleId)
                 if (request !== identity) return@launch
                 mutableState.value = mutableState.value.copy(loading = false, activeVehicleId = confirmed)
+                rememberEgo()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -162,6 +165,7 @@ internal class GarageBloc(
                     loading = false, vehicles = mutableState.value.vehicles.filterNot { it.id == id },
                     activeVehicleId = activeId, deleteVehicleId = null,
                 )
+                rememberEgo()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -176,5 +180,10 @@ internal class GarageBloc(
             pendingLoad = false
             load()
         }
+    }
+
+    private fun rememberEgo() {
+        if (!mutableState.value.loaded) return
+        EgoVehicle.noteGarage(mutableState.value.active?.category)
     }
 }

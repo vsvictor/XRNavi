@@ -71,5 +71,8 @@ android {
         compose = true
         resValues = true
     }
+    androidResources {
+        noCompress += "tflite"
+    }
     buildToolsVersion = "37.0.0"
 }
