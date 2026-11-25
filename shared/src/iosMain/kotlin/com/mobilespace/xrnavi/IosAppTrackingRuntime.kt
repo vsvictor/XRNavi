@@ -3,32 +3,68 @@
 package com.mobilespace.xrnavi
 
 import com.exkmptracker.bloc.TrackerState
+import com.exkmptracker.cooperative.VehicleClass
 import com.exkmptracker.ios.IosTrackerRuntime
 import com.exkmptracker.model.TrackingSession
 import com.exkmptracker.transport.RpcTrackingTransport
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import platform.CoreLocation.*
 import platform.darwin.NSObject
 
 internal class IosAppTrackingRuntime(private val transport: RpcTrackingTransport) : AppTrackingRuntime {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var runtime: IosTrackerRuntime? = null
-    private var cooperative = false
+    private var visionFailedFor: VehicleClass? = null
+    private val visionLock = Mutex()
 
     private suspend fun tracker(): IosTrackerRuntime {
-        runtime?.let { return it }
-        val ego = xrnaviCooperativeVehicleClass()
-        val vision = if (ego != null && iosCameraAuthorized()) iosCooperativeVision(ego) else null
-        val created = if (vision != null && ego != null) {
-            cooperative = true
-            IosTrackerRuntime(transport, vision, ego)
-        } else {
-            IosTrackerRuntime(transport)
+        val active = runtime ?: IosTrackerRuntime(transport) { xrnaviCooperativeVehicleClass() }.also {
+            runtime = it
+            scope.launch {
+                while (isActive) {
+                    delay(1_000)
+                    try {
+                        reconcile(it)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // Section 1 keeps running when the camera cannot be rebuilt.
+                    }
+                }
+            }
         }
-        if (cooperative) created.section(2, true)
-        runtime = created
-        return created
+        try {
+            reconcile(active)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+        }
+        return active
+    }
+
+    private suspend fun reconcile(active: IosTrackerRuntime) {
+        visionLock.withLock {
+            val ego = xrnaviCooperativeVehicleClass()
+            val installed = active.visionClass()
+            if (ego == installed) {
+                visionFailedFor = null
+                return@withLock
+            }
+            if (ego != null && ego == visionFailedFor && installed == null) return@withLock
+            val vision = if (ego != null && iosCameraAuthorized()) iosCooperativeVision(ego) else null
+            if (ego != null && vision == null) {
+                visionFailedFor = ego
+                if (installed != null) active.replaceVision(null, null)
+                return@withLock
+            }
+            visionFailedFor = null
+            val built = if (vision != null) ego else null
+            if (built == installed) return@withLock
+            active.replaceVision(vision, built)
+        }
     }
     private val manager = CLLocationManager()
     private val authorization = MutableStateFlow(manager.authorizationStatus)

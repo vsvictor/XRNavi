@@ -23,7 +23,7 @@ internal fun egoVehicleClass(category: String): VehicleClass? = when (garageCate
 
 internal object EgoVehicle {
     private val lock = EgoLock()
-    private var profile: VehicleClass? = VehicleClass.CAR
+    private var profile: VehicleClass? = null
     private var garageKnown = false
     private var garage: VehicleClass? = null
 
@@ -36,13 +36,22 @@ internal object EgoVehicle {
         garage = category?.let(::egoVehicleClass)
     }
 
-    fun clearGarage() = lock.withLock {
+    /** Drops the garage overlay and returns the profile recorded so far. */
+    fun clearGarage(): VehicleClass? = lock.withLock {
         garageKnown = false
         garage = null
+        profile
     }
 
     fun current(): VehicleClass? = lock.withLock {
         if (garageKnown) garage else profile
+    }
+
+    /** The profile is process-wide. Tests reset it so an earlier note cannot leak in. */
+    internal fun reset() = lock.withLock {
+        profile = null
+        garageKnown = false
+        garage = null
     }
 }
 

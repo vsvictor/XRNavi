@@ -20,6 +20,44 @@ class CameraGeometryTest {
     }
 
     @Test
+    fun cooperativeClassIsNullUntilProfileOrGarageIsRecorded() {
+        EgoVehicle.reset()
+        try {
+            assertNull(xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("Легкове")
+            assertEquals(VehicleClass.CAR, xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("passenger")
+            assertEquals(VehicleClass.CAR, xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("Вантажне")
+            assertEquals(VehicleClass.TRUCK, xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("truck")
+            assertEquals(VehicleClass.TRUCK, xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("Спецтехніка")
+            assertNull(xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("bus")
+            assertNull(xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("тролейбус")
+            assertNull(xrnaviCooperativeVehicleClass())
+
+            EgoVehicle.reset()
+            assertNull(xrnaviCooperativeVehicleClass())
+            EgoVehicle.noteProfile("passenger")
+            EgoVehicle.noteGarage("truck")
+            assertEquals(VehicleClass.TRUCK, xrnaviCooperativeVehicleClass())
+            assertEquals(VehicleClass.CAR, EgoVehicle.clearGarage())
+            assertEquals(VehicleClass.CAR, xrnaviCooperativeVehicleClass())
+
+            EgoVehicle.reset()
+            EgoVehicle.noteGarage("truck")
+            assertEquals(VehicleClass.TRUCK, xrnaviCooperativeVehicleClass())
+            assertNull(EgoVehicle.clearGarage())
+            assertNull(xrnaviCooperativeVehicleClass())
+        } finally {
+            EgoVehicle.reset()
+        }
+    }
+
+    @Test
     fun roadPlaneIsTheAppMountNotTheVisionSample() {
         val car = roadPlane(VehicleClass.CAR)!!
         val truck = roadPlane(VehicleClass.TRUCK)!!

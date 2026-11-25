@@ -56,6 +56,7 @@ class AndroidAppTrackingRuntime(
             }
             if (missing.isEmpty()) {
                 if (xrnaviCooperativeVehicleClass() != null) requestCameraOnce()
+                watchForEgoCamera()
                 mutableState.value = TrackerState(identity = session.identity)
                 AndroidTracker.startConfirmedShift(activity, session)
                 observeService()
@@ -111,6 +112,20 @@ class AndroidAppTrackingRuntime(
     }
 
     private var cameraAsked = false
+    private var cameraWatch: Job? = null
+
+    private fun watchForEgoCamera() {
+        if (cameraWatch?.isActive == true) return
+        cameraWatch = scope.launch {
+            while (isActive) {
+                if (xrnaviCooperativeVehicleClass() != null) {
+                    requestCameraOnce()
+                    return@launch
+                }
+                delay(500)
+            }
+        }
+    }
 
     private suspend fun requestCameraOnce() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) return
@@ -124,6 +139,8 @@ class AndroidAppTrackingRuntime(
     override suspend fun stop() = withContext(Dispatchers.Main.immediate) {
         observer?.cancelAndJoin()
         observer = null
+        cameraWatch?.cancel()
+        cameraWatch = null
         val binder = serviceBinder
         if (binder != null) {
             binder.stopTracking()
