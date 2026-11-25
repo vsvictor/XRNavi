@@ -3,7 +3,6 @@
 package com.mobilespace.xrnavi
 
 import com.exkmptracker.bloc.TrackerState
-import com.exkmptracker.cooperative.VehicleClass
 import com.exkmptracker.ios.IosTrackerRuntime
 import com.exkmptracker.model.TrackingSession
 import com.exkmptracker.transport.RpcTrackingTransport
@@ -17,50 +16,47 @@ import platform.darwin.NSObject
 internal class IosAppTrackingRuntime(private val transport: RpcTrackingTransport) : AppTrackingRuntime {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var runtime: IosTrackerRuntime? = null
-    private var visionFailedFor: VehicleClass? = null
+    private var reconcileJob: Job? = null
+    private var tracking = false
     private val visionLock = Mutex()
 
-    private suspend fun tracker(): IosTrackerRuntime {
-        val active = runtime ?: IosTrackerRuntime(transport) { xrnaviCooperativeVehicleClass() }.also {
+    private fun tracker(): IosTrackerRuntime =
+        runtime ?: IosTrackerRuntime(transport) { xrnaviCooperativeVehicleClass() }.also {
             runtime = it
-            scope.launch {
-                while (isActive) {
-                    delay(1_000)
-                    try {
-                        reconcile(it)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (_: Exception) {
-                        // Section 1 keeps running when the camera cannot be rebuilt.
-                    }
+        }
+
+    private fun ensureReconcile(active: IosTrackerRuntime, permission: IosTrackingAuthorization) {
+        if (!iosCameraReconcileEnabled(permission, tracking)) return
+        if (reconcileJob?.isActive == true) return
+        reconcileJob = scope.launch {
+            while (isActive) {
+                try {
+                    reconcile(active)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Section 1 keeps running when the camera cannot be rebuilt.
                 }
+                delay(1_000)
             }
         }
-        try {
-            reconcile(active)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-        }
-        return active
+    }
+
+    private suspend fun cancelReconcile() {
+        reconcileJob?.cancelAndJoin()
+        reconcileJob = null
     }
 
     private suspend fun reconcile(active: IosTrackerRuntime) {
         visionLock.withLock {
             val ego = xrnaviCooperativeVehicleClass()
             val installed = active.visionClass()
-            if (ego == installed) {
-                visionFailedFor = null
-                return@withLock
-            }
-            if (ego != null && ego == visionFailedFor && installed == null) return@withLock
+            if (ego == installed) return@withLock
             val vision = if (ego != null && iosCameraAuthorized()) iosCooperativeVision(ego) else null
             if (ego != null && vision == null) {
-                visionFailedFor = ego
                 if (installed != null) active.replaceVision(null, null)
                 return@withLock
             }
-            visionFailedFor = null
             val built = if (vision != null) ego else null
             if (built == installed) return@withLock
             active.replaceVision(vision, built)
@@ -81,6 +77,7 @@ internal class IosAppTrackingRuntime(private val transport: RpcTrackingTransport
     init { manager.delegate = delegate }
 
     override suspend fun start(session: TrackingSession) = withContext(Dispatchers.Main.immediate) {
+        tracking = true
         val active = tracker()
         permissionObserver = scope.launch {
             try {
@@ -94,8 +91,10 @@ internal class IosAppTrackingRuntime(private val transport: RpcTrackingTransport
                         IosTrackingAuthorization.Foreground, IosTrackingAuthorization.Background -> {
                             active.startConfirmedSession(session,
                                 backgroundLocationConfigured = permission == IosTrackingAuthorization.Background)
+                            ensureReconcile(active, permission)
                         }
                         IosTrackingAuthorization.Denied -> {
+                            cancelReconcile()
                             active.stop()
                             mutableState.value = TrackerState(error = "Location permission was denied or restricted")
                         }
@@ -104,6 +103,7 @@ internal class IosAppTrackingRuntime(private val transport: RpcTrackingTransport
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
+                cancelReconcile()
                 mutableState.value = TrackerState(error = "Unable to start location tracking")
             }
         }
@@ -117,6 +117,8 @@ internal class IosAppTrackingRuntime(private val transport: RpcTrackingTransport
     }
 
     override suspend fun stop() = withContext(Dispatchers.Main.immediate) {
+        tracking = false
+        cancelReconcile()
         permissionObserver?.cancelAndJoin()
         permissionObserver = null
         observer?.cancelAndJoin()

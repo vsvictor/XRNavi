@@ -191,9 +191,13 @@ private class IosCooperativeCamera private constructor(
             val first = CompletableDeferred<ProbeFrame?>()
             delegate.onFrame = { frame -> if (!first.isCompleted) first.complete(frame) }
             dispatch_async(queue) { session.startRunning() }
-            val probe = withTimeoutOrNull(2_000) { first.await() }
-            dispatch_async(queue) { if (session.isRunning()) session.stopRunning() }
-            delegate.onFrame = null
+            // Stop even when the caller cancels the probe, so the session is not left running.
+            val probe = try {
+                withTimeoutOrNull(2_000) { first.await() }
+            } finally {
+                delegate.onFrame = null
+                dispatch_async(queue) { if (session.isRunning()) session.stopRunning() }
+            }
             val frame = probe ?: return null
             val calibration = try {
                 CameraCalibration(

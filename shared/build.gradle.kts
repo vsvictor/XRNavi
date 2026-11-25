@@ -123,3 +123,9 @@ kotlin {
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 }
+
+// shared has no Kotlin/JVM target. commonTest runs on the host JVM through the Android host test.
+tasks.register("jvmTest") {
+    group = "verification"
+    dependsOn("testAndroidHostTest")
+}
